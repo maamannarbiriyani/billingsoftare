@@ -1,0 +1,238 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  username String   @unique
+  password String
+  role     String   @default("Cashier") // "Admin" or "Cashier"
+}
+
+model Product {
+  id            Int           @id @default(autoincrement())
+  name          String
+  barcode       String?       @unique
+  price         Float
+  costPrice     Float         @default(0)
+  gstRate       Float         @default(0)
+  stock         Int           @default(0)
+  category      String?
+  unit          String        @default("pcs") // pcs, kg, g, L, ml, box, dozen
+  hsnCode       String?       // HSN/SAC code for GST compliance
+  imageUrl      String?
+  invoiceItems  InvoiceItem[]
+  purchaseItems PurchaseItem[]
+  orderItems    OrderItem[]
+  recipeItems   RecipeItem[]
+}
+
+model Customer {
+  id       Int       @id @default(autoincrement())
+  name     String
+  phone    String?
+  balance  Float     @default(0) // Tracks how much the customer owes (Khata)
+  invoices Invoice[]
+  payments Payment[]
+}
+
+model Payment {
+  id         Int      @id @default(autoincrement())
+  amount     Float
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  invoiceNumber String        @unique
+  customerId    Int?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+
+  subtotal      Float         @default(0)
+  gstRate       Float         @default(0)
+  gstAmount     Float         @default(0)
+  discountAmount Float        @default(0)
+  total         Float
+  paymentMethod String        @default("Cash")
+  status        String        @default("PAID") // "PAID", "PARTIAL_REFUND", "REFUNDED"
+
+  cashierName   String?       // Staff name who processed this bill
+  notes         String?       // Optional bill notes
+
+  orderId       Int?          @unique
+  order         Order?        @relation(fields: [orderId], references: [id])
+
+  createdAt     DateTime      @default(now())
+  items         InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  productId   Int
+  product     Product @relation(fields: [productId], references: [id])
+  qty         Int
+  returnedQty Int     @default(0)
+  price       Float
+  costPrice   Float   @default(0)
+}
+
+model Setting {
+  id          Int      @id @default(autoincrement())
+  storeName   String   @default("My Retail Store")
+  gstNumber   String?
+  address     String?
+  printerName String?
+  licenseKey  String?
+  licenseExpiry DateTime?
+  updatedAt   DateTime @updatedAt
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  description String
+  category    String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Supplier {
+  id               Int               @id @default(autoincrement())
+  name             String
+  phone            String?
+  gstNumber        String?
+  address          String?
+  purchaseInvoices PurchaseInvoice[]
+}
+
+model PurchaseInvoice {
+  id            Int            @id @default(autoincrement())
+  invoiceNumber String         @unique
+  supplierId    Int
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  total         Float
+  status        String         @default("PAID") // "PAID", "UNPAID"
+  createdAt     DateTime       @default(now())
+  items         PurchaseItem[]
+}
+
+model PurchaseItem {
+  id                Int             @id @default(autoincrement())
+  purchaseInvoiceId Int
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+  productId         Int
+  product           Product         @relation(fields: [productId], references: [id])
+  qty               Int
+  costPrice         Float
+}
+
+model Table {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  status    String   @default("AVAILABLE") // "AVAILABLE", "OCCUPIED"
+  orders    Order[]
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  tableId    Int?
+  table      Table?      @relation(fields: [tableId], references: [id])
+  source     String      @default("DINE_IN") // "DINE_IN", "SWIGGY", "ZOMATO"
+  externalId String?     @unique
+  status     String      @default("RECEIVED") // "RECEIVED", "PREPARING", "READY", "COMPLETED", "CANCELLED"
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  items      OrderItem[]
+  invoice    Invoice?
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  order      Order    @relation(fields: [orderId], references: [id])
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id])
+  qty        Int
+  price      Float
+  costPrice  Float    @default(0)
+  gstRate    Float    @default(0)
+  gstAmount  Float    @default(0)
+  notes      String?
+}
+
+model Shift {
+  id              Int       @id @default(autoincrement())
+  openedAt        DateTime  @default(now())
+  closedAt        DateTime?
+  openingBalance  Float     @default(0)
+  closingBalance  Float?
+  cashSales       Float     @default(0)
+  status          String    @default("OPEN") // "OPEN", "CLOSED"
+}
+
+model Ingredient {
+  id          Int      @id @default(autoincrement())
+  name        String
+  unit        String   // "kg", "g", "L", "ml", "pcs"
+  currentStock Float   @default(0)
+  costPerUnit Float    @default(0)
+  recipeItems RecipeItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RecipeItem {
+  id           Int        @id @default(autoincrement())
+  productId    Int
+  product      Product    @relation(fields: [productId], references: [id])
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantityUsed Float      // Amount of ingredient required for 1 unit of product
+}
+
+model Employee {
+  id          Int            @id @default(autoincrement())
+  name        String
+  role        String         @default("Staff")
+  dailyWage   Float          @default(0)
+  phone       String?
+  joinDate    DateTime       @default(now())
+  status      String         @default("ACTIVE") // ACTIVE, INACTIVE
+  attendances Attendance[]
+  payouts     SalaryPayout[]
+}
+
+model Attendance {
+  id             Int      @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  date           DateTime // The date of attendance (stored at 00:00:00)
+  status         String   @default("PRESENT") // PRESENT, HALF_DAY, ABSENT
+  calculatedWage Float    @default(0) // snapshot of dailyWage or half of it
+  
+  @@unique([employeeId, date])
+}
+
+model SalaryPayout {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  amount      Float
+  date        DateTime @default(now())
+  month       String   // e.g., "2026-06"
+  notes       String?
+}
