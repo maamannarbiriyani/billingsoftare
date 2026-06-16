@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function addIngredient(formData: FormData) {
   "use server";
@@ -17,6 +19,7 @@ async function addIngredient(formData: FormData) {
 }
 
 export default async function InventoryDashboard() {
+  headers();
   const ingredients = await prisma.ingredient.findMany({
     orderBy: { currentStock: "asc" }
   });

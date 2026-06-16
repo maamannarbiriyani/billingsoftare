@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function addRecipeItem(formData: FormData) {
   "use server";
@@ -23,6 +25,7 @@ async function removeRecipeItem(formData: FormData) {
 }
 
 export default async function RecipeManagement({ searchParams }: { searchParams: { productId?: string } }) {
+  headers();
   const products = await prisma.product.findMany({ orderBy: { name: "asc" } });
   const ingredients = await prisma.ingredient.findMany({ orderBy: { name: "asc" } });
 

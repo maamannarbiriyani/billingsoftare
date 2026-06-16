@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { Clock, CheckCircle, ChefHat } from "lucide-react";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Server action to mark order as PREPARING
 async function markPreparing(orderId: number) {
@@ -55,7 +57,7 @@ async function markReady(orderId: number) {
 }
 
 export default async function KitchenDisplaySystem() {
-  // Fetch active orders
+  headers(); // force dynamic — prevents static prerender
   const activeOrders = await prisma.order.findMany({
     where: {
       status: { in: ["RECEIVED", "PREPARING"] }
