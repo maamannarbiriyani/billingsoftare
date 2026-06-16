@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { Clock, CheckCircle, ChefHat } from "lucide-react";
 import { revalidatePath } from "next/cache";
 
+export const dynamic = "force-dynamic";
+
 // Server action to mark order as PREPARING
 async function markPreparing(orderId: number) {
   "use server";
