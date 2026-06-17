@@ -8,39 +8,39 @@ import { Search, Plus, Filter, MoreHorizontal, ShoppingCart, TrendingUp, Users, 
 
 function PosMockup() {
   return (
-    <div className="w-full h-full bg-slate-50 flex flex-col font-sans text-slate-800">
-      <div className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4">
-        <div className="font-bold text-[#6366F1] flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> POS Terminal</div>
-        <div className="flex gap-2"><div className="w-20 h-6 bg-slate-100 rounded-md"></div><div className="w-6 h-6 bg-slate-200 rounded-full"></div></div>
+    <div className="w-full h-full bg-[#030712] flex flex-col font-sans text-slate-300">
+      <div className="h-12 bg-[#0F172A] border-b border-white/10 flex items-center justify-between px-4">
+        <div className="font-bold text-indigo-400 flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> POS Terminal</div>
+        <div className="flex gap-2"><div className="w-20 h-6 bg-white/5 rounded-md border border-white/10"></div><div className="w-6 h-6 bg-white/10 rounded-full"></div></div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-[2] p-4 border-r border-slate-200 bg-slate-50">
-          <div className="w-full h-8 bg-white border border-slate-200 rounded-md mb-4 flex items-center px-2 text-slate-400">
+        <div className="flex-[2] p-4 border-r border-white/10 bg-[#030712]">
+          <div className="w-full h-8 bg-[#0F172A] border border-white/10 rounded-md mb-4 flex items-center px-2 text-slate-500">
             <Search className="w-4 h-4 mr-2" /> Search products...
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-2">
-                <div className="w-10 h-10 bg-indigo-50 rounded-full"></div>
-                <div className="w-16 h-2 bg-slate-200 rounded"></div>
-                <div className="w-10 h-2 bg-slate-300 rounded"></div>
+              <div key={i} className="bg-[#0F172A] p-3 rounded-lg border border-white/10 shadow-sm flex flex-col items-center justify-center gap-2">
+                <div className="w-10 h-10 bg-indigo-500/20 rounded-full"></div>
+                <div className="w-16 h-2 bg-slate-700 rounded"></div>
+                <div className="w-10 h-2 bg-slate-600 rounded"></div>
               </div>
             ))}
           </div>
         </div>
-        <div className="flex-1 bg-white flex flex-col">
-          <div className="p-4 border-b border-slate-200 font-bold">Current Order</div>
+        <div className="flex-1 bg-[#0F172A] flex flex-col">
+          <div className="p-4 border-b border-white/10 font-bold text-white">Current Order</div>
           <div className="flex-1 p-4 space-y-3">
             {[1,2].map(i => (
               <div key={i} className="flex justify-between items-center text-sm">
-                <div><div className="w-20 h-3 bg-slate-700 rounded mb-1"></div><div className="w-10 h-2 bg-slate-400 rounded"></div></div>
-                <div className="w-8 h-3 bg-slate-700 rounded"></div>
+                <div><div className="w-20 h-3 bg-slate-400 rounded mb-1"></div><div className="w-10 h-2 bg-slate-600 rounded"></div></div>
+                <div className="w-8 h-3 bg-slate-500 rounded"></div>
               </div>
             ))}
           </div>
-          <div className="p-4 bg-slate-50 border-t border-slate-200">
-            <div className="flex justify-between font-bold text-lg mb-4"><span>Total</span><span>₹450</span></div>
-            <div className="w-full h-10 bg-[#6366F1] rounded-lg"></div>
+          <div className="p-4 bg-[#030712] border-t border-white/10">
+            <div className="flex justify-between font-bold text-lg mb-4 text-white"><span>Total</span><span>₹450</span></div>
+            <div className="w-full h-10 bg-indigo-600 rounded-lg shadow-[0_0_15px_rgba(79,70,229,0.3)]"></div>
           </div>
         </div>
       </div>
@@ -50,20 +50,20 @@ function PosMockup() {
 
 function InventoryMockup() {
   return (
-    <div className="w-full h-full bg-white flex flex-col font-sans">
-      <div className="h-14 border-b border-slate-200 flex items-center px-6 justify-between">
-        <div className="font-bold text-slate-800 flex items-center gap-2"><Package className="w-4 h-4 text-[#06B6D4]" /> Inventory Management</div>
-        <div className="px-3 py-1.5 bg-[#6366F1] text-white text-xs rounded-md font-bold flex items-center gap-1"><Plus className="w-3 h-3"/> Add Item</div>
+    <div className="w-full h-full bg-[#0F172A] flex flex-col font-sans">
+      <div className="h-14 border-b border-white/10 flex items-center px-6 justify-between">
+        <div className="font-bold text-white flex items-center gap-2"><Package className="w-4 h-4 text-cyan-400" /> Inventory Management</div>
+        <div className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md font-bold flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3"/> Add Item</div>
       </div>
       <div className="p-6">
         <div className="flex justify-between mb-4">
           <div className="flex gap-2">
-            <div className="w-48 h-8 bg-slate-50 border border-slate-200 rounded-md"></div>
-            <div className="w-8 h-8 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-center text-slate-400"><Filter className="w-4 h-4" /></div>
+            <div className="w-48 h-8 bg-white/5 border border-white/10 rounded-md"></div>
+            <div className="w-8 h-8 bg-white/5 border border-white/10 rounded-md flex items-center justify-center text-slate-400"><Filter className="w-4 h-4" /></div>
           </div>
         </div>
-        <div className="w-full border border-slate-200 rounded-lg overflow-hidden">
-          <div className="bg-slate-50 border-b border-slate-200 flex p-3 text-xs font-bold text-slate-500">
+        <div className="w-full border border-white/10 rounded-lg overflow-hidden">
+          <div className="bg-white/5 border-b border-white/10 flex p-3 text-xs font-bold text-slate-400">
             <div className="flex-[2]">Product Name</div>
             <div className="flex-1">SKU</div>
             <div className="flex-1">Stock</div>
@@ -71,12 +71,12 @@ function InventoryMockup() {
             <div className="w-8"></div>
           </div>
           {[1,2,3,4].map((i) => (
-            <div key={i} className="flex p-3 border-b border-slate-100 items-center text-sm">
-              <div className="flex-[2] flex items-center gap-2"><div className="w-6 h-6 bg-slate-200 rounded"></div><div className="w-24 h-3 bg-slate-700 rounded"></div></div>
-              <div className="flex-1"><div className="w-16 h-2 bg-slate-400 rounded"></div></div>
+            <div key={i} className="flex p-3 border-b border-white/5 items-center text-sm text-slate-300">
+              <div className="flex-[2] flex items-center gap-2"><div className="w-6 h-6 bg-white/10 rounded"></div><div className="w-24 h-3 bg-slate-400 rounded"></div></div>
+              <div className="flex-1"><div className="w-16 h-2 bg-slate-600 rounded"></div></div>
               <div className="flex-1 font-mono">{100 - i * 15}</div>
-              <div className="flex-1"><span className={`px-2 py-0.5 rounded-full text-[10px] ${i === 4 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{i === 4 ? 'Low Stock' : 'In Stock'}</span></div>
-              <div className="w-8 text-slate-400"><MoreHorizontal className="w-4 h-4" /></div>
+              <div className="flex-1"><span className={`px-2 py-0.5 rounded-full text-[10px] border ${i === 4 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>{i === 4 ? 'Low Stock' : 'In Stock'}</span></div>
+              <div className="w-8 text-slate-500"><MoreHorizontal className="w-4 h-4" /></div>
             </div>
           ))}
         </div>

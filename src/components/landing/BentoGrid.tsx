@@ -6,14 +6,14 @@ import React from "react";
 
 export function BentoGrid() {
   return (
-    <section className="py-24 bg-white relative overflow-hidden" id="features">
+    <section className="py-24 bg-[#030712] relative overflow-hidden" id="features">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
         <div className="mb-16 max-w-2xl">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-tight">
             Everything you need. <br />
-            <span className="text-indigo-600">Nothing you don't.</span>
+            <span className="text-indigo-400">Nothing you don't.</span>
           </h2>
-          <p className="text-lg text-slate-600">
+          <p className="text-lg text-slate-400">
             A complete suite of enterprise-grade tools designed to work together seamlessly, giving you total control over every aspect of your retail operations.
           </p>
         </div>
@@ -25,13 +25,13 @@ export function BentoGrid() {
             whileInView={{ opacity: 1, y: 0 }}
             initial={{ opacity: 0, y: 20 }}
             viewport={{ once: true }}
-            className="md:col-span-2 lg:col-span-2 bg-slate-50 rounded-2xl p-8 border border-slate-200 transition-shadow hover:shadow-md flex flex-col justify-between overflow-hidden relative"
+            className="md:col-span-2 lg:col-span-2 bg-white/5 backdrop-blur-md rounded-2xl p-8 border border-white/10 transition-shadow hover:shadow-[0_0_30px_rgba(79,70,229,0.15)] hover:border-indigo-500/30 flex flex-col justify-between overflow-hidden relative"
           >
             <div className="relative z-10">
-              <div className="flex items-center gap-2 text-indigo-600 font-semibold text-sm mb-3">
+              <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm mb-3">
                 <TrendingUp className="h-5 w-5" /> Real-time Sales
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 max-w-sm">Monitor your revenue and orders as they happen.</h3>
+              <h3 className="text-2xl font-bold text-white max-w-sm">Monitor your revenue and orders as they happen.</h3>
             </div>
             
             <div className="h-32 flex items-end gap-2 mt-4 relative z-10">
@@ -54,7 +54,7 @@ export function BentoGrid() {
             whileInView={{ opacity: 1, y: 0 }}
             initial={{ opacity: 0, y: 20 }}
             viewport={{ once: true }}
-            className="bg-slate-900 rounded-2xl p-8 shadow-sm flex flex-col justify-between text-white"
+            className="bg-[#0F172A]/80 backdrop-blur-md rounded-2xl p-8 shadow-sm flex flex-col justify-between text-white border border-white/10"
           >
             <div>
               <div className="flex items-center gap-2 text-blue-400 font-semibold text-sm mb-3">
@@ -84,18 +84,18 @@ export function BentoGrid() {
             whileInView={{ opacity: 1, y: 0 }}
             initial={{ opacity: 0, y: 20 }}
             viewport={{ once: true }}
-            className="md:col-span-2 lg:col-span-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 transition-shadow hover:shadow-md flex flex-col justify-between"
+            className="md:col-span-2 lg:col-span-1 bg-white/5 backdrop-blur-md rounded-2xl p-8 border border-white/10 transition-shadow hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:border-emerald-500/30 flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center gap-2 text-emerald-600 font-semibold text-sm mb-3">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm mb-3">
                 <Users className="h-5 w-5" /> Digital Khata
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-6">Credit tracking made simple.</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Credit tracking made simple.</h3>
             </div>
             
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-[#0F172A] p-5 rounded-xl border border-white/10 shadow-sm">
               <div className="flex justify-between items-center mb-3">
-                <span className="font-semibold text-slate-700">Rahul Sharma</span>
+                <span className="font-semibold text-slate-300">Rahul Sharma</span>
                 <span className="text-red-600 font-semibold">₹1,250</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -110,23 +110,23 @@ export function BentoGrid() {
             whileInView={{ opacity: 1, y: 0 }}
             initial={{ opacity: 0, y: 20 }}
             viewport={{ once: true }}
-            className="bg-slate-50 rounded-2xl p-8 border border-slate-200 transition-shadow hover:shadow-md flex flex-col justify-between"
+            className="bg-white/5 backdrop-blur-md rounded-2xl p-8 border border-white/10 transition-shadow hover:shadow-[0_0_30px_rgba(245,158,11,0.15)] hover:border-amber-500/30 flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center gap-2 text-amber-600 font-semibold text-sm mb-3">
+              <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm mb-3">
                 <FileText className="h-5 w-5" /> 1-Click GST
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-6">Tax filing, automated.</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Tax filing, automated.</h3>
             </div>
             
             <div className="flex flex-col gap-3">
-              <div className="bg-white px-4 py-3 rounded-xl flex justify-between items-center text-sm border border-slate-200 shadow-sm">
-                <span className="font-medium text-slate-600">GSTR-1</span>
-                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md text-xs">Ready</span>
+              <div className="bg-[#0F172A] px-4 py-3 rounded-xl flex justify-between items-center text-sm border border-white/10 shadow-sm">
+                <span className="font-medium text-slate-300">GSTR-1</span>
+                <span className="text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-md text-xs border border-emerald-500/20">Ready</span>
               </div>
-              <div className="bg-white px-4 py-3 rounded-xl flex justify-between items-center text-sm border border-slate-200 shadow-sm">
-                <span className="font-medium text-slate-600">GSTR-3B</span>
-                <span className="text-indigo-700 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md text-xs">Generating</span>
+              <div className="bg-[#0F172A] px-4 py-3 rounded-xl flex justify-between items-center text-sm border border-white/10 shadow-sm">
+                <span className="font-medium text-slate-300">GSTR-3B</span>
+                <span className="text-indigo-400 font-semibold bg-indigo-500/10 px-2.5 py-1 rounded-md text-xs border border-indigo-500/20">Generating</span>
               </div>
             </div>
           </motion.div>
@@ -136,7 +136,7 @@ export function BentoGrid() {
             whileInView={{ opacity: 1, y: 0 }}
             initial={{ opacity: 0, y: 20 }}
             viewport={{ once: true }}
-            className="md:col-span-3 lg:col-span-3 bg-slate-900 rounded-2xl p-8 shadow-sm text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-slate-800"
+            className="md:col-span-3 lg:col-span-3 bg-[#0F172A]/80 backdrop-blur-md rounded-2xl p-8 shadow-sm text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-white/10"
           >
             <div className="flex-1 max-w-lg">
               <div className="flex items-center gap-2 text-purple-400 font-semibold text-sm mb-3">
@@ -160,9 +160,9 @@ export function BentoGrid() {
                   borderRadius: '50%'
                 }}
               >
-                <div className="absolute inset-4 bg-slate-900 rounded-full flex flex-col items-center justify-center">
+                <div className="absolute inset-4 bg-[#030712] rounded-full flex flex-col items-center justify-center border border-white/5">
                   <span className="text-sm text-slate-400 font-medium">Margin</span>
-                  <span className="font-bold text-2xl">42%</span>
+                  <span className="font-bold text-2xl text-white">42%</span>
                 </div>
               </motion.div>
             </div>

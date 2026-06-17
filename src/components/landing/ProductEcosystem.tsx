@@ -13,13 +13,13 @@ export function ProductEcosystem() {
   ];
 
   return (
-    <section className="py-24 bg-slate-50 relative border-t border-slate-200" id="ecosystem">
+    <section className="py-24 bg-[#030712] relative border-t border-white/10" id="ecosystem">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="text-center mb-16 max-w-2xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
             A Fully Integrated Data Ecosystem
           </h2>
-          <p className="text-lg text-slate-600">
+          <p className="text-lg text-slate-400">
             The POS Core sits at the center of your operations. Data flows instantly to Inventory, Ledgers, and Reports without manual syncs.
           </p>
         </div>
@@ -33,7 +33,7 @@ export function ProductEcosystem() {
             viewport={{ once: true }}
             className="relative flex-shrink-0"
           >
-            <div className="w-48 h-48 bg-slate-900 rounded-3xl flex flex-col items-center justify-center shadow-2xl relative z-10 border border-slate-800">
+            <div className="w-48 h-48 bg-[#0F172A] rounded-3xl flex flex-col items-center justify-center shadow-2xl relative z-10 border border-white/10">
               <Monitor className="h-12 w-12 text-indigo-400 mb-3" />
               <span className="font-bold text-white text-lg">POS Core</span>
               <span className="text-slate-400 text-sm mt-1">Real-time Hub</span>
@@ -44,7 +44,7 @@ export function ProductEcosystem() {
           </motion.div>
 
           {/* Lines / Arrows (Hidden on Mobile) */}
-          <div className="hidden lg:flex gap-4 items-center text-slate-300">
+          <div className="hidden lg:flex gap-4 items-center text-slate-600">
             <svg width="100" height="2" className="overflow-visible">
               <line x1="0" y1="0" x2="100" y2="0" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
               <polygon points="100,-4 108,0 100,4" fill="currentColor" />
@@ -60,14 +60,14 @@ export function ProductEcosystem() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="bg-white p-5 rounded-2xl border border-slate-200 flex items-start gap-4 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all"
+                className="bg-white/5 p-5 rounded-2xl border border-white/10 flex items-start gap-4 shadow-sm hover:border-indigo-500/50 hover:bg-white/10 transition-all backdrop-blur-sm"
               >
-                <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600 flex-shrink-0">
+                <div className="bg-indigo-500/20 p-3 rounded-xl text-indigo-400 flex-shrink-0 border border-indigo-500/30">
                   <m.icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 mb-1">{m.name}</h4>
-                  <p className="text-sm text-slate-500 font-medium">{m.desc}</p>
+                  <h4 className="font-bold text-white mb-1">{m.name}</h4>
+                  <p className="text-sm text-slate-400 font-medium">{m.desc}</p>
                 </div>
               </motion.div>
             ))}

@@ -54,7 +54,7 @@ export function ScrollStory() {
   ];
 
   return (
-    <section className="py-12 bg-white relative" ref={containerRef}>
+    <section className="py-12 bg-[#030712] relative" ref={containerRef}>
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
         <div className="text-center mb-20 max-w-3xl mx-auto">
@@ -62,16 +62,16 @@ export function ScrollStory() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold mb-6 shadow-sm border border-slate-200"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 text-slate-300 text-sm font-semibold mb-6 shadow-sm border border-white/10 backdrop-blur-sm"
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>How it works</span>
           </motion.div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-white mb-6 tracking-tight">
             See the big picture. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6366F1] to-[#8B5CF6]">Down to the last pixel.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Down to the last pixel.</span>
           </h2>
-          <p className="text-xl text-slate-600 font-medium">
+          <p className="text-xl text-slate-400 font-medium">
             Every module is designed to talk to each other perfectly. The result is a workflow that feels like magic.
           </p>
         </div>
@@ -80,35 +80,35 @@ export function ScrollStory() {
           
           {/* Left: Sticky Image Container */}
           <div className="hidden md:block relative h-[450px] sticky top-32 perspective-1000">
-            <div className="absolute inset-0 bg-slate-100 rounded-3xl overflow-hidden border border-slate-200 shadow-inner flex items-center justify-center transform-style-3d">
+            <div className="absolute inset-0 bg-[#0F172A] rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center transform-style-3d">
               
               {/* Dynamic Image Overlay based on scroll */}
               <motion.div 
-                className="absolute inset-0 flex items-center justify-center bg-white"
+                className="absolute inset-0 flex items-center justify-center bg-[#0F172A]"
                 style={{ opacity: useTransform(smoothProgress, [0, 0.25], [1, 0]) }}
               >
-                <ScanLine className="w-48 h-48 text-[#6366F1]/20" />
+                <ScanLine className="w-48 h-48 text-[#6366F1]/40" />
               </motion.div>
               
               <motion.div 
-                className="absolute inset-0 flex items-center justify-center bg-white"
+                className="absolute inset-0 flex items-center justify-center bg-[#0F172A]"
                 style={{ opacity: useTransform(smoothProgress, [0.2, 0.35, 0.5], [0, 1, 0]) }}
               >
-                <Package className="w-48 h-48 text-[#06B6D4]/20" />
+                <Package className="w-48 h-48 text-[#06B6D4]/40" />
               </motion.div>
               
               <motion.div 
-                className="absolute inset-0 flex items-center justify-center bg-white"
+                className="absolute inset-0 flex items-center justify-center bg-[#0F172A]"
                 style={{ opacity: useTransform(smoothProgress, [0.45, 0.6, 0.75], [0, 1, 0]) }}
               >
-                <Users className="w-48 h-48 text-[#10B981]/20" />
+                <Users className="w-48 h-48 text-[#10B981]/40" />
               </motion.div>
 
               <motion.div 
-                className="absolute inset-0 flex items-center justify-center bg-white"
+                className="absolute inset-0 flex items-center justify-center bg-[#0F172A]"
                 style={{ opacity: useTransform(smoothProgress, [0.7, 0.85], [0, 1]) }}
               >
-                <FileText className="w-48 h-48 text-[#F59E0B]/20" />
+                <FileText className="w-48 h-48 text-[#F59E0B]/40" />
               </motion.div>
 
             </div>
@@ -128,8 +128,8 @@ export function ScrollStory() {
                 <div className={`w-16 h-16 rounded-2xl ${step.bg} ${step.color} ${step.border} border flex items-center justify-center mb-6 shadow-sm`}>
                   <step.icon className="h-8 w-8" />
                 </div>
-                <h3 className="text-3xl font-bold text-slate-900 mb-4">{step.title}</h3>
-                <p className="text-lg text-slate-600 leading-relaxed font-medium">
+                <h3 className="text-3xl font-bold text-white mb-4">{step.title}</h3>
+                <p className="text-lg text-slate-400 leading-relaxed font-medium">
                   {step.description}
                 </p>
               </motion.div>

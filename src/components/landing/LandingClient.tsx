@@ -19,7 +19,7 @@ export function LandingClient() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-600/20 selection:text-indigo-900 overflow-x-hidden relative"
+        className="min-h-screen bg-[#030712] text-slate-300 font-sans selection:bg-indigo-600/30 selection:text-indigo-200 overflow-x-hidden relative"
       >
         <Navbar />
         

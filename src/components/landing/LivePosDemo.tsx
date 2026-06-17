@@ -52,8 +52,8 @@ export function LivePosDemo() {
   };
 
   return (
-    <section id="demo" className="py-12 bg-[#F8FAFC] relative z-10 overflow-hidden">
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.02]"></div>
+    <section id="demo" className="py-12 bg-[#030712] relative z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.05]"></div>
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-20">
           <motion.div
@@ -65,11 +65,11 @@ export function LivePosDemo() {
             <ScanBarcode className="h-4 w-4" />
             <span>Interactive Demo</span>
           </motion.div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-white mb-6 tracking-tight">
             Try it yourself. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6366F1] to-[#8B5CF6]">No signup required.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">No signup required.</span>
           </h2>
-          <p className="text-lg text-slate-600 font-medium">
+          <p className="text-lg text-slate-400 font-medium">
             Experience the speed of our Point of Sale system right here in your browser. Add products, generate a bill, and see how fast you can checkout a customer.
           </p>
         </div>
@@ -77,9 +77,9 @@ export function LivePosDemo() {
         <div className="flex flex-col lg:flex-row gap-8 max-w-5xl mx-auto items-stretch">
           
           {/* Left: Product Scanner Simulation */}
-          <div className="flex-1 w-full bg-white rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col">
-            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2 text-lg">
-              <ScanBarcode className="h-6 w-6 text-[#6366F1]" />
+          <div className="flex-1 w-full bg-white/5 backdrop-blur-md rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/10 flex flex-col">
+            <h3 className="font-bold text-white mb-6 flex items-center gap-2 text-lg">
+              <ScanBarcode className="h-6 w-6 text-indigo-400" />
               Tap to Scan Products
             </h3>
             <div className="grid grid-cols-2 gap-4 flex-1">
@@ -95,7 +95,7 @@ export function LivePosDemo() {
                     }
                     addToCart(p);
                   }}
-                  className="relative bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left transition-colors group overflow-hidden"
+                  className="relative bg-white/5 border border-white/10 p-5 rounded-2xl text-left transition-colors group overflow-hidden hover:bg-white/10"
                 >
                   {/* Scan Flash Overlay */}
                   <AnimatePresence>
@@ -110,16 +110,16 @@ export function LivePosDemo() {
                   </AnimatePresence>
                   
                   <div className="relative z-10">
-                    <p className="font-bold text-slate-900 group-hover:text-[#6366F1] transition-colors line-clamp-1">{p.name}</p>
-                    <p className="text-sm font-semibold text-slate-500 mt-1 flex justify-between items-center">
+                    <p className="font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-1">{p.name}</p>
+                    <p className="text-sm font-semibold text-slate-400 mt-1 flex justify-between items-center">
                       ₹{p.price}
-                      <Plus className="h-4 w-4 text-slate-300 group-hover:text-[#6366F1]" />
+                      <Plus className="h-4 w-4 text-slate-500 group-hover:text-indigo-400" />
                     </p>
                   </div>
                 </motion.button>
               ))}
             </div>
-            <div className="mt-8 p-4 bg-[#6366F1]/5 rounded-xl border border-[#6366F1]/10 text-sm text-[#6366F1] font-medium flex items-start gap-3">
+            <div className="mt-8 p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-sm text-indigo-300 font-medium flex items-start gap-3">
               <div className="mt-0.5">💡</div>
               <p>Pro tip: In the real application, you can use a physical USB/Bluetooth barcode scanner to add products instantly.</p>
             </div>

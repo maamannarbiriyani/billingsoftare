@@ -10,8 +10,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Billing System",
-  description: "Enterprise level billing and inventory management",
+  title: "Maamannar Hotel POS",
+  description: "Enterprise level hotel billing and inventory management",
 };
 
 export default function RootLayout({

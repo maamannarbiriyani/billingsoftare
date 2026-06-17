@@ -72,13 +72,12 @@ function LiveActivityFeed() {
     { text: "Khata Payment", amount: "₹450", type: "success" },
   ];
 
-  const [activities, setActivities] = useState<any[]>(() => {
-    return Array.from({ length: 4 }).map((_, i) => ({
-      id: i,
-      ...possibleActivities[Math.floor(Math.random() * possibleActivities.length)],
-      time: "Just now"
-    }));
-  });
+  const [activities, setActivities] = useState<any[]>([
+    { id: 'init-1', text: "Invoice Generated", amount: "₹1,250", type: "success", time: "Just now" },
+    { id: 'init-2', text: "Customer Added", amount: "", type: "info", time: "Just now" },
+    { id: 'init-3', text: "Stock Updated", amount: "+50 items", type: "warning", time: "Just now" },
+    { id: 'init-4', text: "GST Report Synced", amount: "", type: "success", time: "Just now" }
+  ]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -136,37 +135,37 @@ export function Integrations() {
   const software = ["Tally ERP 9", "Shopify", "WooCommerce", "Razorpay"];
 
   return (
-    <section className="py-12 bg-white relative overflow-hidden">
+    <section className="py-12 bg-[#030712] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-white mb-6 tracking-tight">
             Works with your existing setup.
           </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto font-medium">
             No need to buy new hardware. Our system is plug-and-play with 99% of retail hardware and popular software out of the box.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-[#F8FAFC] rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition-shadow group">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Hardware Support</h3>
+          <div className="bg-[#0F172A] rounded-[2rem] p-8 border border-white/10 shadow-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-shadow group">
+            <h3 className="text-2xl font-bold text-white mb-6">Hardware Support</h3>
             <div className="grid grid-cols-2 gap-4">
               {hardware.map((item, i) => (
-                <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-3 shadow-sm group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
+                <div key={i} className="bg-[#030712] p-4 rounded-2xl border border-white/10 flex items-center gap-3 shadow-sm group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
                   <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
-                  <span className="font-bold text-slate-700 text-sm">{item}</span>
+                  <span className="font-bold text-slate-300 text-sm">{item}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-[#F8FAFC] rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition-shadow group">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">Software Integrations</h3>
+          <div className="bg-[#0F172A] rounded-[2rem] p-8 border border-white/10 shadow-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-shadow group">
+            <h3 className="text-2xl font-bold text-white mb-6">Software Integrations</h3>
             <div className="grid grid-cols-2 gap-4">
               {software.map((item, i) => (
-                <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-3 shadow-sm group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
+                <div key={i} className="bg-[#030712] p-4 rounded-2xl border border-white/10 flex items-center gap-3 shadow-sm group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: `${i * 50}ms` }}>
                   <div className="w-2 h-2 rounded-full bg-[#6366F1]"></div>
-                  <span className="font-bold text-slate-700 text-sm">{item}</span>
+                  <span className="font-bold text-slate-300 text-sm">{item}</span>
                 </div>
               ))}
             </div>

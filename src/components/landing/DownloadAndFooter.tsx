@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Monitor, Apple, MonitorSmartphone, Globe, Download, ArrowRight, Check } from "lucide-react";
+import { Monitor, Apple, MonitorSmartphone, Globe, ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { MagneticButton } from "./MagneticButton";
 
@@ -18,11 +18,11 @@ export function Footer() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] flex items-center justify-center">
                 <Monitor className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-2xl font-black text-white tracking-tight">BillingSystem</h3>
+              <h3 className="text-2xl font-black text-white tracking-tight">Maamannar</h3>
             </div>
             
             <p className="text-slate-400 max-w-sm mb-8 leading-relaxed font-medium">
-              The modern operating system for retail businesses. Lightning-fast billing, intelligent inventory, and deep financial analytics.
+              The modern operating system for retail and hospitality businesses. Lightning-fast billing, intelligent inventory, and deep financial analytics.
             </p>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#6366F1] hover:border-[#6366F1] transition-all cursor-pointer text-slate-300 shadow-sm">X</div>
@@ -63,7 +63,7 @@ export function Footer() {
         </div>
         
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-slate-500 text-sm font-medium">© {new Date().getFullYear()} BillingSystem Inc. All rights reserved.</p>
+          <p className="text-slate-500 text-sm font-medium">© {new Date().getFullYear()} Maamannar. All rights reserved.</p>
           <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
             <span>Designed with</span>
             <span className="text-rose-500">♥</span>
