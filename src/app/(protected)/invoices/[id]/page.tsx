@@ -43,6 +43,7 @@ export default async function InvoiceReceiptPage({
   }
 
   const storeName = setting?.storeName || "Billing System";
+  const phone = setting?.phone;
   const gstNumber = setting?.gstNumber;
   const address = setting?.address;
 
@@ -79,174 +80,89 @@ export default async function InvoiceReceiptPage({
         {/* Receipt card — wide on screen, 80mm on print */}
         <div className="bg-card text-foreground rounded-2xl shadow-xl border border-border print:shadow-none print:border-none print:rounded-none print:bg-white print:text-black mx-auto print:mx-0 print:p-0 overflow-hidden" style={{ maxWidth: "100%" }}>
 
-          {/* ── Print-only narrow wrapper (80mm) ── */}
-          <div className="print:max-w-[80mm] print:w-[80mm] print:mx-auto print:font-mono print:text-[12px]">
-
-            {/* ── Header band (screen decorative) ── */}
-            <div className="px-8 py-6 border-b border-border print:px-3 print:py-4 print:border-dashed" style={{ background: "var(--muted)" }}>
-              <div className="text-center">
-                <h1 className="text-3xl font-black uppercase tracking-widest leading-none text-foreground print:text-xl print:text-black">
-                  {storeName}
-                </h1>
-                {address && (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-snug mt-2 px-6 print:text-[11px] print:px-2 print:text-black">
-                    {address}
-                  </p>
-                )}
-                {gstNumber && (
-                  <p className="text-sm font-bold text-muted-foreground print:text-[11px] print:text-black mt-1">
-                    GSTIN: {gstNumber}
-                  </p>
-                )}
-              </div>
+          {/* ── 80mm Receipt Wrapper (Preview & Print) ── */}
+          <div className="max-w-[300px] w-full mx-auto font-mono text-[12px] leading-snug text-black bg-white p-4 print:p-0">
+            
+            {/* ── Logo ── */}
+            <div className="flex justify-center pt-2 pb-1">
+              <img src="/billlogo.png" alt="Logo" className="w-[60mm] object-contain grayscale print:grayscale" />
             </div>
 
-            {/* ── Invoice meta ── */}
-            <div className="px-8 py-5 grid grid-cols-2 gap-x-8 gap-y-3 border-b border-border print:px-3 print:py-3 print:grid-cols-1 print:gap-1 print:border-dashed">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Invoice No</p>
-                <p className="text-base font-bold text-foreground mt-0.5 print:text-sm print:text-black">{invoice.invoiceNumber}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Date & Time</p>
-                <p className="text-base font-semibold text-foreground mt-0.5 print:text-sm print:text-black">
-                  {invoice.createdAt.toLocaleString("en-IN", {
-                    day: "2-digit", month: "short", year: "numeric",
-                    hour: "2-digit", minute: "2-digit"
-                  })}
+            {/* ── Header ── */}
+            <div className="text-center pb-2">
+              <h1 className="text-[14px] font-bold">{storeName}</h1>
+              {phone && <p className="text-[12px]">Ph: {phone}</p>}
+              {address && (
+                <p className="text-[11px] leading-tight mt-0.5 mx-auto max-w-[70mm]">
+                  {address}
                 </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Payment</p>
-                <p className="text-base font-bold text-foreground mt-0.5 print:text-sm print:text-black uppercase">
-                  {invoice.paymentMethod || "CASH"}
-                </p>
-              </div>
-              {invoice.cashierName && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Cashier</p>
-                  <p className="text-base font-semibold text-foreground mt-0.5 print:text-sm print:text-black">{invoice.cashierName}</p>
-                </div>
               )}
-              {invoice.customer && (
-                <>
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Customer</p>
-                    <p className="text-base font-bold text-foreground mt-0.5 print:text-sm print:text-black">{invoice.customer.name}</p>
-                  </div>
-                  {invoice.customer.phone && (
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground print:text-[9px]">Phone</p>
-                      <p className="text-base font-semibold text-foreground mt-0.5 print:text-sm print:text-black">{invoice.customer.phone}</p>
-                    </div>
-                  )}
-                </>
-              )}
+              {gstNumber && <p className="text-[11px] mt-0.5">GSTIN: {gstNumber}</p>}
             </div>
 
-            {/* ── Items Table ── */}
-            <div className="px-8 py-5 print:px-3 print:py-3">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b-2 border-border print:border-dashed print:border-black">
-                    <th className="pb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-[10px] print:text-black print:pb-1.5">Item</th>
-                    <th className="pb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center print:text-[10px] print:text-black print:pb-1.5 w-16">Qty</th>
-                    <th className="pb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right print:text-[10px] print:text-black print:pb-1.5 w-24">Rate</th>
-                    <th className="pb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right print:text-[10px] print:text-black print:pb-1.5 w-28">Amount</th>
+            {/* ── Meta ── */}
+            <div className="text-left px-1 pb-1">
+              <p className="text-[12px]">{invoice.createdAt.toLocaleString("en-IN", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                    hour: "2-digit", minute: "2-digit", hour12: false
+                  }).replace(",", "")}</p>
+              <p className="text-[12px]">Bill No:{invoice.invoiceNumber}</p>
+            </div>
+
+            {/* ── Table Header ── */}
+            <div className="border-b border-black mb-1"></div>
+            <table className="w-full text-left table-fixed">
+              <thead>
+                <tr>
+                  <th className="font-normal text-[11px] w-[35mm] uppercase tracking-tighter">ITEM</th>
+                  <th className="font-normal text-[11px] w-[15mm] text-right uppercase tracking-tighter">BASE PRICE</th>
+                  <th className="font-normal text-[11px] w-[8mm] text-center uppercase tracking-tighter">QTY</th>
+                  <th className="font-normal text-[11px] w-[20mm] text-right uppercase tracking-tighter">T.VALUE</th>
+                </tr>
+              </thead>
+            </table>
+            <div className="border-b border-black mt-1 mb-1"></div>
+
+            {/* ── Table Body ── */}
+            <table className="w-full text-left table-fixed">
+              <tbody>
+                {invoice.items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="align-top text-[12px] w-[35mm] pr-1 truncate">{item.product.name}</td>
+                    <td className="align-top text-[12px] w-[15mm] text-right">{item.price.toFixed(2)}</td>
+                    <td className="align-top text-[12px] w-[8mm] text-center">{item.qty}</td>
+                    <td className="align-top text-[12px] w-[20mm] text-right">{(item.price * item.qty).toFixed(2)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {invoice.items.map((item) => (
-                    <tr key={item.id} className="border-b border-dashed border-border print:border-black">
-                      <td className="py-3.5 pr-3 align-top print:py-2">
-                        <div className="font-bold text-sm text-foreground leading-tight print:text-[12px] print:text-black">
-                          {item.product.name}
-                        </div>
-                        {item.product.hsnCode && (
-                          <div className="text-xs text-muted-foreground mt-0.5 print:text-[9px] print:text-black">
-                            HSN: {item.product.hsnCode}
-                          </div>
-                        )}
-                        {item.returnedQty > 0 && (
-                          <span className="text-xs text-rose-500 mt-0.5 block print:text-[10px]">
-                            (-{item.returnedQty} returned)
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 text-center align-top font-semibold text-sm text-foreground print:py-2 print:text-[12px] print:text-black">
-                        {item.qty}
-                      </td>
-                      <td className="py-3.5 text-right align-top text-sm text-muted-foreground print:py-2 print:text-[12px] print:text-black">
-                        ₹{item.price.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 text-right align-top font-bold text-sm text-foreground print:py-2 print:text-[12px] print:text-black">
-                        ₹{(item.price * item.qty).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="border-b border-black mt-1 mb-1"></div>
 
             {/* ── Totals ── */}
-            <div className="px-8 pb-6 print:px-3 print:pb-4">
-              <div className="border-t border-border pt-4 space-y-2.5 print:border-dashed print:border-black print:pt-2 print:space-y-1.5">
-
-                <div className="flex justify-between text-sm text-muted-foreground print:text-[11px] print:text-black">
-                  <span>Subtotal (Taxable)</span>
-                  <span className="font-semibold">₹{(invoice.subtotal ?? invoice.total).toFixed(2)}</span>
-                </div>
-
-                {gst > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm text-muted-foreground print:text-[11px] print:text-black">
-                      <span>CGST ({(invoice.gstRate / 2).toFixed(1)}%)</span>
-                      <span className="font-semibold">+ ₹{cgst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-muted-foreground print:text-[11px] print:text-black">
-                      <span>SGST ({(invoice.gstRate / 2).toFixed(1)}%)</span>
-                      <span className="font-semibold">+ ₹{sgst.toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-
-                {(invoice.discountAmount ?? 0) > 0 && (
-                  <div className="flex justify-between text-sm text-emerald-600 print:text-black print:text-[11px]">
-                    <span>Discount</span>
-                    <span className="font-semibold">- ₹{invoice.discountAmount?.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {roundOff !== 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground print:text-[11px] print:text-black">
-                    <span>Round Off</span>
-                    <span className="font-semibold">{roundOff > 0 ? "+" : ""}₹{roundOff.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div className="border-t-2 border-foreground print:border-black mt-2 pt-3 print:mt-1 print:pt-2">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-lg font-black uppercase tracking-wider text-foreground print:text-base print:text-black">TOTAL</span>
-                    <span className="text-3xl font-black text-foreground print:text-xl print:text-black">₹{roundedTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {(invoice.status === "REFUNDED" || invoice.status === "PARTIAL_REFUND") && (
-                  <div className="flex justify-between items-center mt-3 text-rose-600 font-bold border border-rose-200 bg-rose-50 dark:bg-rose-500/10 dark:border-rose-500/30 px-3 py-2 rounded-lg print:border print:px-2 print:py-1">
-                    <span className="text-xs uppercase tracking-wider print:text-[10px]">Status</span>
-                    <span className="uppercase text-sm print:text-[12px]">{invoice.status.replace("_", " ")}</span>
-                  </div>
-                )}
+            <div className="flex flex-col items-end px-1 pt-1 pb-2">
+              <div className="flex justify-end gap-2 text-[12px] w-full">
+                <span className="w-24 text-right">Sub Total:</span>
+                <span className="w-[20mm] text-right">{(invoice.subtotal ?? invoice.total).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-end gap-2 text-[13px] w-full mt-0.5">
+                <span className="w-24 text-right">Grand Total:</span>
+                <span className="w-[20mm] text-right">{roundedTotal.toFixed(2)}</span>
               </div>
             </div>
 
+            {/* ── Payment Info ── */}
+            <div className="text-left px-1 text-[12px] space-y-0 pb-1">
+              <p>Tender: {roundedTotal.toFixed(2)}</p>
+              <p>Change: 0.00</p>
+              <p>Payment Mode: {invoice.paymentMethod || "Cash"}</p>
+            </div>
+
+            <div className="border-b border-black mt-1 mb-2"></div>
+
             {/* ── Footer ── */}
-            <div className="text-center py-5 px-8 border-t border-dashed border-border print:border-black print:px-3 print:py-3">
-              <p className="font-bold text-sm text-foreground print:text-[12px] print:text-black">Thank you for your business!</p>
-              <p className="text-xs text-muted-foreground mt-1 print:text-[10px] print:text-black">Please keep this receipt for your records.</p>
-              {gstNumber && (
-                <p className="text-xs text-muted-foreground mt-1 print:text-[10px] print:text-black">GSTIN: {gstNumber}</p>
-              )}
+            <div className="text-center pb-4">
+              <p className="text-[12px]">Thank You! Visit Again!!</p>
             </div>
 
           </div>{/* end print-narrow wrapper */}

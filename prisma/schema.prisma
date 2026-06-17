@@ -8,9 +8,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider  = "sqlite"
+  url       = "file:./dev.db"
 }
 
 model User {
@@ -92,14 +91,24 @@ model InvoiceItem {
 }
 
 model Setting {
-  id          Int      @id @default(autoincrement())
-  storeName   String   @default("My Retail Store")
-  gstNumber   String?
-  address     String?
-  printerName String?
-  licenseKey  String?
+  id            Int       @id @default(autoincrement())
+  storeName     String    @default("My Retail Store")
+  phone         String?
+  gstNumber     String?
+  address       String?
+  printerName   String?
+  licenseKey    String?
   licenseExpiry DateTime?
-  updatedAt   DateTime @updatedAt
+  updatedAt     DateTime  @updatedAt
+}
+
+model Branch {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  phone     String?
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Expense {

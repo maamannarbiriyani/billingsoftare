@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { updateSettings } from "@/app/actions/settings";
-import { Save, Store, ShieldCheck, MapPin, Printer, AlertCircle, CheckCircle } from "lucide-react";
+import { Save, Store, ShieldCheck, MapPin, Printer, AlertCircle, CheckCircle, Phone } from "lucide-react";
 
 type ShopSettingsFormProps = {
   initialData?: {
     storeName: string;
+    phone?: string | null;
     gstNumber: string | null;
     address: string | null;
     printerName?: string | null;
@@ -67,6 +68,26 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           className="input-field mt-1"
         />
         <p className="text-xs text-slate-400 mt-1.5">This name appears on all printed receipts</p>
+      </div>
+
+      {/* Phone */}
+      <div>
+        <label htmlFor="phone" className="input-label">
+          <span className="flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5 text-slate-400" />
+            Phone Number
+            <span className="text-slate-400 font-normal">(Optional)</span>
+          </span>
+        </label>
+        <input
+          type="text"
+          name="phone"
+          id="phone"
+          defaultValue={initialData?.phone || ""}
+          placeholder="e.g. 9944970360"
+          className="input-field mt-1"
+        />
+        <p className="text-xs text-slate-400 mt-1.5">Shown on receipts below the store name</p>
       </div>
 
       {/* GST Number */}

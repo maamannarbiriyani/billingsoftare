@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Download, Upload, AlertCircle, Save, Store } from "lucide-react";
+import { Download, Upload, AlertCircle, Save, Store, GitBranch } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 
@@ -184,6 +184,24 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
             className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
           >
             Manage Users
+          </button>
+        </div>
+      </section>
+
+      {/* Branch Management Section */}
+      <section className="bg-card shadow rounded-xl overflow-hidden mt-8">
+        <div className="px-6 py-5 border-b border-border bg-muted flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-medium text-foreground">Branch Management</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add and manage store branches (locations, phone numbers, addresses).
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/settings/branches')}
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
+          >
+            <GitBranch className="h-4 w-4" /> Manage Branches
           </button>
         </div>
       </section>
