@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Download, Upload, AlertCircle, Save, Store, GitBranch } from "lucide-react";
+import { Download, Upload, AlertCircle, Save, Store, GitBranch, BarChart3, Check, X } from "lucide-react";
+import { upsertOwnerAccount } from "@/app/actions/owner-account";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 
@@ -11,12 +12,20 @@ type SettingsClientProps = {
 
 export function SettingsClient({ initialSetting }: SettingsClientProps) {
   const [isRestoring, setIsRestoring] = useState(false);
-  const [restoreMessage, setRestoreMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [restoreMessage, setRestoreMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [ownerPending, setOwnerPending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  async function handleOwnerAccount(formData: FormData) {
+    setOwnerPending(true);
+    setOwnerMsg(null);
+    const result = await upsertOwnerAccount(formData);
+    if (result.error) setOwnerMsg({ type: "error", text: result.error });
+    else setOwnerMsg({ type: "success", text: "Owner portal account saved!" });
+    setOwnerPending(false);
+  }
 
   const handleBackup = () => {
     window.location.href = "/api/backup";
@@ -203,6 +212,61 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           >
             <GitBranch className="h-4 w-4" /> Manage Branches
           </button>
+        </div>
+      </section>
+
+      {/* Owner Portal Section */}
+      <section className="bg-card shadow rounded-xl overflow-hidden mt-8">
+        <div className="px-6 py-5 border-b border-border bg-muted flex items-center gap-3">
+          <BarChart3 className="h-5 w-5 text-blue-500" />
+          <div>
+            <h2 className="text-lg font-medium text-foreground">Owner Portal Access</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Set the username and password the business owner uses to log in at <strong>/owner</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="p-6">
+          {ownerMsg && (
+            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border mb-4 ${ownerMsg.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+              {ownerMsg.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+              {ownerMsg.text}
+            </div>
+          )}
+          <form action={handleOwnerAccount} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="input-label text-sm font-medium text-foreground block mb-1.5">Username</label>
+              <input
+                type="text"
+                name="username"
+                required
+                placeholder="e.g. owner"
+                className="input-field w-full"
+              />
+            </div>
+            <div>
+              <label className="input-label text-sm font-medium text-foreground block mb-1.5">Password</label>
+              <input
+                type="password"
+                name="password"
+                required
+                placeholder="Min 6 characters"
+                className="input-field w-full"
+              />
+            </div>
+            <div className="sm:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={ownerPending}
+                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {ownerPending ? "Saving..." : "Save Owner Account"}
+              </button>
+            </div>
+          </form>
+          <p className="text-xs text-muted-foreground mt-3">
+            The owner can access the portal at <strong>yoursite.com/owner</strong> and change their password after logging in.
+          </p>
         </div>
       </section>
     </>

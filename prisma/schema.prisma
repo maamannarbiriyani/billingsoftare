@@ -111,6 +111,14 @@ model Branch {
   createdAt DateTime @default(now())
 }
 
+model OwnerAccount {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Expense {
   id          Int      @id @default(autoincrement())
   amount      Float
