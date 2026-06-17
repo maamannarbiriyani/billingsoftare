@@ -7,25 +7,34 @@ import { DeleteProductButton } from "@/components/DeleteProductButton";
 import { requireAdmin } from "@/lib/auth";
 import { BulkImportButton } from "./BulkImportButton";
 import { Suspense } from "react";
+import { CategoryFilter } from "@/components/CategoryFilter";
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string; page?: string }>;
+  searchParams: Promise<{ query?: string; page?: string; category?: string }>;
 }) {
   await requireAdmin();
 
   const resolvedSearchParams = await searchParams;
   const query = resolvedSearchParams?.query || "";
+  const category = resolvedSearchParams?.category || "";
   const currentPage = Number(resolvedSearchParams?.page) || 1;
   const itemsPerPage = 10;
   const skip = (currentPage - 1) * itemsPerPage;
 
-  const whereClause = query
-    ? { OR: [{ name: { contains: query } }, { barcode: { contains: query } }] }
-    : {};
+  const whereClause: any = { AND: [] };
+  if (query) {
+    whereClause.AND.push({ OR: [{ name: { contains: query } }, { barcode: { contains: query } }] });
+  }
+  if (category) {
+    whereClause.AND.push({ category });
+  }
+  if (whereClause.AND.length === 0) {
+    delete whereClause.AND;
+  }
 
-  const [totalProducts, products] = await Promise.all([
+  const [totalProducts, products, categoriesRaw] = await Promise.all([
     prisma.product.count({ where: whereClause }),
     prisma.product.findMany({
       where: whereClause,
@@ -33,7 +42,10 @@ export default async function ProductsPage({
       take: itemsPerPage,
       orderBy: { id: "desc" },
     }),
+    prisma.product.findMany({ select: { category: true }, distinct: ['category'] })
   ]);
+
+  const categories = categoriesRaw.map(c => c.category).filter(Boolean) as string[];
 
   const totalPages = Math.ceil(totalProducts / itemsPerPage);
 
@@ -59,16 +71,20 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="w-full max-w-xs">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="w-full sm:max-w-xs">
           <Suspense fallback={<div className="h-10 w-full animate-pulse bg-secondary rounded-xl" />}>
             <Search placeholder="Search products or barcode..." />
           </Suspense>
         </div>
-        {query && (
+        <Suspense fallback={<div className="h-10 w-32 animate-pulse bg-secondary rounded-xl" />}>
+          <CategoryFilter categories={categories} />
+        </Suspense>
+        {(query || category) && (
           <p className="text-sm text-muted-foreground">
-            Showing results for <span className="font-semibold text-foreground/90">&quot;{query}&quot;</span>
+            Showing results {query && <span>for <span className="font-semibold text-foreground/90">&quot;{query}&quot;</span></span>}
+            {category && <span> in category <span className="font-semibold text-foreground/90">{category}</span></span>}
           </p>
         )}
       </div>

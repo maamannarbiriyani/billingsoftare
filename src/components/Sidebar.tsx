@@ -77,25 +77,16 @@ export function Sidebar({
       )}
 
       {/* Logo */}
-      <div
-        className="flex items-center gap-3 h-[4rem] px-4 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-      >
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-            boxShadow: "0 0 16px rgba(139,92,246,0.5)",
-          }}
-        >
-          <Store className="h-4 w-4 text-white" />
+      <div className="flex h-[4rem] items-center gap-3 px-4 flex-shrink-0 border-b border-white/5 bg-card/50">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm overflow-hidden">
+          <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0">
           <p className="text-white font-bold text-sm tracking-tight leading-none">
-            BillingSystem
+            Hotel Maamannar
           </p>
           <p className="text-[11px] font-medium mt-0.5" style={{ color: "#8b5cf6" }}>
-            Enterprise
+            Biriyani
           </p>
         </div>
       </div>

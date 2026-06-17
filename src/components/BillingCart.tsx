@@ -29,24 +29,24 @@ import { KOTPrintReceipt, KOTData } from "./KOTPrintReceipt";
 
 // ─── Design tokens ────────────────────────────────────────────────
 const S = {
-  bg:        "#191C24",
-  surface:   "#0F172A",
-  card:      "#111827",
-  border:    "#2A3038",
-  borderHi:  "rgba(255,255,255,0.15)",
-  txt:       "#ffffff",
-  muted:     "#6C7293",
-  dim:       "#4a4f6a",
-  violet:    "#AF1763",
-  violetLo:  "rgba(175,23,99,0.15)",
-  emerald:   "#00D25B",
-  emeraldLo: "rgba(0,210,91,0.12)",
-  rose:      "#FC424A",
-  roseLo:    "rgba(252,66,74,0.12)",
-  amber:     "#FFAB00",
-  amberLo:   "rgba(255,171,0,0.12)",
-  cyan:      "#0DCAF0",
-  cyanLo:    "rgba(13,202,240,0.1)",
+  bg:        "#f8fafc",
+  surface:   "#ffffff",
+  card:      "#ffffff",
+  border:    "#e2e8f0",
+  borderHi:  "rgba(0,0,0,0.15)",
+  txt:       "#0f172a",
+  muted:     "#64748b",
+  dim:       "#94a3b8",
+  violet:    "#8b5cf6",
+  violetLo:  "rgba(139,92,246,0.15)",
+  emerald:   "#10b981",
+  emeraldLo: "rgba(16,185,129,0.12)",
+  rose:      "#f43f5e",
+  roseLo:    "rgba(244,63,94,0.12)",
+  amber:     "#f59e0b",
+  amberLo:   "rgba(245,158,11,0.12)",
+  cyan:      "#06b6d4",
+  cyanLo:    "rgba(6,182,212,0.1)",
 };
 
 // ─── Kitchen receipt popup (goes to kitchen printer) ──────────────
@@ -129,6 +129,7 @@ export function BillingCart() {
   const [selectedOrderMode, setSelectedOrderMode] = useState("DINE_IN");
   const [printKotData, setPrintKotData] = useState<KOTData | null>(null);
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
+  const [printKOT, setPrintKOT] = useState(true);
 
   const router = useRouter();
 
@@ -301,14 +302,16 @@ export function BillingCart() {
         await loadTablesAndOrders();
 
         if (printBill) {
-          // 1. Print kitchen copy in a popup → user directs to kitchen printer
-          printKitchenCopy({
-            invoiceNumber: result.invoiceNumber || `#${result.invoiceId}`,
-            items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
-            tableName: tables.find(t => t.id === activeTableId)?.name,
-            customerName: customerName || undefined,
-            orderMode: selectedOrderMode,
-          });
+          if (printKOT) {
+            // 1. Print kitchen copy in a popup → user directs to kitchen printer
+            printKitchenCopy({
+              invoiceNumber: result.invoiceNumber || `#${result.invoiceId}`,
+              items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
+              tableName: tables.find(t => t.id === activeTableId)?.name,
+              customerName: customerName || undefined,
+              orderMode: selectedOrderMode,
+            });
+          }
           // 2. Navigate to invoice with ?autoprint=1 → customer bill auto-prints there
           router.push(`/invoices/${result.invoiceId}?autoprint=1`);
         } else {
@@ -406,7 +409,7 @@ export function BillingCart() {
             <div className="p-3 flex-shrink-0" style={{ borderBottom: `1px solid ${S.border}` }}>
               <div
                 className="flex rounded-lg overflow-hidden p-0.5 gap-0.5"
-                style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.border}` }}
+                style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}` }}
               >
                 {[
                   { label: "Products", mode: "PRODUCTS" as const },
@@ -465,7 +468,7 @@ export function BillingCart() {
                       style={
                         isActive
                           ? { background: "rgba(139,92,246,0.3)", color: "#c4b5fd" }
-                          : { background: "rgba(255,255,255,0.05)", color: S.dim }
+                          : { background: "rgba(0,0,0,0.05)", color: S.dim }
                       }
                     >
                       {count}
@@ -497,16 +500,16 @@ export function BillingCart() {
                     onClick={action}
                     className="flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-all"
                     style={{
-                      background: "rgba(255,255,255,0.03)",
+                      background: "rgba(0,0,0,0.03)",
                       border: `1px solid ${S.border}`,
                       color: S.muted,
                     }}
                     onMouseEnter={e => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)";
                       (e.currentTarget as HTMLButtonElement).style.color = S.txt;
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.03)";
                       (e.currentTarget as HTMLButtonElement).style.color = S.muted;
                     }}
                   >
@@ -530,7 +533,7 @@ export function BillingCart() {
                   autoFocus
                   className="w-full pl-10 pr-10 py-2.5 text-sm font-semibold rounded-xl transition-all outline-none"
                   style={{
-                    background: "rgba(255,255,255,0.04)",
+                    background: "rgba(0,0,0,0.04)",
                     border: `1px solid ${S.borderHi}`,
                     color: S.txt,
                     caretColor: S.violet,
@@ -646,7 +649,7 @@ export function BillingCart() {
                           border: inCart
                             ? `1px solid rgba(139,92,246,0.5)`
                             : isOutOfStock
-                            ? `1px solid rgba(255,255,255,0.04)`
+                            ? `1px solid rgba(0,0,0,0.04)`
                             : `1px solid ${S.border}`,
                           opacity: isOutOfStock ? 0.45 : 1,
                           boxShadow: inCart ? `0 0 16px rgba(139,92,246,0.15)` : "none",
@@ -655,7 +658,7 @@ export function BillingCart() {
                         {/* Image / Icon area */}
                         <div
                           className="h-24 w-full flex items-center justify-center overflow-hidden relative"
-                          style={{ background: "rgba(255,255,255,0.02)", borderBottom: `1px solid ${S.border}` }}
+                          style={{ background: "rgba(0,0,0,0.02)", borderBottom: `1px solid ${S.border}` }}
                         >
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
@@ -690,7 +693,7 @@ export function BillingCart() {
                                 className="p-1 rounded-lg transition-colors"
                                 style={inCart
                                   ? { background: S.violet, color: "#fff" }
-                                  : { background: "rgba(255,255,255,0.06)", color: S.muted }
+                                  : { background: "rgba(0,0,0,0.06)", color: S.muted }
                                 }
                               >
                                 <Plus className="h-3.5 w-3.5" />
@@ -826,7 +829,7 @@ export function BillingCart() {
                   placeholder="Walk-in Customer"
                   className="w-full pl-8 pr-3 py-2 text-xs font-semibold rounded-lg outline-none transition-all"
                   style={{
-                    background: "rgba(255,255,255,0.04)",
+                    background: "rgba(0,0,0,0.04)",
                     border: `1px solid ${S.border}`,
                     color: S.txt,
                   }}
@@ -845,7 +848,7 @@ export function BillingCart() {
                           className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
                           style={{ color: S.txt, borderBottom: `1px solid ${S.border}` }}
                           onClick={() => { setCustomerName(c.name); setCustomerPhone(c.phone || ""); setShowCustomerDropdown(false); }}
-                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"}
+                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.05)"}
                           onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
                         >
                           {c.name}
@@ -880,7 +883,7 @@ export function BillingCart() {
                       onChange={e => setKhataPayAmount(e.target.value)}
                       placeholder="Amount to collect"
                       className="flex-1 rounded-lg px-2 py-1 text-xs font-bold outline-none transition-all"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${S.border}`, color: S.txt }}
+                      style={{ background: "rgba(0,0,0,0.05)", border: `1px solid ${S.border}`, color: S.txt }}
                       onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.rose}`}
                       onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.border}`}
                     />
@@ -917,7 +920,7 @@ export function BillingCart() {
                 >
                   <div
                     className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                    style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${S.border}` }}
+                    style={{ background: "rgba(0,0,0,0.03)", border: `1px solid ${S.border}` }}
                   >
                     <ShoppingCart className="h-7 w-7" style={{ color: S.dim }} />
                   </div>
@@ -975,7 +978,7 @@ export function BillingCart() {
                         {/* Qty stepper */}
                         <div
                           className="flex items-center rounded-lg overflow-hidden"
-                          style={{ border: `1px solid ${S.border}`, background: "rgba(255,255,255,0.03)" }}
+                          style={{ border: `1px solid ${S.border}`, background: "rgba(0,0,0,0.03)" }}
                         >
                           <button
                             onClick={() => updateQty(item.productId, -1)}
@@ -1017,7 +1020,7 @@ export function BillingCart() {
             <div className="flex-shrink-0" style={{ borderTop: `1px solid ${S.border}` }}>
 
               {/* Breakdown */}
-              <div className="px-4 py-3 space-y-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+              <div className="px-4 py-3 space-y-2" style={{ background: "rgba(0,0,0,0.02)" }}>
                 <div className="flex justify-between text-sm">
                   <span className="font-semibold" style={{ color: S.muted }}>Subtotal</span>
                   <span className="font-bold" style={{ color: S.txt }}>₹{subtotal.toFixed(2)}</span>
@@ -1036,7 +1039,7 @@ export function BillingCart() {
                     placeholder="0.00"
                     className="w-24 text-right rounded-lg px-2 py-1.5 text-sm font-bold outline-none transition-all"
                     style={{
-                      background: "rgba(255,255,255,0.05)",
+                      background: "rgba(0,0,0,0.05)",
                       border: `1px solid ${S.border}`,
                       color: S.txt,
                     }}
@@ -1105,7 +1108,7 @@ export function BillingCart() {
                   onClick={() => setShowNewTableModal(false)}
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: S.muted }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)"}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
                 >
                   <X className="h-4 w-4" />
@@ -1127,7 +1130,7 @@ export function BillingCart() {
                     }
                   }}
                   className="w-full rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all mb-5"
-                  style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.borderHi}`, color: S.txt }}
+                  style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.borderHi}`, color: S.txt }}
                   onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.violet}`}
                   onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.borderHi}`}
                   placeholder="e.g. Table 1, T-5, Balcony A"
@@ -1136,7 +1139,7 @@ export function BillingCart() {
                   <button
                     onClick={() => setShowNewTableModal(false)}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
-                    style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.border}`, color: S.muted }}
+                    style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}`, color: S.muted }}
                   >
                     Cancel
                   </button>
@@ -1180,7 +1183,7 @@ export function BillingCart() {
                   onClick={() => setCheckoutModalOpen(false)}
                   className="p-2 rounded-xl transition-colors"
                   style={{ color: S.muted }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)"}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
                 >
                   <X className="h-5 w-5" />
@@ -1215,7 +1218,7 @@ export function BillingCart() {
 
                   <div className="space-y-2 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
                     {customerName && (
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(0,0,0,0.04)" }}>
                         <User className="h-3.5 w-3.5 flex-shrink-0" style={{ color: S.muted }} />
                         <div className="min-w-0">
                           <p className="text-xs font-bold truncate" style={{ color: S.txt }}>{customerName}</p>
@@ -1229,13 +1232,17 @@ export function BillingCart() {
                         rows={2}
                         placeholder="Special instructions, allergies…"
                         className="w-full rounded-lg px-3 py-2 text-xs font-medium resize-none outline-none transition-all"
-                        style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.border}`, color: S.txt }}
+                        style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}`, color: S.txt }}
                         onFocus={e => (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.violet}`}
                         onBlur={e => (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.border}`}
                       />
                     </div>
                     <div className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: "rgba(175,23,99,0.1)", border: `1px solid rgba(175,23,99,0.25)`, color: "#f9a8d4" }}>
-                      <span className="font-black">Print Both Bills</span> — kitchen copy goes to kitchen printer, customer copy to billing counter.
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={printKOT} onChange={(e) => setPrintKOT(e.target.checked)} className="rounded" style={{ accentColor: S.violet }} />
+                        <span className="font-black">Include KOT (Kitchen Copy)</span>
+                      </label>
+                      <p className="mt-1 opacity-80 pl-5">If unchecked, it will only print the customer bill.</p>
                     </div>
                   </div>
                 </div>
@@ -1254,7 +1261,7 @@ export function BillingCart() {
                             onClick={() => setSelectedPaymentMode(mode.method)}
                             className="p-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all font-bold text-xs"
                             style={{
-                              background: isSelected ? mode.lo : "rgba(255,255,255,0.03)",
+                              background: isSelected ? mode.lo : "rgba(0,0,0,0.03)",
                               border: `1px solid ${isSelected ? mode.accent : S.border}`,
                               color: isSelected ? mode.accent : S.muted,
                               boxShadow: isSelected ? `0 0 12px ${mode.lo}` : "none",
@@ -1285,7 +1292,7 @@ export function BillingCart() {
                             onClick={() => setSelectedOrderMode(value)}
                             className="p-2 rounded-xl flex flex-col items-center gap-1 transition-all text-[9px] font-black"
                             style={{
-                              background: isSelected ? S.emeraldLo : "rgba(255,255,255,0.03)",
+                              background: isSelected ? S.emeraldLo : "rgba(0,0,0,0.03)",
                               border: `1px solid ${isSelected ? S.emerald : S.border}`,
                               color: isSelected ? S.emerald : S.muted,
                             }}
@@ -1307,7 +1314,7 @@ export function BillingCart() {
                   disabled={isCheckingOut}
                   className="flex-1 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
                   style={{
-                    background: "rgba(255,255,255,0.04)",
+                    background: "rgba(0,0,0,0.04)",
                     border: `1px solid ${S.border}`,
                     color: S.muted,
                   }}
@@ -1328,7 +1335,7 @@ export function BillingCart() {
                   }}
                 >
                   <Printer className="h-5 w-5" />
-                  {isCheckingOut ? "Processing…" : "Print Both Bills"}
+                  {isCheckingOut ? "Processing…" : (printKOT ? "Print Bill + KOT" : "Print Bill Only")}
                 </button>
               </div>
             </motion.div>
@@ -1338,3 +1345,4 @@ export function BillingCart() {
     </>
   );
 }
+
