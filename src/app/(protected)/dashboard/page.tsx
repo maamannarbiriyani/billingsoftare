@@ -44,47 +44,64 @@ export default async function DashboardPage({
   }
   chartStartDate.setHours(0, 0, 0, 0);
 
-  const [
-    todaySalesResult,
-    totalProducts,
-    totalBills,
-    lowStockItems,
-    recentInvoices,
-    chartDataRaw,
-    categoryDataRaw,
-    expensesRaw,
-  ] = await Promise.all([
-    prisma.invoice.aggregate({
-      _sum: { total: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-    }),
-    prisma.product.count(),
-    prisma.invoice.count(),
-    prisma.product.count({ where: { stock: { lt: 10, not: 999999 } } }),
-    prisma.invoice.findMany({
-      take: 6,
-      orderBy: { createdAt: "desc" },
-      select: { id: true, invoiceNumber: true, total: true, createdAt: true },
-    }),
-    prisma.invoice.findMany({
-      where: { createdAt: { gte: chartStartDate } },
-      select: {
-        total: true,
-        createdAt: true,
-        subtotal: true,
-        discountAmount: true,
-        items: { select: { qty: true, costPrice: true, returnedQty: true } }
-      },
-    }),
-    prisma.invoiceItem.findMany({
-      where: { invoice: { createdAt: { gte: chartStartDate } } },
-      include: { product: { select: { category: true } } },
-    }),
-    prisma.expense.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100
-    }),
-  ]);
+  let todaySalesResult, totalProducts, totalBills, lowStockItems, recentInvoices, chartDataRaw, categoryDataRaw, expensesRaw;
+
+  try {
+    const results = await Promise.all([
+      prisma.invoice.aggregate({
+        _sum: { total: true },
+        where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+      }),
+      prisma.product.count(),
+      prisma.invoice.count(),
+      prisma.product.count({ where: { stock: { lt: 10, not: 999999 } } }),
+      prisma.invoice.findMany({
+        take: 6,
+        orderBy: { createdAt: "desc" },
+        select: { id: true, invoiceNumber: true, total: true, createdAt: true },
+      }),
+      prisma.invoice.findMany({
+        where: { createdAt: { gte: chartStartDate } },
+        select: {
+          total: true,
+          createdAt: true,
+          subtotal: true,
+          discountAmount: true,
+          items: { select: { qty: true, costPrice: true, returnedQty: true } }
+        },
+      }),
+      prisma.invoiceItem.findMany({
+        where: { invoice: { createdAt: { gte: chartStartDate } } },
+        include: { product: { select: { category: true } } },
+      }),
+      prisma.expense.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100
+      }),
+    ]);
+
+    [
+      todaySalesResult,
+      totalProducts,
+      totalBills,
+      lowStockItems,
+      recentInvoices,
+      chartDataRaw,
+      categoryDataRaw,
+      expensesRaw,
+    ] = results;
+  } catch (error) {
+    console.error("Dashboard DB Error:", error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center bg-card rounded-xl border border-border shadow-sm">
+        <AlertTriangle className="h-12 w-12 text-rose-500 mb-4" />
+        <h2 className="text-xl font-bold mb-2">Database Connection Error</h2>
+        <p className="text-muted-foreground max-w-md">
+          We could not load the dashboard data. Your database connection might be timing out or limits have been reached. Please check your Vercel Environment Variables and Supabase connection.
+        </p>
+      </div>
+    );
+  }
 
   const todaySales = todaySalesResult._sum.total || 0;
 

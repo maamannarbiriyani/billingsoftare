@@ -15,7 +15,12 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
-  const setting = await prisma.setting.findFirst();
+  let setting = null;
+  try {
+    setting = await prisma.setting.findFirst();
+  } catch (error) {
+    console.error("ProtectedLayout DB Error:", error);
+  }
 
   return (
     <div
