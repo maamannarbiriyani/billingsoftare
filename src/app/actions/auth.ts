@@ -14,9 +14,15 @@ export async function login(formData: FormData) {
     return { error: "Username and password are required" };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-  });
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { username },
+    });
+  } catch (error: any) {
+    console.error("Login DB Error:", error);
+    return { error: "Database connection failed. Please check Vercel Environment Variables." };
+  }
 
   if (!user) {
     return { error: "Invalid username or password" };
