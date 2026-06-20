@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createBranch, updateBranch, deleteBranch } from "@/app/actions/branches";
 import { Plus, Pencil, Trash2, X, Check, GitBranch, Phone, MapPin } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 type Branch = {
   id: number;
@@ -17,6 +18,7 @@ export function BranchesClient({ branches }: { branches: Branch[] }) {
   const [editId, setEditId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<number | null>(null);
 
   async function handleCreate(formData: FormData) {
     setPending(true);
@@ -42,11 +44,14 @@ export function BranchesClient({ branches }: { branches: Branch[] }) {
     }
   }
 
-  async function handleDelete(formData: FormData) {
-    if (!confirm("Delete this branch?")) return;
+  async function confirmDeleteBranch() {
+    if (branchToDelete === null) return;
     setPending(true);
+    const formData = new FormData();
+    formData.append("id", branchToDelete.toString());
     const result = await deleteBranch(formData);
     setPending(false);
+    setBranchToDelete(null);
     if (result.error) setMessage({ type: "error", text: result.error });
     else setMessage({ type: "success", text: "Branch deleted." });
   }
@@ -88,7 +93,7 @@ export function BranchesClient({ branches }: { branches: Branch[] }) {
                   <GitBranch className="h-4 w-4 text-indigo-500 flex-shrink-0" />
                   <span className="font-medium text-foreground">{branch.name}</span>
                   {branch.isMain && (
-                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Main</span>
+                     <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Main</span>
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
@@ -105,12 +110,14 @@ export function BranchesClient({ branches }: { branches: Branch[] }) {
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 {!branch.isMain && (
-                  <form action={handleDelete} onSubmit={(e) => { e.preventDefault(); handleDelete(new FormData(e.currentTarget)); }}>
-                    <input type="hidden" name="id" value={branch.id} />
-                    <button type="submit" disabled={pending} className="btn btn-ghost btn-sm text-destructive hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </form>
+                  <button 
+                    type="button" 
+                    onClick={() => setBranchToDelete(branch.id)}
+                    disabled={pending} 
+                    className="btn btn-ghost btn-sm text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             </div>
@@ -139,6 +146,16 @@ export function BranchesClient({ branches }: { branches: Branch[] }) {
           <Plus className="h-4 w-4" /> Add Branch
         </button>
       )}
+
+      <ConfirmModal
+        isOpen={branchToDelete !== null}
+        title="Delete Branch"
+        message="Are you sure you want to delete this branch? All data associated with it may be lost."
+        confirmText="Delete"
+        onConfirm={confirmDeleteBranch}
+        onCancel={() => setBranchToDelete(null)}
+        isLoading={pending}
+      />
     </div>
   );
 }

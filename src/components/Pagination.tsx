@@ -17,7 +17,7 @@ export function Pagination({ totalPages }: { totalPages: number }) {
   };
 
   const onPageChange = (page: number) => {
-    replace(createPageURL(page));
+    replace(createPageURL(page), { scroll: false });
   };
 
   if (totalPages <= 1) return null;

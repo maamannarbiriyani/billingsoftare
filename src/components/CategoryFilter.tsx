@@ -19,7 +19,7 @@ export function CategoryFilter({ categories }: { categories: string[] }) {
         params.delete("category");
       }
       params.delete("page"); // Reset page when category changes
-      router.push(`${pathname}?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams]
   );

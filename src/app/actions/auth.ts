@@ -40,6 +40,7 @@ export async function login(formData: FormData) {
       id: user.id,
       username: user.username,
       role: user.role,
+      branchId: user.branchId,
     });
 
     const cookieStore = await cookies();

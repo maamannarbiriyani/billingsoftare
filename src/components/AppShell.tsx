@@ -8,9 +8,13 @@ import { Header } from "@/components/Header";
 export function AppShell({
   children,
   userRole,
+  branches = [],
+  activeBranchId = null,
 }: {
   children: React.ReactNode;
   userRole: string;
+  branches?: any[];
+  activeBranchId?: number | null;
 }) {
   const pathname = usePathname();
   const isBilling = pathname?.startsWith("/billing");
@@ -63,6 +67,8 @@ export function AppShell({
         <Header
           onOpenSidebar={() => setIsOpen(true)}
           hamburgerClass={hamburgerClass}
+          branches={branches}
+          activeBranchId={activeBranchId}
         />
         <main
           className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"

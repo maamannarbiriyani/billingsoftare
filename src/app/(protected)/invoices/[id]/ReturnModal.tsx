@@ -4,11 +4,13 @@ import { useState } from "react";
 import { X, RefreshCcw, AlertTriangle } from "lucide-react";
 import { processReturn } from "@/app/actions/invoices";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export function ReturnModal({ invoice }: { invoice: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [returnQty, setReturnQty] = useState<Record<number, number>>({});
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const isRefunded = invoice.status === "REFUNDED";
   const isPartial = invoice.status === "PARTIAL_REFUND";
@@ -20,16 +22,15 @@ export function ReturnModal({ invoice }: { invoice: any }) {
 
   const totalReturning = Object.values(returnQty).reduce((a, b) => a + b, 0);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (totalReturning <= 0) {
       toast.error("Please select at least one item to return.");
       return;
     }
+    setShowConfirm(true);
+  };
 
-    if (!confirm("Are you sure you want to process this return? This will update inventory and totals.")) {
-      return;
-    }
-
+  const processActualReturn = async () => {
     setIsPending(true);
 
     const itemsToReturn = Object.entries(returnQty)
@@ -54,6 +55,7 @@ export function ReturnModal({ invoice }: { invoice: any }) {
       setReturnQty({});
     }
     setIsPending(false);
+    setShowConfirm(false);
   };
 
   return (
@@ -171,6 +173,16 @@ export function ReturnModal({ invoice }: { invoice: any }) {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showConfirm}
+        title="Process Return"
+        message="Are you sure you want to process this return? This will update inventory and totals."
+        confirmText="Process Return"
+        onConfirm={processActualReturn}
+        onCancel={() => setShowConfirm(false)}
+        isLoading={isPending}
+      />
     </>
   );
 }

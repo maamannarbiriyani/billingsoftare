@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, getActiveBranchId } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 export type ReturnItemInput = {
@@ -12,6 +12,9 @@ export type ReturnItemInput = {
 };
 
 export async function processReturn(invoiceId: number, returnItems: ReturnItemInput[]) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       // 1. Fetch invoice to ensure it exists and get current values
@@ -20,7 +23,7 @@ export async function processReturn(invoiceId: number, returnItems: ReturnItemIn
         include: { items: true },
       });
 
-      if (!invoice) throw new Error("Invoice not found.");
+      if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found.");
 
       let totalRefundAmount = 0;
 
@@ -49,8 +52,8 @@ export async function processReturn(invoiceId: number, returnItems: ReturnItemIn
         });
 
         // Restock Product
-        await tx.product.update({
-          where: { id: returnItem.productId },
+        await tx.product.updateMany({
+          where: { id: returnItem.productId, branchId },
           data: {
             stock: { increment: returnItem.qtyToReturn }
           }
@@ -97,8 +100,8 @@ export async function processReturn(invoiceId: number, returnItems: ReturnItemIn
 
       // 4. Update Customer Balance if CREDIT payment
       if (invoice.paymentMethod === "CREDIT" && invoice.customerId) {
-        await tx.customer.update({
-          where: { id: invoice.customerId },
+        await tx.customer.updateMany({
+          where: { id: invoice.customerId, branchId },
           data: {
             balance: { decrement: refundGrandTotal }
           }
@@ -139,13 +142,16 @@ export async function modifyInvoice(
     notes?: string;
   }
 ) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({
         where: { id: invoiceId },
         include: { items: true },
       });
-      if (!invoice) throw new Error("Invoice not found");
+      if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found");
 
       const oldItemsMap = new Map(invoice.items.map((i) => [i.id, i]));
       const newItemsById = new Map(
@@ -158,7 +164,7 @@ export async function modifyInvoice(
           const toRestore = old.qty - old.returnedQty;
           if (toRestore > 0) {
             await tx.product.updateMany({
-              where: { id: old.productId, stock: { not: 999999 } },
+              where: { id: old.productId, stock: { not: 999999 }, branchId },
               data: { stock: { increment: toRestore } },
             });
           }
@@ -174,18 +180,18 @@ export async function modifyInvoice(
         if (delta > 0) {
           const prod = await tx.product.findUnique({
             where: { id: old.productId },
-            select: { stock: true, name: true },
+            select: { stock: true, name: true, branchId: true },
           });
           if (prod && prod.stock !== 999999 && prod.stock < delta) {
-            throw new Error(`Not enough stock for "${prod.name}". Available: ${prod.stock}`);
+            throw new Error(`Not enough stock for "${prod?.name}". Available: ${prod?.stock}`);
           }
           await tx.product.updateMany({
-            where: { id: old.productId, stock: { not: 999999 } },
+            where: { id: old.productId, stock: { not: 999999 }, branchId },
             data: { stock: { decrement: delta } },
           });
         } else if (delta < 0) {
           await tx.product.updateMany({
-            where: { id: old.productId, stock: { not: 999999 } },
+            where: { id: old.productId, stock: { not: 999999 }, branchId },
             data: { stock: { increment: Math.abs(delta) } },
           });
         }
@@ -199,13 +205,13 @@ export async function modifyInvoice(
       for (const item of data.items.filter((i) => i.itemId == null)) {
         const prod = await tx.product.findUnique({
           where: { id: item.productId },
-          select: { stock: true, name: true },
+          select: { stock: true, name: true, branchId: true },
         });
         if (prod && prod.stock !== 999999 && prod.stock < item.qty) {
-          throw new Error(`Not enough stock for "${prod.name}". Available: ${prod.stock}`);
+          throw new Error(`Not enough stock for "${prod?.name}". Available: ${prod?.stock}`);
         }
         await tx.product.updateMany({
-          where: { id: item.productId, stock: { not: 999999 } },
+          where: { id: item.productId, stock: { not: 999999 }, branchId },
           data: { stock: { decrement: item.qty } },
         });
         await tx.invoiceItem.create({
@@ -234,21 +240,21 @@ export async function modifyInvoice(
         if (invoice.paymentMethod === "CREDIT" && data.paymentMethod === "CREDIT") {
           const diff = newTotal - oldTotal;
           if (diff !== 0) {
-            await tx.customer.update({
-              where: { id: invoice.customerId },
+            await tx.customer.updateMany({
+              where: { id: invoice.customerId, branchId },
               data: { balance: { increment: diff } },
             });
           }
         } else if (invoice.paymentMethod === "CREDIT" && data.paymentMethod !== "CREDIT") {
           // Switched away from credit — clear the old balance
-          await tx.customer.update({
-            where: { id: invoice.customerId },
+          await tx.customer.updateMany({
+            where: { id: invoice.customerId, branchId },
             data: { balance: { decrement: oldTotal } },
           });
         } else if (invoice.paymentMethod !== "CREDIT" && data.paymentMethod === "CREDIT") {
           // Switched to credit — add new total as balance
-          await tx.customer.update({
-            where: { id: invoice.customerId },
+          await tx.customer.updateMany({
+            where: { id: invoice.customerId, branchId },
             data: { balance: { increment: newTotal } },
           });
         }
@@ -283,6 +289,9 @@ export async function modifyInvoice(
 
 // ── Delete invoice with admin password auth ────────────────────────
 export async function deleteInvoiceWithAuth(invoiceId: number, password: string) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     const session = await getSession();
     if (!session?.id) return { error: "Not authenticated" };
@@ -298,14 +307,14 @@ export async function deleteInvoiceWithAuth(invoiceId: number, password: string)
         where: { id: invoiceId },
         include: { items: true },
       });
-      if (!invoice) throw new Error("Invoice not found");
+      if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found");
 
       // Restore stock for all non-returned quantities
       for (const item of invoice.items) {
         const toRestore = item.qty - item.returnedQty;
         if (toRestore > 0) {
           await tx.product.updateMany({
-            where: { id: item.productId, stock: { not: 999999 } },
+            where: { id: item.productId, stock: { not: 999999 }, branchId },
             data: { stock: { increment: toRestore } },
           });
         }
@@ -313,8 +322,8 @@ export async function deleteInvoiceWithAuth(invoiceId: number, password: string)
 
       // Reverse customer credit balance
       if (invoice.paymentMethod === "CREDIT" && invoice.customerId && invoice.total > 0) {
-        await tx.customer.update({
-          where: { id: invoice.customerId },
+        await tx.customer.updateMany({
+          where: { id: invoice.customerId, branchId },
           data: { balance: { decrement: invoice.total } },
         });
       }

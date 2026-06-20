@@ -23,7 +23,7 @@ export function KitchenCopyButton({
 
     const win = window.open("", "_blank", "width=360,height=640,toolbar=0,scrollbars=0,status=0,menubar=0");
     if (!win) {
-      alert("⚠️ Popup blocked! Allow popups to print kitchen copy.");
+      toast.warning("⚠️ Popup blocked! Allow popups to print kitchen copy.");
       return;
     }
 

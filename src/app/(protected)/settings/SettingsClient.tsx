@@ -5,6 +5,7 @@ import { Download, Upload, AlertCircle, Save, Store, GitBranch, BarChart3, Check
 import { upsertOwnerAccount } from "@/app/actions/owner-account";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
   initialSetting: any;
@@ -15,6 +16,9 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
   const [restoreMessage, setRestoreMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [ownerPending, setOwnerPending] = useState(false);
+  
+  const [fileToRestore, setFileToRestore] = useState<File | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -31,23 +35,19 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
     window.location.href = "/api/backup";
   };
 
-  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFileToRestore(file);
+  };
 
-    const confirm = window.confirm(
-      "WARNING: Restoring a database will overwrite ALL current data (products, invoices, users). Are you absolutely sure you want to proceed?",
-    );
-    if (!confirm) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
+  const confirmRestore = async () => {
+    if (!fileToRestore) return;
     setIsRestoring(true);
     setRestoreMessage(null);
 
     const formData = new FormData();
-    formData.append("db", file);
+    formData.append("db", fileToRestore);
 
     try {
       const res = await fetch("/api/restore", {
@@ -77,8 +77,14 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
       });
     } finally {
       setIsRestoring(false);
+      setFileToRestore(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const cancelRestore = () => {
+    setFileToRestore(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -101,7 +107,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
       </section>
 
       {/* Backup & Restore Section */}
-      <section className="bg-card  shadow rounded-xl overflow-hidden">
+      <section className="bg-card  shadow rounded-xl overflow-hidden mt-8">
         <div className="px-6 py-5 border-b border-border  bg-muted ">
           <h2 className="text-lg font-medium text-foreground ">
             Database Backup & Restore
@@ -153,7 +159,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
               accept=".sqlite,.db"
               className="hidden"
               ref={fileInputRef}
-              onChange={handleRestore}
+              onChange={handleFileChange}
             />
 
             <button
@@ -269,6 +275,16 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           </p>
         </div>
       </section>
+
+      <ConfirmModal
+        isOpen={fileToRestore !== null}
+        title="Restore Database"
+        message="WARNING: Restoring a database will overwrite ALL current data (products, invoices, users). Are you absolutely sure you want to proceed?"
+        confirmText="Restore Data"
+        onConfirm={confirmRestore}
+        onCancel={cancelRestore}
+        isLoading={isRestoring}
+      />
     </>
   );
 }

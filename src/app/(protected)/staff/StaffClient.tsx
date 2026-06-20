@@ -27,7 +27,7 @@ type Employee = {
 
 const EMPTY_FORM = { name: "", role: "Staff", phone: "", dailyWage: 0 };
 
-export function StaffClient({ initialEmployees }: { initialEmployees: Employee[] }) {
+export function StaffClient({ initialEmployees, userRole = "Admin" }: { initialEmployees: Employee[], userRole?: string }) {
   const [activeTab, setActiveTab] = useState<"ROSTER" | "ATTENDANCE" | "SALARY">("ROSTER");
   const [employees, setEmployees] = useState(initialEmployees);
   const [isPending, startTransition] = useTransition();
@@ -163,8 +163,10 @@ export function StaffClient({ initialEmployees }: { initialEmployees: Employee[]
 
   const tabs = [
     { id: "ROSTER",     label: "Employee Roster",   icon: Users         },
-    { id: "ATTENDANCE", label: "Daily Attendance",   icon: CalendarCheck },
-    { id: "SALARY",     label: "Salary & Payouts",   icon: IndianRupee   },
+    ...(userRole === "Admin" ? [
+      { id: "ATTENDANCE", label: "Daily Attendance",   icon: CalendarCheck },
+      { id: "SALARY",     label: "Salary & Payouts",   icon: IndianRupee   },
+    ] : [])
   ] as const;
 
   return (

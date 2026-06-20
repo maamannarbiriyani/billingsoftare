@@ -2,7 +2,7 @@
 
 import { Search as SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect } from "react";
+import { useTransition, useState, useEffect, useRef } from "react";
 
 export function Search({ placeholder }: { placeholder: string }) {
   const searchParams = useSearchParams();
@@ -11,23 +11,30 @@ export function Search({ placeholder }: { placeholder: string }) {
   const [isPending, startTransition] = useTransition();
 
   const [term, setTerm] = useState(searchParams.get("query") || "");
+  const initialMount = useRef(true);
 
   useEffect(() => {
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
+    }
+
     const handler = setTimeout(() => {
       startTransition(() => {
-        const params = new URLSearchParams(searchParams);
+        // Use window.location.search to avoid dependency on searchParams object which changes reference
+        const params = new URLSearchParams(window.location.search);
         params.set("page", "1"); // reset page on new search
         if (term) {
           params.set("query", term);
         } else {
           params.delete("query");
         }
-        replace(`${pathname}?${params.toString()}`);
+        replace(`${pathname}?${params.toString()}`, { scroll: false });
       });
     }, 300);
 
     return () => clearTimeout(handler);
-  }, [term, pathname, replace, searchParams]);
+  }, [term, pathname, replace]);
 
   return (
     <div className="relative flex flex-1 flex-shrink-0">

@@ -1,16 +1,19 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, getActiveBranchId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function searchProductsForBilling(query: string) {
   if (!query || query.trim() === "") {
     return [];
   }
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
 
   const products = await prisma.product.findMany({
     where: {
+      branchId,
       OR: [{ name: { contains: query } }, { barcode: { contains: query } }],
     },
     take: 10,
@@ -20,14 +23,20 @@ export async function searchProductsForBilling(query: string) {
 }
 
 export async function getAllProductsForBilling() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   const products = await prisma.product.findMany({
+    where: { branchId },
     orderBy: { name: 'asc' }
   });
   return products;
 }
 
 export async function getAllCustomersForBilling() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   const customers = await prisma.customer.findMany({
+    where: { branchId },
     orderBy: { name: 'asc' },
     select: { id: true, name: true, phone: true, balance: true }
   });
@@ -36,12 +45,15 @@ export async function getAllCustomersForBilling() {
 
 export async function collectKhataPayment(customerId: number, amount: number) {
   if (amount <= 0) return { error: "Amount must be greater than 0" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({ where: { id: customerId } });
-      if (!customer) throw new Error("Customer not found");
+      if (!customer || customer.branchId !== branchId) throw new Error("Customer not found");
       if (amount > customer.balance) throw new Error("Amount exceeds outstanding balance of ₹" + customer.balance.toFixed(2));
-      await tx.payment.create({ data: { amount, customerId } });
+      await tx.payment.create({ data: { amount, customerId, branchId } });
       await tx.customer.update({ where: { id: customerId }, data: { balance: { decrement: amount } } });
       return { newBalance: parseFloat((customer.balance - amount).toFixed(2)) };
     });
@@ -84,13 +96,15 @@ export async function createInvoice(
 
   const session = await getSession();
   const cashierName = (session?.username as string) || "Staff";
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch selected" };
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       // 0. Stock validation — prevent overselling
       for (const item of cart) {
-        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true } });
-        if (!product) throw new Error(`Product not found: ${item.productId}`);
+        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, branchId: true } });
+        if (!product || product.branchId !== branchId) throw new Error(`Product not found: ${item.productId}`);
         if (product.stock !== 999999 && product.stock < item.qty) {
           throw new Error(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.qty}`);
         }
@@ -102,7 +116,7 @@ export async function createInvoice(
       if (customerData.name) {
         if (customerData.phone) {
           const existingCustomer = await tx.customer.findFirst({
-            where: { phone: customerData.phone },
+            where: { phone: customerData.phone, branchId },
           });
           if (existingCustomer) {
             customerId = existingCustomer.id;
@@ -114,6 +128,7 @@ export async function createInvoice(
             data: {
               name: customerData.name,
               phone: customerData.phone || null,
+              branchId,
             },
           });
           customerId = newCustomer.id;
@@ -124,7 +139,7 @@ export async function createInvoice(
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const prefix = `INV-${dateStr}-`;
       const lastInvoice = await tx.invoice.findFirst({
-        where: { invoiceNumber: { startsWith: prefix } },
+        where: { invoiceNumber: { startsWith: prefix }, branchId },
         orderBy: { invoiceNumber: "desc" },
         select: { invoiceNumber: true },
       });
@@ -145,6 +160,7 @@ export async function createInvoice(
         // Create an implicit order to track the orderMode (source)
         const newOrder = await tx.order.create({
           data: {
+            branchId,
             status: "COMPLETED",
             source: billingDetails.orderMode || "DINE_IN",
             items: {
@@ -165,6 +181,7 @@ export async function createInvoice(
       // 4. Create Invoice (round all monetary values to 2dp)
       const invoice = await tx.invoice.create({
         data: {
+          branchId,
           invoiceNumber,
           customerId,
           subtotal: parseFloat(billingDetails.subtotal.toFixed(2)),
@@ -204,7 +221,7 @@ export async function createInvoice(
       // 5. Decrement Stock (skip unlimited-stock items)
       for (const item of cart) {
         await tx.product.updateMany({
-          where: { id: item.productId, stock: { not: 999999 } },
+          where: { id: item.productId, stock: { not: 999999 }, branchId },
           data: { stock: { decrement: item.qty } },
         });
       }
@@ -226,6 +243,8 @@ export async function createInvoice(
 
 export async function saveKOT(cart: CartItem[], orderId?: number) {
   if (cart.length === 0) return { error: "Cart is empty" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
 
   try {
     let finalOrderId = orderId;
@@ -252,6 +271,7 @@ export async function saveKOT(cart: CartItem[], orderId?: number) {
       // Create new
       const order = await prisma.order.create({
         data: {
+          branchId,
           source: "DINE_IN",
           status: "RECEIVED",
           items: {

@@ -17,6 +17,8 @@ model User {
   username String   @unique
   password String
   role     String   @default("Cashier") // "Admin" or "Cashier"
+  branchId Int?
+  branch   Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model Product {
@@ -35,6 +37,8 @@ model Product {
   purchaseItems PurchaseItem[]
   orderItems    OrderItem[]
   recipeItems   RecipeItem[]
+  branchId      Int?
+  branch        Branch?       @relation(fields: [branchId], references: [id])
 }
 
 model Customer {
@@ -44,6 +48,8 @@ model Customer {
   balance  Float     @default(0) // Tracks how much the customer owes (Khata)
   invoices Invoice[]
   payments Payment[]
+  branchId Int?
+  branch   Branch?   @relation(fields: [branchId], references: [id])
 }
 
 model Payment {
@@ -52,6 +58,8 @@ model Payment {
   customerId Int
   customer   Customer @relation(fields: [customerId], references: [id])
   createdAt  DateTime @default(now())
+  branchId   Int?
+  branch     Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model Invoice {
@@ -76,6 +84,8 @@ model Invoice {
 
   createdAt     DateTime      @default(now())
   items         InvoiceItem[]
+  branchId      Int?
+  branch        Branch?       @relation(fields: [branchId], references: [id])
 }
 
 model InvoiceItem {
@@ -100,6 +110,8 @@ model Setting {
   licenseKey    String?
   licenseExpiry DateTime?
   updatedAt     DateTime  @updatedAt
+  branchId      Int?
+  branch        Branch?   @relation(fields: [branchId], references: [id])
 }
 
 model Branch {
@@ -109,6 +121,21 @@ model Branch {
   phone     String?
   isMain    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  users             User[]
+  products          Product[]
+  customers         Customer[]
+  payments          Payment[]
+  invoices          Invoice[]
+  settings          Setting[]
+  expenses          Expense[]
+  suppliers         Supplier[]
+  purchaseInvoices  PurchaseInvoice[]
+  tables            Table[]
+  orders            Order[]
+  shifts            Shift[]
+  ingredients       Ingredient[]
+  employees         Employee[]
 }
 
 model OwnerAccount {
@@ -126,6 +153,8 @@ model Expense {
   category    String
   date        DateTime @default(now())
   createdAt   DateTime @default(now())
+  branchId    Int?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model Supplier {
@@ -135,6 +164,8 @@ model Supplier {
   gstNumber        String?
   address          String?
   purchaseInvoices PurchaseInvoice[]
+  branchId         Int?
+  branch           Branch?           @relation(fields: [branchId], references: [id])
 }
 
 model PurchaseInvoice {
@@ -146,6 +177,8 @@ model PurchaseInvoice {
   status        String         @default("PAID") // "PAID", "UNPAID"
   createdAt     DateTime       @default(now())
   items         PurchaseItem[]
+  branchId      Int?
+  branch        Branch?        @relation(fields: [branchId], references: [id])
 }
 
 model PurchaseItem {
@@ -163,6 +196,8 @@ model Table {
   name      String   @unique
   status    String   @default("AVAILABLE") // "AVAILABLE", "OCCUPIED"
   orders    Order[]
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model Order {
@@ -176,6 +211,8 @@ model Order {
   updatedAt  DateTime    @updatedAt
   items      OrderItem[]
   invoice    Invoice?
+  branchId   Int?
+  branch     Branch?      @relation(fields: [branchId], references: [id])
 }
 
 model OrderItem {
@@ -200,6 +237,8 @@ model Shift {
   closingBalance  Float?
   cashSales       Float     @default(0)
   status          String    @default("OPEN") // "OPEN", "CLOSED"
+  branchId        Int?
+  branch          Branch?   @relation(fields: [branchId], references: [id])
 }
 
 model Ingredient {
@@ -211,6 +250,8 @@ model Ingredient {
   recipeItems RecipeItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  branchId    Int?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model RecipeItem {
@@ -232,6 +273,8 @@ model Employee {
   status      String         @default("ACTIVE") // ACTIVE, INACTIVE
   attendances Attendance[]
   payouts     SalaryPayout[]
+  branchId    Int?
+  branch      Branch?        @relation(fields: [branchId], references: [id])
 }
 
 model Attendance {

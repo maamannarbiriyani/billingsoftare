@@ -1,10 +1,14 @@
-import { requireAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { StaffClient } from "./StaffClient";
 import { getSalarySummary } from "@/app/actions/staff";
+import { redirect } from "next/navigation";
 
 export default async function StaffPage() {
-  await requireAdmin();
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const userRole = session.role || "Cashier";
+
   const employees = await getSalarySummary();
 
-  return <StaffClient initialEmployees={employees} />;
+  return <StaffClient initialEmployees={employees} userRole={userRole} />;
 }

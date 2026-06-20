@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { createUser, deleteUser } from "@/app/actions/users";
 import { Plus, Trash2, Shield, User as UserIcon } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { toast } from "sonner";
 
 type UserType = {
   id: number;
@@ -15,6 +17,8 @@ export function UsersClient({ initialUsers }: { initialUsers: UserType[] }) {
   const [isAdding, setIsAdding] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
 
   async function handleAddSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,17 +39,20 @@ export function UsersClient({ initialUsers }: { initialUsers: UserType[] }) {
     setIsPending(false);
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+  async function confirmDeleteUser() {
+    if (userToDelete === null) return;
     setIsPending(true);
     
-    const result = await deleteUser(id);
+    const result = await deleteUser(userToDelete);
     if (result.error) {
       setMessage({ type: "error", text: result.error });
       setIsPending(false);
+      setUserToDelete(null);
     } else {
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      setUsers((prev) => prev.filter((u) => u.id !== userToDelete));
       setIsPending(false);
+      setUserToDelete(null);
+      toast.success("User deleted successfully.");
     }
   }
 
@@ -140,7 +147,7 @@ export function UsersClient({ initialUsers }: { initialUsers: UserType[] }) {
               </div>
               
               <button
-                onClick={() => handleDelete(user.id)}
+                onClick={() => setUserToDelete(user.id)}
                 disabled={isPending}
                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                 title="Delete User"
@@ -151,6 +158,16 @@ export function UsersClient({ initialUsers }: { initialUsers: UserType[] }) {
           ))}
         </ul>
       </div>
+
+      <ConfirmModal
+        isOpen={userToDelete !== null}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setUserToDelete(null)}
+        isLoading={isPending}
+      />
     </div>
   );
 }

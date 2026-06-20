@@ -3,17 +3,23 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { CartItem } from "./billing";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getTables() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   return await prisma.table.findMany({
+    where: { branchId },
     orderBy: { name: "asc" },
   });
 }
 
 export async function createTable(name: string) {
   if (!name) return { error: "Table name is required" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
-    const table = await prisma.table.create({ data: { name } });
+    const table = await prisma.table.create({ data: { name, branchId } });
     revalidatePath("/billing");
     return { success: true, table };
   } catch (error: any) {
@@ -23,8 +29,10 @@ export async function createTable(name: string) {
 }
 
 export async function getRunningOrders() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   return await prisma.order.findMany({
-    where: { status: "RUNNING" },
+    where: { status: "RUNNING", branchId },
     include: {
       table: true,
       items: { include: { product: true } }
@@ -39,13 +47,15 @@ export async function parkOrder(
   existingOrderId?: number | null
 ) {
   if (cart.length === 0) return { error: "Cannot park an empty order" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       // If table is provided, mark it as occupied
       if (tableId) {
-        await tx.table.update({
-          where: { id: tableId },
+        await tx.table.updateMany({
+          where: { id: tableId, branchId },
           data: { status: "OCCUPIED" }
         });
       }
@@ -74,6 +84,7 @@ export async function parkOrder(
         // Create new order
         const newOrder = await tx.order.create({
           data: {
+            branchId,
             tableId,
             status: "RUNNING",
             items: {
@@ -101,6 +112,8 @@ export async function parkOrder(
 }
 
 export async function closeOrder(orderId: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.order.update({
@@ -112,7 +125,7 @@ export async function closeOrder(orderId: number) {
       // Release table if no other running orders are using it
       if (order.tableId) {
         const otherRunning = await tx.order.count({
-          where: { tableId: order.tableId, status: "RUNNING", id: { not: orderId } }
+          where: { tableId: order.tableId, status: "RUNNING", id: { not: orderId }, branchId }
         });
         if (otherRunning === 0) {
           await tx.table.update({

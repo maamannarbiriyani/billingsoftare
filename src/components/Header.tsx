@@ -1,15 +1,20 @@
 "use client";
 
-import { Bell, Search, LogOut, Menu } from "lucide-react";
+import { Bell, Search, LogOut, Menu, Store } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { setActiveBranch } from "@/app/actions/branches";
 
 export function Header({
   onOpenSidebar,
   hamburgerClass,
+  branches = [],
+  activeBranchId,
 }: {
   onOpenSidebar?: () => void;
   hamburgerClass?: string;
+  branches?: any[];
+  activeBranchId?: number | null;
 }) {
   return (
     <header
@@ -73,6 +78,25 @@ export function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5">
+        {/* Branch Switcher (Admin Only) */}
+        {branches && branches.length > 0 && (
+          <div className="flex items-center mr-2">
+            <Store className="h-4 w-4 mr-1.5 text-muted-foreground" />
+            <select
+              value={activeBranchId || branches[0]?.id || ""}
+              onChange={(e) => setActiveBranch(Number(e.target.value))}
+              className="bg-transparent text-sm font-medium outline-none cursor-pointer"
+              style={{ color: "var(--foreground)" }}
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id} className="bg-background">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Theme Toggle */}
         <div className="flex-shrink-0">
           <ThemeToggle />

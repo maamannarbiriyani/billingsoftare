@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getActiveBranchId } from "@/lib/auth";
 
 function csvField(value: string | number): string {
   const str = String(value);
@@ -11,9 +12,13 @@ function csvField(value: string | number): string {
 }
 
 export async function exportGSTReportCSV(startDate?: Date, endDate?: Date) {
-  const whereClause = (startDate && endDate)
-    ? { createdAt: { gte: startDate, lte: endDate } }
-    : {};
+  const branchId = await getActiveBranchId();
+  if (!branchId) return "";
+
+  const whereClause: any = { branchId };
+  if (startDate && endDate) {
+    whereClause.createdAt = { gte: startDate, lte: endDate };
+  }
 
   const invoices = await prisma.invoice.findMany({
     where: whereClause,

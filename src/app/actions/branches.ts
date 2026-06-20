@@ -46,3 +46,19 @@ export async function deleteBranch(formData: FormData) {
     return { error: "Failed to delete branch" };
   }
 }
+
+export async function getAllBranches() {
+  return await prisma.branch.findMany({ orderBy: { id: "asc" } });
+}
+
+export async function setActiveBranch(branchId: number) {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  cookieStore.set("activeBranchId", branchId.toString(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+  revalidatePath("/");
+}

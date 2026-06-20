@@ -2,16 +2,21 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getActiveShift() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return null;
   const shift = await prisma.shift.findFirst({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", branchId },
     orderBy: { openedAt: "desc" }
   });
   return shift;
 }
 
 export async function openShift(openingBalance: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   const active = await getActiveShift();
   if (active) {
     return { error: "A shift is already open." };
@@ -20,6 +25,7 @@ export async function openShift(openingBalance: number) {
   try {
     const shift = await prisma.shift.create({
       data: {
+        branchId,
         openingBalance,
         status: "OPEN"
       }
@@ -33,9 +39,11 @@ export async function openShift(openingBalance: number) {
 }
 
 export async function closeShift(shiftId: number, closingBalance: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
     const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
-    if (!shift || shift.status === "CLOSED") {
+    if (!shift || shift.status === "CLOSED" || shift.branchId !== branchId) {
       return { error: "Shift not found or already closed." };
     }
 
@@ -43,6 +51,7 @@ export async function closeShift(shiftId: number, closingBalance: number) {
     const now = new Date();
     const invoices = await prisma.invoice.findMany({
       where: {
+        branchId,
         createdAt: { gte: shift.openedAt, lte: now },
         paymentMethod: "Cash",
         status: { not: "REFUNDED" },
@@ -70,7 +79,10 @@ export async function closeShift(shiftId: number, closingBalance: number) {
 }
 
 export async function getRecentShifts() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   return await prisma.shift.findMany({
+    where: { branchId },
     orderBy: { openedAt: "desc" },
     take: 20
   });

@@ -2,9 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getCustomers() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
+
   const customers = await prisma.customer.findMany({
+    where: { branchId },
     orderBy: { name: "asc" },
     include: {
       _count: {
@@ -19,11 +24,13 @@ export async function logPayment(customerId: number, amount: number) {
   if (amount <= 0) {
     return { error: "Payment amount must be greater than 0" };
   }
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({ where: { id: customerId } });
-      if (!customer) throw new Error("Customer not found");
+      if (!customer || customer.branchId !== branchId) throw new Error("Customer not found");
 
       if (amount > customer.balance) {
         throw new Error("Payment exceeds outstanding balance.");
@@ -34,6 +41,7 @@ export async function logPayment(customerId: number, amount: number) {
         data: {
           amount,
           customerId,
+          branchId,
         },
       });
 

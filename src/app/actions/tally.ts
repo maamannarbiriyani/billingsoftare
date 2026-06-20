@@ -1,15 +1,27 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getTallyData(startDate: Date, endDate: Date) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return {
+    totalRevenue: 0,
+    revenueByCategory: {},
+    totalExpense: 0,
+    expenseByCategory: {},
+    netProfit: 0,
+    invoicesCount: 0,
+    expensesCount: 0,
+  };
+
   const [invoices, expenses] = await Promise.all([
     prisma.invoice.findMany({
-      where: { createdAt: { gte: startDate, lte: endDate } },
+      where: { branchId, createdAt: { gte: startDate, lte: endDate } },
       include: { items: { include: { product: true } }, order: true }
     }),
     prisma.expense.findMany({
-      where: { date: { gte: startDate, lte: endDate } }
+      where: { branchId, date: { gte: startDate, lte: endDate } }
     })
   ]);
 

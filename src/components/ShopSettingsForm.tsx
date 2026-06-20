@@ -160,7 +160,7 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
                   const input = document.getElementById('printerName') as HTMLInputElement;
                   if (input) input.value = printerId;
                 } else {
-                  alert("Live printer detection (Web Serial API) is only supported in Chrome, Edge, or the native Desktop App.");
+                toast.error("Live printer detection (Web Serial API) is only supported in Chrome, Edge, or the native Desktop App.");
                 }
               } catch (err) {
                 console.error("Printer connection cancelled or failed", err);

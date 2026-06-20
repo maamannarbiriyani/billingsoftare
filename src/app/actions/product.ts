@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function createProduct(formData: FormData) {
   const name = formData.get("name") as string;
@@ -22,6 +23,9 @@ export async function createProduct(formData: FormData) {
   if (!name || isNaN(price) || isNaN(stock)) {
     return { error: "Name, valid Price, and valid Stock are required." };
   }
+
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
 
   if (!barcode) {
     let candidate = "";
@@ -62,6 +66,7 @@ export async function createProduct(formData: FormData) {
         unit,
         hsnCode,
         imageUrl,
+        branchId,
       },
     });
   } catch (error: any) {
@@ -93,6 +98,9 @@ export async function updateProduct(id: number, formData: FormData) {
     };
   }
 
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   let imageUrl = undefined;
   if (imageFile && imageFile.size > 0) {
     const bytes = await imageFile.arrayBuffer();
@@ -110,6 +118,9 @@ export async function updateProduct(id: number, formData: FormData) {
   }
 
   try {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (product?.branchId !== branchId) return { error: "Product not found" };
+
     const updateData: Record<string, unknown> = {
       name,
       barcode,
@@ -141,12 +152,20 @@ export async function updateProduct(id: number, formData: FormData) {
 }
 
 export async function deleteProduct(id: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (product?.branchId !== branchId) return { error: "Product not found" };
+
     await prisma.product.delete({
       where: { id },
     });
     revalidatePath("/products");
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === "P2003") {
+      return { error: "Cannot delete product because it has been used in sales or orders." };
+    }
     return { error: "Failed to delete product." };
   }
 }
@@ -164,6 +183,8 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
   if (!products || products.length === 0) {
     return { error: "No valid products to import." };
   }
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
 
   try {
     let importedCount = 0;
@@ -196,6 +217,7 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
             costPrice: p.costPrice || 0,
             stock: p.stock,
             category: p.category || null,
+            branchId,
           },
         });
         importedCount++;

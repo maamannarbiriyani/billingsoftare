@@ -63,3 +63,26 @@ export async function requireAdmin() {
     redirect("/billing");
   }
 }
+
+export async function getActiveBranchId() {
+  const session = await getSession();
+  const cookieStore = await cookies();
+  
+  if (!session) return null;
+
+  // If Cashier, return their locked branch ID
+  if (session.role === "Cashier") {
+    return session.branchId || null; // Ensure User table has branchId
+  }
+
+  // If Admin, check if they explicitly selected a branch
+  const selectedBranchId = cookieStore.get("activeBranchId")?.value;
+  if (selectedBranchId) {
+    return parseInt(selectedBranchId, 10);
+  }
+
+  // Fallback: Admin without a selected branch -> Pick the first available branch
+  const { prisma } = await import("@/lib/prisma");
+  const firstBranch = await prisma.branch.findFirst({ orderBy: { id: "asc" } });
+  return firstBranch?.id || null;
+}

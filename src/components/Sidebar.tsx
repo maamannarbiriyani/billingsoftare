@@ -52,7 +52,8 @@ export function Sidebar({
           (item) =>
             item.name === "Billing" ||
             item.name === "Customers" ||
-            item.name === "Shifts"
+            item.name === "Shifts" ||
+            item.name === "Staff"
         );
 
   const mainItems = navItems.filter((i) => i.name !== "Settings");

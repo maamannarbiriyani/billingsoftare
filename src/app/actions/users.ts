@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, getActiveBranchId } from "@/lib/auth";
 
 // Check if the current user is an Admin
 async function isAdmin() {
@@ -14,7 +14,16 @@ async function isAdmin() {
 export async function getUsers() {
   if (!(await isAdmin())) throw new Error("Unauthorized");
   
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
+
   const users = await prisma.user.findMany({
+    where: {
+      OR: [
+        { branchId },
+        { branchId: null } // Include global admins
+      ]
+    },
     select: {
       id: true,
       username: true,
@@ -38,6 +47,9 @@ export async function createUser(formData: FormData) {
     return { error: "All fields are required" };
   }
 
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     const existingUser = await prisma.user.findUnique({
       where: { username },
@@ -54,6 +66,7 @@ export async function createUser(formData: FormData) {
         username,
         password: hashedPassword,
         role,
+        branchId: role === "Admin" ? null : branchId, // Admins are global, Cashiers are branch-specific
       },
     });
 
@@ -67,6 +80,8 @@ export async function createUser(formData: FormData) {
 
 export async function deleteUser(id: number) {
   if (!(await isAdmin())) return { error: "Unauthorized" };
+  
+  const branchId = await getActiveBranchId();
 
   try {
     // Prevent deleting the last admin
@@ -78,6 +93,10 @@ export async function deleteUser(id: number) {
     
     if (userToDelete?.role === "Admin" && adminCount <= 1) {
       return { error: "Cannot delete the last admin account." };
+    }
+    
+    if (userToDelete?.role !== "Admin" && userToDelete?.branchId !== branchId) {
+      return { error: "User does not belong to the active branch" };
     }
 
     await prisma.user.delete({

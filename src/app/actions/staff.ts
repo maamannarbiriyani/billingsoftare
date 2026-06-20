@@ -2,17 +2,24 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getEmployees() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   return prisma.employee.findMany({
+    where: { branchId },
     orderBy: { name: "asc" },
   });
 }
 
 export async function createEmployee(data: { name: string; role: string; phone?: string; dailyWage: number }) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
     await prisma.employee.create({
       data: {
+        branchId,
         name: data.name,
         role: data.role || "Staff",
         phone: data.phone,
@@ -28,7 +35,12 @@ export async function createEmployee(data: { name: string; role: string; phone?:
 }
 
 export async function updateEmployee(id: number, data: { name: string; role: string; phone?: string; dailyWage: number; status: string }) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    if (employee?.branchId !== branchId) return { error: "Employee not found" };
+
     await prisma.employee.update({
       where: { id },
       data: {
@@ -48,7 +60,12 @@ export async function updateEmployee(id: number, data: { name: string; role: str
 }
 
 export async function deleteEmployee(id: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    if (employee?.branchId !== branchId) return { error: "Employee not found" };
+
     await prisma.employee.update({
       where: { id },
       data: { status: "INACTIVE" },
@@ -62,22 +79,29 @@ export async function deleteEmployee(id: number) {
 }
 
 export async function getAttendancesByDate(date: Date) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   // normalize date to start of day
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
 
   return prisma.attendance.findMany({
-    where: { date: startOfDay },
+    where: { 
+      date: startOfDay,
+      employee: { branchId }
+    },
   });
 }
 
 export async function markAttendance(employeeId: number, date: Date, status: "PRESENT" | "HALF_DAY" | "ABSENT") {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
 
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) return { error: "Employee not found" };
+    if (!employee || employee.branchId !== branchId) return { error: "Employee not found" };
 
     let calculatedWage = 0;
     if (status === "PRESENT") calculatedWage = employee.dailyWage;
@@ -111,8 +135,10 @@ export async function markAttendance(employeeId: number, date: Date, status: "PR
 }
 
 export async function getSalarySummary() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   const employees = await prisma.employee.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", branchId },
     include: {
       attendances: true,
       payouts: true,
@@ -139,11 +165,13 @@ export async function getSalarySummary() {
 }
 
 export async function paySalary(employeeId: number, amount: number, month: string, notes?: string) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
     if (amount <= 0) return { error: "Amount must be greater than 0" };
 
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) return { error: "Employee not found" };
+    if (!employee || employee.branchId !== branchId) return { error: "Employee not found" };
 
     await prisma.$transaction(async (tx) => {
       // Create payout record
@@ -163,6 +191,7 @@ export async function paySalary(employeeId: number, amount: number, month: strin
           description: `Salary Payout - ${employee.name} (${month})`,
           category: "Staff Salary",
           date: new Date(),
+          branchId,
         },
       });
     });

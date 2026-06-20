@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function createExpense(formData: FormData) {
   const amountStr = formData.get("amount") as string;
@@ -15,6 +16,9 @@ export async function createExpense(formData: FormData) {
     return { error: "Amount, Description, Category, and Date are required." };
   }
 
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     await prisma.expense.create({
       data: {
@@ -22,6 +26,7 @@ export async function createExpense(formData: FormData) {
         description,
         category,
         date: new Date(dateStr),
+        branchId,
       },
     });
   } catch (error) {
@@ -35,7 +40,12 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function deleteExpense(id: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   try {
+    const expense = await prisma.expense.findUnique({ where: { id } });
+    if (expense?.branchId !== branchId) return { error: "Expense not found" };
+
     await prisma.expense.delete({
       where: { id },
     });

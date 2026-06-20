@@ -58,10 +58,10 @@ function printKitchenCopy(opts: {
   orderMode: string;
 }) {
   const win = window.open("", "_blank", "width=360,height=640,toolbar=0,scrollbars=0,status=0,menubar=0");
-  if (!win) {
-    alert("⚠️ Popup blocked! Allow popups for this site to print kitchen copy.");
-    return;
-  }
+    if (!win) {
+      toast.warning("⚠️ Popup blocked! Allow popups for this site to print kitchen copy.");
+      return;
+    }
   const rows = opts.items
     .map(i => `<tr><td class="qty">${i.qty}×</td><td class="name">${i.name.toUpperCase()}</td></tr>`)
     .join("");
@@ -102,7 +102,7 @@ function printKitchenCopy(opts: {
   setTimeout(() => { win.print(); win.close(); }, 450);
 }
 
-export function BillingCart() {
+export function BillingCart({ cashierName = "Admin" }: { cashierName?: string }) {
   const [query, setQuery] = useState("");
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -130,6 +130,7 @@ export function BillingCart() {
   const [printKotData, setPrintKotData] = useState<KOTData | null>(null);
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
   const [printKOT, setPrintKOT] = useState(true);
+  const [applyGst, setApplyGst] = useState(true);
 
   const router = useRouter();
 
@@ -275,7 +276,7 @@ export function BillingCart() {
   };
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const gstAmount = parseFloat(cart.reduce((acc, item) => acc + (item.price * item.qty * (item.gstRate || 0)) / 100, 0).toFixed(2));
+  const gstAmount = applyGst ? parseFloat(cart.reduce((acc, item) => acc + (item.price * item.qty * (item.gstRate || 0)) / 100, 0).toFixed(2)) : 0;
   const grandTotal = parseFloat(Math.max(0, subtotal + gstAmount - discountAmount).toFixed(2));
 
   const handleCheckout = (paymentMethod: string, printBill: boolean) => {
@@ -384,7 +385,7 @@ export function BillingCart() {
           {/* Right: cashier + time */}
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: S.muted }}>
-              <User className="h-3.5 w-3.5" /> Cashier: Admin
+              <User className="h-3.5 w-3.5" /> Cashier: {cashierName}
             </div>
             <div className="flex items-center gap-1.5 text-xs font-bold tabular-nums" style={{ color: S.txt }}>
               <Clock className="h-3.5 w-3.5" style={{ color: S.muted }} />
@@ -1242,7 +1243,15 @@ export function BillingCart() {
                         <input type="checkbox" checked={printKOT} onChange={(e) => setPrintKOT(e.target.checked)} className="rounded" style={{ accentColor: S.violet }} />
                         <span className="font-black">Include KOT (Kitchen Copy)</span>
                       </label>
-                      <p className="mt-1 opacity-80 pl-5">If unchecked, it will only print the customer bill.</p>
+                      <p className="mt-1 opacity-80 pl-5 mb-2">If unchecked, it will only print the customer bill.</p>
+                      
+                      <div className="h-[1px] w-full bg-[rgba(175,23,99,0.15)] my-2"></div>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={applyGst} onChange={(e) => setApplyGst(e.target.checked)} className="rounded" style={{ accentColor: S.violet }} />
+                        <span className="font-black">Apply GST (Taxes)</span>
+                      </label>
+                      <p className="mt-1 opacity-80 pl-5">If unchecked, tax will be excluded from the final total.</p>
                     </div>
                   </div>
                 </div>

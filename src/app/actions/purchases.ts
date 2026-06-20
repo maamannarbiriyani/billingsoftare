@@ -2,9 +2,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getActiveBranchId } from "@/lib/auth";
 
 export async function getSuppliers() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   const suppliers = await prisma.supplier.findMany({
+    where: { branchId },
     orderBy: { name: "asc" },
   });
   return suppliers;
@@ -12,9 +16,11 @@ export async function getSuppliers() {
 
 export async function createSupplier(data: { name: string; phone?: string; gstNumber?: string; address?: string }) {
   if (!data.name) return { error: "Supplier name is required" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
   
   try {
-    await prisma.supplier.create({ data });
+    await prisma.supplier.create({ data: { ...data, branchId } });
     revalidatePath("/purchases");
     return { success: true };
   } catch (error) {
@@ -24,7 +30,10 @@ export async function createSupplier(data: { name: string; phone?: string; gstNu
 }
 
 export async function getPurchaseInvoices() {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return [];
   return await prisma.purchaseInvoice.findMany({
+    where: { branchId },
     orderBy: { createdAt: "desc" },
     include: {
       supplier: true,
@@ -50,11 +59,15 @@ export async function createPurchaseInvoice(
   if (items.length === 0) return { error: "No items provided" };
   if (!invoiceNumber) return { error: "Invoice number is required" };
 
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       // Create the purchase invoice
       const invoice = await tx.purchaseInvoice.create({
         data: {
+          branchId,
           supplierId,
           invoiceNumber,
           total,
@@ -70,8 +83,8 @@ export async function createPurchaseInvoice(
 
       // Update product stock and their new cost price
       for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
+        await tx.product.updateMany({
+          where: { id: item.productId, branchId },
           data: {
             stock: { increment: item.qty },
             costPrice: item.costPrice // Optionally update to latest cost price
