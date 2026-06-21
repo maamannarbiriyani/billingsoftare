@@ -14,6 +14,7 @@ export async function searchProductsForBilling(query: string) {
   const products = await prisma.product.findMany({
     where: {
       branchId,
+      isActive: true,
       OR: [{ name: { contains: query } }, { barcode: { contains: query } }],
     },
     take: 10,
@@ -26,7 +27,7 @@ export async function getAllProductsForBilling() {
   const branchId = await getActiveBranchId();
   if (!branchId) return [];
   const products = await prisma.product.findMany({
-    where: { branchId },
+    where: { branchId, isActive: true },
     orderBy: { name: 'asc' }
   });
   return products;
@@ -99,6 +100,10 @@ export async function createInvoice(
   const branchId = await getActiveBranchId();
   if (!branchId) return { error: "No active branch selected" };
 
+  // Retry the whole transaction a few times: if two checkouts race for the same
+  // invoice number, the loser hits a P2002 unique conflict and simply recomputes.
+  const MAX_ATTEMPTS = 4;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       // 0. Stock validation — prevent overselling
@@ -135,11 +140,14 @@ export async function createInvoice(
         }
       }
 
-      // 2. Generate unique sequential invoice number (INV-YYYYMMDD-NNNN)
+      // 2. Generate unique sequential invoice number (INV-YYYYMMDD-NNNN).
+      // invoiceNumber is GLOBALLY unique, so the sequence must be computed across
+      // all branches for the day — not per-branch — otherwise two branches (or
+      // legacy null-branch invoices) would both produce -0001 and collide.
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const prefix = `INV-${dateStr}-`;
       const lastInvoice = await tx.invoice.findFirst({
-        where: { invoiceNumber: { startsWith: prefix }, branchId },
+        where: { invoiceNumber: { startsWith: prefix } },
         orderBy: { invoiceNumber: "desc" },
         select: { invoiceNumber: true },
       });
@@ -236,9 +244,19 @@ export async function createInvoice(
 
     return { success: true, invoiceId: result.id, invoiceNumber: result.invoiceNumber };
   } catch (error) {
+    // Invoice-number collision (concurrent checkout): retry with a fresh number.
+    if ((error as { code?: string })?.code === "P2002" && attempt < MAX_ATTEMPTS) {
+      continue;
+    }
     console.error("Invoice Creation Error:", error);
-    return { error: "Failed to complete transaction" };
+    // Surface the real reason (stock/customer/validation messages are user-friendly;
+    // DB/connection errors are at least diagnosable instead of a blank "Failed").
+    const message = error instanceof Error ? error.message : "Failed to complete transaction";
+    return { error: message };
   }
+  }
+
+  return { error: "Could not generate a unique invoice number. Please try again." };
 }
 
 export async function saveKOT(cart: CartItem[], orderId?: number) {

@@ -51,16 +51,8 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {/* Settings Form */}
-      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-border/50">
-          <h2 className="section-title">Store Configuration</h2>
-          <p className="section-subtitle">Update your store information and receipt settings</p>
-        </div>
-        <div className="p-6">
-          <SettingsClient initialSetting={setting} />
-        </div>
-      </div>
+      {/* Settings Sections */}
+      <SettingsClient initialSetting={setting} />
     </div>
   );
 }

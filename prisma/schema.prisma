@@ -33,6 +33,7 @@ model Product {
   unit          String        @default("pcs") // pcs, kg, g, L, ml, box, dozen
   hsnCode       String?       // HSN/SAC code for GST compliance
   imageUrl      String?
+  isActive      Boolean       @default(true) // false = archived (hidden from billing, kept for invoice history)
   invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
   orderItems    OrderItem[]

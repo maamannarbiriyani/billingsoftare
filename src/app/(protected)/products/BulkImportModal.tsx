@@ -81,32 +81,32 @@ export function BulkImportModal({ onClose }: BulkImportModalProps) {
       <div className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-muted/50">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/50">
           <h2 className="text-xl font-bold text-foreground">Bulk Import Products</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Body */}
         <div className="p-6 space-y-6">
-          <div className="flex justify-between items-center bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+          <div className="flex justify-between items-center bg-indigo-50/50 dark:bg-indigo-500/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20">
              <div>
-               <h3 className="text-sm font-semibold text-indigo-900">Need a template?</h3>
-               <p className="text-xs text-indigo-700/70 mt-0.5">Download our standard CSV format.</p>
+               <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Need a template?</h3>
+               <p className="text-xs text-indigo-700/70 dark:text-indigo-300/60 mt-0.5">Download our standard CSV format.</p>
              </div>
-             <button 
+             <button
                onClick={downloadTemplate}
-               className="text-sm font-semibold text-indigo-700 bg-card border border-indigo-200 shadow-sm px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
+               className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 bg-card border border-indigo-200 dark:border-indigo-500/30 shadow-sm px-3 py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5"
              >
                <Download className="h-4 w-4" /> Template
              </button>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-700">Upload CSV File</label>
-            
-            <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${file ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300 hover:border-indigo-400 hover:bg-muted'}`}>
+            <label className="input-label">Upload CSV File</label>
+
+            <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${file ? 'border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10' : 'border-border hover:border-indigo-400 hover:bg-muted'}`}>
               <input
                 type="file"
                 accept=".csv"
@@ -122,9 +122,9 @@ export function BulkImportModal({ onClose }: BulkImportModalProps) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-muted-foreground">
-                  <FileText className="h-10 w-10 mb-3 text-gray-400" />
+                  <FileText className="h-10 w-10 mb-3 text-muted-foreground/70" />
                   <p className="text-sm font-medium">Click or drag your CSV file here</p>
-                  <p className="text-xs text-gray-400 mt-1">Only .csv files are supported</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Only .csv files are supported</p>
                 </div>
               )}
             </div>
@@ -132,18 +132,18 @@ export function BulkImportModal({ onClose }: BulkImportModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-muted border-t border-gray-100 flex gap-3">
+        <div className="px-6 py-4 bg-muted border-t border-border flex gap-3">
           <button
             onClick={onClose}
             disabled={isPending}
-            className="flex-1 px-4 py-2 text-sm font-semibold text-gray-700 bg-card border border-gray-300 rounded-lg shadow-sm hover:bg-muted transition-colors"
+            className="btn btn-secondary flex-1"
           >
             Cancel
           </button>
           <button
             onClick={processImport}
             disabled={!file || isPending}
-            className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="btn btn-primary flex-1 disabled:cursor-not-allowed"
           >
             {isPending ? (
               <>

@@ -27,19 +27,19 @@ export function Pagination({ totalPages }: { totalPages: number }) {
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage <= 1}
-        className="flex h-10 w-10 items-center justify-center rounded-md border border-gray-300  bg-white  text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-card transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
 
-      <div className="text-sm text-gray-700 ">
-        Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+      <div className="text-sm text-muted-foreground">
+        Page <strong className="text-foreground">{currentPage}</strong> of <strong className="text-foreground">{totalPages}</strong>
       </div>
 
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage >= totalPages}
-        className="flex h-10 w-10 items-center justify-center rounded-md border border-gray-300  bg-white  text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-card transition-colors"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

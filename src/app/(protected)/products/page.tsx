@@ -23,7 +23,7 @@ export default async function ProductsPage({
   const itemsPerPage = 10;
   const skip = (currentPage - 1) * itemsPerPage;
 
-  const whereClause: any = { AND: [] };
+  const whereClause: any = { AND: [{ isActive: true }] };
   if (query) {
     whereClause.AND.push({ OR: [{ name: { contains: query } }, { barcode: { contains: query } }] });
   }

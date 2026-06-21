@@ -158,13 +158,42 @@ export async function deleteProduct(id: number) {
     const product = await prisma.product.findUnique({ where: { id } });
     if (product?.branchId !== branchId) return { error: "Product not found" };
 
-    await prisma.product.delete({
-      where: { id },
-    });
+    // Hard-delete only if the product has never been referenced. If it has been
+    // used in invoices/orders/purchases, archive it instead so the historical
+    // records stay intact but it disappears from billing and the product list.
+    const [invoiceItems, orderItems, purchaseItems, recipeItems] = await Promise.all([
+      prisma.invoiceItem.count({ where: { productId: id } }),
+      prisma.orderItem.count({ where: { productId: id } }),
+      prisma.purchaseItem.count({ where: { productId: id } }),
+      prisma.recipeItem.count({ where: { productId: id } }),
+    ]);
+    const isReferenced = invoiceItems + orderItems + purchaseItems + recipeItems > 0;
+
+    if (isReferenced) {
+      await prisma.product.update({ where: { id }, data: { isActive: false } });
+      revalidatePath("/products");
+      revalidatePath("/billing");
+      revalidatePath("/inventory");
+      return { success: true, archived: true };
+    }
+
+    await prisma.product.delete({ where: { id } });
     revalidatePath("/products");
+    revalidatePath("/billing");
+    revalidatePath("/inventory");
+    return { success: true };
   } catch (error: any) {
+    // Fallback: any remaining FK conflict -> archive instead of hard failing.
     if (error.code === "P2003") {
-      return { error: "Cannot delete product because it has been used in sales or orders." };
+      try {
+        await prisma.product.update({ where: { id }, data: { isActive: false } });
+        revalidatePath("/products");
+        revalidatePath("/billing");
+        revalidatePath("/inventory");
+        return { success: true, archived: true };
+      } catch {
+        return { error: "Cannot delete or archive this product." };
+      }
     }
     return { error: "Failed to delete product." };
   }

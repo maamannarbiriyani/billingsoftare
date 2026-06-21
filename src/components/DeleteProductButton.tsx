@@ -17,6 +17,8 @@ export function DeleteProductButton({ id }: { id: number }) {
         const res = await deleteProduct(id);
         if (res?.error) {
           toast.error(res.error);
+        } else if (res?.archived) {
+          toast.success("Product archived — hidden from billing (sales history kept)");
         } else {
           toast.success("Product deleted successfully");
         }

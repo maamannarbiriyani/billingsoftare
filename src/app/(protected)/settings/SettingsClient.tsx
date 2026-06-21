@@ -88,16 +88,17 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
   };
 
   return (
-    <>
+    <div className="space-y-6">
       {/* Shop Settings */}
-      <section className="bg-card  shadow rounded-xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-border  bg-muted  flex items-center gap-2">
-          <Store className="h-5 w-5 text-muted-foreground " />
+      <section className="card overflow-hidden">
+        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+            <Store className="h-5 w-5 text-muted-foreground" />
+          </div>
           <div>
-            <h2 className="text-lg font-medium text-foreground ">Shop Details</h2>
-            <p className="text-sm text-muted-foreground  mt-1">
-              Update your store's information. This data will be printed on all
-              generated invoices.
+            <h2 className="section-title">Shop Details</h2>
+            <p className="section-subtitle">
+              Update your store&apos;s information. This data is printed on all generated invoices.
             </p>
           </div>
         </div>
@@ -107,50 +108,44 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
       </section>
 
       {/* Backup & Restore Section */}
-      <section className="bg-card  shadow rounded-xl overflow-hidden mt-8">
-        <div className="px-6 py-5 border-b border-border  bg-muted ">
-          <h2 className="text-lg font-medium text-foreground ">
-            Database Backup & Restore
-          </h2>
-          <p className="text-sm text-muted-foreground  mt-1">
-            Download a copy of your entire database for safekeeping, or upload a
-            backup to restore your data.
-          </p>
+      <section className="card overflow-hidden">
+        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+            <Download className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="section-title">Database Backup &amp; Restore</h2>
+            <p className="section-subtitle">
+              Download a copy of your entire database for safekeeping, or restore from a backup.
+            </p>
+          </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Backup */}
-          <div className="border border-border  rounded-lg p-5 flex flex-col items-center text-center">
-            <div className="h-12 w-12 bg-indigo-100  text-indigo-600  rounded-full flex items-center justify-center mb-4">
+          <div className="card-flat p-5 flex flex-col items-center text-center">
+            <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4">
               <Download className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-semibold text-foreground  mb-2">
-              Backup Data
-            </h3>
-            <p className="text-sm text-muted-foreground  mb-4 flex-1">
-              Download your complete database file (.sqlite). Keep this file
-              safe on a USB drive or cloud storage.
+            <h3 className="text-base font-bold text-foreground mb-2">Backup Data</h3>
+            <p className="text-sm text-muted-foreground mb-5 flex-1">
+              Download your complete database file. Keep it safe on a USB drive or cloud storage.
             </p>
-            <button
-              onClick={handleBackup}
-              className="w-full inline-flex justify-center items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
-            >
+            <button onClick={handleBackup} className="btn btn-primary w-full">
               <Download className="h-4 w-4" /> Download Backup
             </button>
           </div>
 
           {/* Restore */}
-          <div className="border border-border  rounded-lg p-5 flex flex-col items-center text-center">
-            <div className="h-12 w-12 bg-red-100  text-red-600  rounded-full flex items-center justify-center mb-4">
+          <div className="card-flat p-5 flex flex-col items-center text-center">
+            <div className="h-12 w-12 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mb-4">
               <Upload className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-semibold text-foreground  mb-2">
-              Restore Data
-            </h3>
-            <p className="text-sm text-muted-foreground  mb-4 flex-1">
+            <h3 className="text-base font-bold text-foreground mb-2">Restore Data</h3>
+            <p className="text-sm text-muted-foreground mb-5 flex-1">
               Upload a previous backup file to restore your system.{" "}
-              <strong className="text-red-600 ">
-                Warning: Overwrites current data.
+              <strong className="text-red-600 dark:text-red-400">
+                Warning: overwrites current data.
               </strong>
             </p>
 
@@ -165,7 +160,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isRestoring}
-              className="w-full inline-flex justify-center items-center gap-2 rounded-md bg-card  px-4 py-2 text-sm font-medium text-red-600  border border-red-200  shadow-sm hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="btn btn-danger w-full"
             >
               <Upload className="h-4 w-4" />
               {isRestoring ? "Restoring..." : "Upload & Restore"}
@@ -175,97 +170,91 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
         {restoreMessage && (
           <div
-            className={`p-4 border-t ${restoreMessage.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}
+            className={`flex items-center gap-2 px-6 py-4 border-t text-sm font-medium ${
+              restoreMessage.type === "success"
+                ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"
+            }`}
           >
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              <p className="text-sm font-medium">{restoreMessage.text}</p>
-            </div>
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <p>{restoreMessage.text}</p>
           </div>
         )}
       </section>
 
       {/* User Management Section */}
-      <section className="bg-card  shadow rounded-xl overflow-hidden mt-8">
-        <div className="px-6 py-5 border-b border-border  bg-muted flex items-center justify-between">
+      <section className="card">
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-medium text-foreground ">User Management (RBAC)</h2>
-            <p className="text-sm text-muted-foreground  mt-1">
+            <h2 className="section-title">User Management (RBAC)</h2>
+            <p className="section-subtitle">
               Add or remove staff accounts and manage permissions (Admin vs Cashier).
             </p>
           </div>
-          <button
-            onClick={() => router.push('/settings/users')}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
-          >
+          <button onClick={() => router.push('/settings/users')} className="btn btn-secondary flex-shrink-0">
             Manage Users
           </button>
         </div>
       </section>
 
       {/* Branch Management Section */}
-      <section className="bg-card shadow rounded-xl overflow-hidden mt-8">
-        <div className="px-6 py-5 border-b border-border bg-muted flex items-center justify-between">
+      <section className="card">
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-medium text-foreground">Branch Management</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h2 className="section-title">Branch Management</h2>
+            <p className="section-subtitle">
               Add and manage store branches (locations, phone numbers, addresses).
             </p>
           </div>
-          <button
-            onClick={() => router.push('/settings/branches')}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors"
-          >
+          <button onClick={() => router.push('/settings/branches')} className="btn btn-secondary flex-shrink-0">
             <GitBranch className="h-4 w-4" /> Manage Branches
           </button>
         </div>
       </section>
 
       {/* Owner Portal Section */}
-      <section className="bg-card shadow rounded-xl overflow-hidden mt-8">
-        <div className="px-6 py-5 border-b border-border bg-muted flex items-center gap-3">
-          <BarChart3 className="h-5 w-5 text-blue-500" />
+      <section className="card overflow-hidden">
+        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+            <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          </div>
           <div>
-            <h2 className="text-lg font-medium text-foreground">Owner Portal Access</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h2 className="section-title">Owner Portal Access</h2>
+            <p className="section-subtitle">
               Set the username and password the business owner uses to log in at <strong>/owner</strong>.
             </p>
           </div>
         </div>
         <div className="p-6">
           {ownerMsg && (
-            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border mb-4 ${ownerMsg.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border mb-4 ${ownerMsg.type === "success" ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"}`}>
               {ownerMsg.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
               {ownerMsg.text}
             </div>
           )}
           <form action={handleOwnerAccount} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="input-label text-sm font-medium text-foreground block mb-1.5">Username</label>
+              <label className="input-label">Username</label>
               <input
                 type="text"
                 name="username"
                 required
                 placeholder="e.g. owner"
-                className="input-field w-full"
+                className="input-field"
               />
             </div>
             <div>
-              <label className="input-label text-sm font-medium text-foreground block mb-1.5">Password</label>
+              <label className="input-label">Password</label>
               <input
                 type="password"
                 name="password"
                 required
                 placeholder="Min 6 characters"
-                className="input-field w-full"
+                className="input-field"
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={ownerPending}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
-              >
+              <button type="submit" disabled={ownerPending} className="btn btn-primary">
                 {ownerPending ? "Saving..." : "Save Owner Account"}
               </button>
             </div>
@@ -285,6 +274,6 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
         onCancel={cancelRestore}
         isLoading={isRestoring}
       />
-    </>
+    </div>
   );
 }
