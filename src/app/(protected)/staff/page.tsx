@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 export default async function StaffPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  const userRole = session.role || "Cashier";
+  const userRole = (session.role as string) || "Cashier";
 
   const employees = await getSalarySummary();
 

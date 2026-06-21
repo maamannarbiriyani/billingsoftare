@@ -64,15 +64,15 @@ export async function requireAdmin() {
   }
 }
 
-export async function getActiveBranchId() {
+export async function getActiveBranchId(): Promise<number | null> {
   const session = await getSession();
   const cookieStore = await cookies();
-  
+
   if (!session) return null;
 
   // If Cashier, return their locked branch ID
   if (session.role === "Cashier") {
-    return session.branchId || null; // Ensure User table has branchId
+    return (session.branchId as number) || null; // Ensure User table has branchId
   }
 
   // If Admin, check if they explicitly selected a branch

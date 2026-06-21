@@ -1,6 +1,7 @@
 "use client";
 
 import { UtensilsCrossed } from "lucide-react";
+import { toast } from "sonner";
 
 type Item = { product: { name: string }; qty: number };
 

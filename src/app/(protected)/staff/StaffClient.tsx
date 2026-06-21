@@ -190,7 +190,7 @@ export function StaffClient({ initialEmployees, userRole = "Admin" }: { initialE
         {tabs.map(t => (
           <button
             key={t.id}
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(t.id as "ROSTER" | "ATTENDANCE" | "SALARY")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === t.id
                 ? "bg-card text-primary shadow-sm"

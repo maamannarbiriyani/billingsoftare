@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { updateSettings } from "@/app/actions/settings";
 import { Save, Store, ShieldCheck, MapPin, Printer, AlertCircle, CheckCircle, Phone } from "lucide-react";
+import { toast } from "sonner";
 
 type ShopSettingsFormProps = {
   initialData?: {
