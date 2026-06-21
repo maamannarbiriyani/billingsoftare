@@ -30,6 +30,7 @@ export function Header({
       {/* Hamburger / Menu Toggle */}
       {hamburgerClass && (
         <button
+          suppressHydrationWarning
           onClick={onOpenSidebar}
           className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${hamburgerClass}`}
           style={{ color: "var(--muted-foreground)" }}
@@ -54,6 +55,7 @@ export function Header({
             style={{ color: "var(--muted-foreground)" }}
           />
           <input
+            suppressHydrationWarning
             type="text"
             placeholder="Search..."
             className="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg transition-all outline-none"
@@ -83,6 +85,7 @@ export function Header({
           <div className="flex items-center mr-2">
             <Store className="h-4 w-4 mr-1.5 text-muted-foreground" />
             <select
+              suppressHydrationWarning
               value={activeBranchId || branches[0]?.id || ""}
               onChange={(e) => setActiveBranch(Number(e.target.value))}
               className="bg-transparent text-sm font-medium outline-none cursor-pointer"
@@ -104,6 +107,7 @@ export function Header({
 
         {/* Notification Bell */}
         <button
+          suppressHydrationWarning
           className="relative p-1.5 rounded-lg transition-colors"
           style={{ color: "var(--muted-foreground)" }}
           onMouseEnter={(e) => {
@@ -147,6 +151,7 @@ export function Header({
 
           {/* Logout */}
           <button
+            suppressHydrationWarning
             onClick={() => logout()}
             className="ml-1 p-1.5 rounded-lg transition-colors"
             title="Sign out"
