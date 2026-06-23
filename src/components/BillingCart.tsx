@@ -74,6 +74,11 @@ const S = {
   amberLo:   "var(--warning-dim)",
   cyan:      "var(--cyan)",
   cyanLo:    "var(--cyan-dim)",
+  // Adaptive fills — flip automatically between light/dark
+  input2:    "var(--fill-input)",
+  panel:     "var(--fill-panel)",
+  subtle:    "var(--fill-subtle)",
+  subtleHi:  "var(--fill-subtle-hi)",
 };
 
 // ─── Kitchen receipt — prints via hidden iframe (no popup blocker) ──
@@ -140,7 +145,7 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
     >
       <div
         className="h-24 w-full flex items-center justify-center overflow-hidden relative pointer-events-none"
-        style={{ background: "rgba(0,0,0,0.02)", borderBottom: `1px solid ${S.border}` }}
+        style={{ background: S.subtle, borderBottom: `1px solid ${S.border}` }}
       >
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
@@ -174,7 +179,7 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
               className="p-1 rounded-lg transition-colors"
               style={inCart
                 ? { background: S.violet, color: "#fff" }
-                : { background: "rgba(0,0,0,0.06)", color: S.muted }
+                : { background: S.subtleHi, color: S.muted }
               }
             >
               <Plus className="h-3.5 w-3.5" />
@@ -557,7 +562,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             <div className="p-3 flex-shrink-0" style={{ borderBottom: `1px solid ${S.border}` }}>
               <div
                 className="flex rounded-lg overflow-hidden p-0.5 gap-0.5"
-                style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}` }}
+                style={{ background: S.subtle, border: `1px solid ${S.border}` }}
               >
                 {[
                   { label: "Products", mode: "PRODUCTS" as const },
@@ -616,7 +621,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                       style={
                         isActive
                           ? { background: "rgba(139,92,246,0.3)", color: "#c4b5fd" }
-                          : { background: "rgba(0,0,0,0.05)", color: S.dim }
+                          : { background: S.subtleHi, color: S.dim }
                       }
                     >
                       {count}
@@ -648,16 +653,16 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     onClick={action}
                     className="flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-all"
                     style={{
-                      background: "rgba(0,0,0,0.03)",
+                      background: S.subtle,
                       border: `1px solid ${S.border}`,
                       color: S.muted,
                     }}
                     onMouseEnter={e => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)";
+                      (e.currentTarget as HTMLButtonElement).style.background = S.subtleHi;
                       (e.currentTarget as HTMLButtonElement).style.color = S.txt;
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.03)";
+                      (e.currentTarget as HTMLButtonElement).style.background = S.subtle;
                       (e.currentTarget as HTMLButtonElement).style.color = S.muted;
                     }}
                   >
@@ -681,7 +686,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   autoFocus
                   className="w-full pl-10 pr-10 py-2.5 text-sm font-semibold rounded-xl transition-all outline-none"
                   style={{
-                    background: "rgba(0,0,0,0.04)",
+                    background: S.subtle,
                     border: `1px solid ${S.borderHi}`,
                     color: S.txt,
                     caretColor: S.violet,
@@ -838,7 +843,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
                     if (isEditing) {
                       return (
-                        <div key={table.id} className="relative p-4 rounded-xl text-left border-2 border-violet-500 shadow-lg bg-white z-10 flex flex-col gap-2">
+                        <div key={table.id} className="relative p-4 rounded-xl text-left border-2 border-violet-500 shadow-lg z-10 flex flex-col gap-2" style={{ background: S.card }}>
                           <input 
                             autoFocus
                             value={editingTableName}
@@ -854,10 +859,11 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                                 setEditingTableId(null);
                               }
                             }}
-                            className="w-full text-sm font-bold border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500"
+                            className="w-full text-sm font-bold rounded px-2 py-1 outline-none focus:border-violet-500"
+                            style={{ background: S.input2, border: `1px solid ${S.border}`, color: S.txt }}
                           />
                           <div className="flex gap-2">
-                            <button onClick={() => setEditingTableId(null)} className="flex-1 py-1 rounded bg-slate-100 text-slate-600 text-xs font-bold">Cancel</button>
+                            <button onClick={() => setEditingTableId(null)} className="flex-1 py-1 rounded text-xs font-bold" style={{ background: S.subtle, color: S.muted }}>Cancel</button>
                             <button 
                               onClick={() => {
                                 if (!editingTableName.trim()) return;
@@ -897,14 +903,15 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         }}
                       >
                         {/* Hover Actions */}
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/80 rounded backdrop-blur-sm p-0.5">
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 rounded backdrop-blur-sm p-0.5" style={{ background: S.subtleHi }}>
                           <div 
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditingTableId(table.id);
                               setEditingTableName(table.name);
                             }}
-                            className="p-1.5 rounded hover:bg-slate-200 text-slate-500 transition-colors"
+                            className="p-1.5 rounded transition-colors hover:opacity-80"
+                            style={{ color: S.muted }}
                           >
                             <Pencil className="h-3 w-3" />
                           </div>
@@ -1008,7 +1015,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   placeholder="Walk-in Customer"
                   className="w-full pl-8 pr-3 py-2 text-xs font-semibold rounded-lg outline-none transition-all"
                   style={{
-                    background: "rgba(0,0,0,0.04)",
+                    background: S.subtle,
                     border: `1px solid ${S.border}`,
                     color: S.txt,
                   }}
@@ -1027,7 +1034,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                           className="w-full text-left px-3 py-2.5 text-xs font-semibold transition-colors"
                           style={{ color: S.txt, borderBottom: `1px solid ${S.border}` }}
                           onClick={() => { setCustomerName(c.name); setCustomerPhone(c.phone || ""); setShowCustomerDropdown(false); }}
-                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.05)"}
+                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = S.subtleHi}
                           onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
                         >
                           {c.name}
@@ -1062,7 +1069,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                       onChange={e => setKhataPayAmount(e.target.value)}
                       placeholder="Amount to collect"
                       className="flex-1 rounded-lg px-2 py-1 text-xs font-bold outline-none transition-all"
-                      style={{ background: "rgba(0,0,0,0.05)", border: `1px solid ${S.border}`, color: S.txt }}
+                      style={{ background: S.subtleHi, border: `1px solid ${S.border}`, color: S.txt }}
                       onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.rose}`}
                       onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.border}`}
                     />
@@ -1099,7 +1106,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 >
                   <div
                     className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                    style={{ background: "rgba(0,0,0,0.03)", border: `1px solid ${S.border}` }}
+                    style={{ background: S.subtle, border: `1px solid ${S.border}` }}
                   >
                     <ShoppingCart className="h-7 w-7" style={{ color: S.dim }} />
                   </div>
@@ -1157,7 +1164,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         {/* Qty stepper */}
                         <div
                           className="flex items-center rounded-lg overflow-hidden"
-                          style={{ border: `1px solid ${S.border}`, background: "rgba(0,0,0,0.03)" }}
+                          style={{ border: `1px solid ${S.border}`, background: S.subtle }}
                         >
                           <button
                             onClick={() => updateQty(item.productId, -1)}
@@ -1199,7 +1206,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             <div className="flex-shrink-0" style={{ borderTop: `1px solid ${S.border}` }}>
 
               {/* Breakdown */}
-              <div className="px-4 py-3 space-y-2" style={{ background: "rgba(0,0,0,0.02)" }}>
+              <div className="px-4 py-3 space-y-2" style={{ background: S.subtle }}>
                 <div className="flex justify-between text-sm">
                   <span className="font-semibold" style={{ color: S.muted }}>Subtotal</span>
                   <span className="font-bold" style={{ color: S.txt }}>₹{subtotal.toFixed(2)}</span>
@@ -1218,7 +1225,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     placeholder="0.00"
                     className="w-24 text-right rounded-lg px-2 py-1.5 text-sm font-bold outline-none transition-all"
                     style={{
-                      background: "rgba(0,0,0,0.05)",
+                      background: S.subtleHi,
                       border: `1px solid ${S.border}`,
                       color: S.txt,
                     }}
@@ -1287,7 +1294,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   onClick={() => setShowNewTableModal(false)}
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: S.muted }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)"}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = S.subtleHi}
                   onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
                 >
                   <X className="h-4 w-4" />
@@ -1309,7 +1316,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     }
                   }}
                   className="w-full rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all mb-5"
-                  style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.borderHi}`, color: S.txt }}
+                  style={{ background: S.subtle, border: `1px solid ${S.borderHi}`, color: S.txt }}
                   onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.violet}`}
                   onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.borderHi}`}
                   placeholder="e.g. Table 1, T-5, Balcony A"
@@ -1318,7 +1325,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   <button
                     onClick={() => setShowNewTableModal(false)}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
-                    style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}`, color: S.muted }}
+                    style={{ background: S.subtle, border: `1px solid ${S.border}`, color: S.muted }}
                   >
                     Cancel
                   </button>
@@ -1363,13 +1370,13 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 <button
                   onClick={() => setCheckoutModalOpen(false)}
                   className="p-2.5 rounded-full transition-all hover:rotate-90 duration-300"
-                  style={{ color: S.muted, background: "rgba(0,0,0,0.04)" }}
+                  style={{ color: S.muted, background: S.subtle }}
                   onMouseEnter={e => {
                     (e.currentTarget as HTMLButtonElement).style.background = S.roseLo;
                     (e.currentTarget as HTMLButtonElement).style.color = S.rose;
                   }}
                   onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.04)";
+                    (e.currentTarget as HTMLButtonElement).style.background = S.subtle;
                     (e.currentTarget as HTMLButtonElement).style.color = S.muted;
                   }}
                 >
@@ -1379,7 +1386,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
               <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
                 {/* Left: Summary */}
-                <div className="w-full md:w-5/12 p-8 flex flex-col gap-6" style={{ background: "linear-gradient(to bottom right, #f8fafc, #ffffff)", borderRight: `1px solid ${S.border}` }}>
+                <div className="w-full md:w-5/12 p-8 flex flex-col gap-6" style={{ background: S.panel, borderRight: `1px solid ${S.border}` }}>
                   
                   {/* Total Amount Card */}
                   <div className="rounded-3xl p-6 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${S.violet}, #6d28d9)`, color: "#fff", boxShadow: `0 10px 30px -5px ${S.violetLo}` }}>
@@ -1405,7 +1412,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
                   <div className="space-y-5 pt-4 flex-1" style={{ borderTop: `1px dashed ${S.dim}` }}>
                     {customerName && (
-                      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "rgba(0,0,0,0.03)", border: `1px solid rgba(0,0,0,0.05)` }}>
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: S.subtle, border: `1px solid ${S.border}` }}>
                         <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ background: S.violetLo, color: S.violet }}>
                            <User className="h-5 w-5" />
                         </div>
@@ -1422,7 +1429,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         rows={2}
                         placeholder="Add special instructions here..."
                         className="w-full rounded-2xl px-4 py-3 text-sm font-medium resize-none outline-none transition-all shadow-sm"
-                        style={{ background: "#fff", border: `1px solid ${S.border}`, color: S.txt }}
+                        style={{ background: S.input2, border: `1px solid ${S.border}`, color: S.txt }}
                         onFocus={e => {
                           (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.violet}`;
                           (e.currentTarget as HTMLTextAreaElement).style.boxShadow = `0 0 0 4px ${S.violetLo}`;
@@ -1450,7 +1457,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         onClick={() => setPrintKOT(!printKOT)}
                         className="relative overflow-hidden flex flex-col items-start p-4 rounded-2xl transition-all duration-300 text-left border-2 group"
                         style={{
-                          background: printKOT ? S.emeraldLo : "rgba(0,0,0,0.02)",
+                          background: printKOT ? S.emeraldLo : S.subtle,
                           borderColor: printKOT ? S.emerald : "transparent",
                         }}
                       >
@@ -1473,7 +1480,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         onClick={() => setApplyGst(!applyGst)}
                         className="relative overflow-hidden flex flex-col items-start p-4 rounded-2xl transition-all duration-300 text-left border-2 group"
                         style={{
-                          background: applyGst ? S.violetLo : "rgba(0,0,0,0.02)",
+                          background: applyGst ? S.violetLo : S.subtle,
                           borderColor: applyGst ? S.violet : "transparent",
                         }}
                       >
@@ -1505,7 +1512,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                             onClick={() => setSelectedPaymentMode(mode.method)}
                             className="p-4 rounded-2xl flex flex-col items-center justify-center gap-2.5 transition-all font-bold text-sm group relative overflow-hidden"
                             style={{
-                              background: isSelected ? mode.lo : "#fff",
+                              background: isSelected ? mode.lo : S.input2,
                               border: `2px solid ${isSelected ? mode.accent : S.border}`,
                               color: isSelected ? mode.accent : S.muted,
                               boxShadow: isSelected ? `0 8px 24px -8px ${mode.accent}` : "0 2px 8px -4px rgba(0,0,0,0.05)",
@@ -1540,7 +1547,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                             onClick={() => setSelectedOrderMode(value)}
                             className="p-3 rounded-xl flex flex-col items-center gap-1.5 transition-all text-[10px] font-black group"
                             style={{
-                              background: isSelected ? S.emeraldLo : "#fff",
+                              background: isSelected ? S.emeraldLo : S.input2,
                               border: `1px solid ${isSelected ? S.emerald : S.border}`,
                               color: isSelected ? S.emerald : S.muted,
                               boxShadow: isSelected ? `0 4px 12px -4px ${S.emerald}` : "none",
@@ -1557,13 +1564,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               </div>
 
               {/* Footer Actions */}
-              <div className="p-6 flex gap-4 items-center justify-end" style={{ background: "#fff", borderTop: `1px solid ${S.border}` }}>
+              <div className="p-6 flex gap-4 items-center justify-end" style={{ background: S.surface, borderTop: `1px solid ${S.border}` }}>
                 <button
                   onClick={() => handleCheckout(selectedPaymentMode, false)}
                   disabled={isCheckingOut}
-                  className="px-8 py-4 rounded-2xl font-black text-sm transition-all active:scale-95 disabled:opacity-50 hover:bg-slate-50"
+                  className="px-8 py-4 rounded-2xl font-black text-sm transition-all active:scale-95 disabled:opacity-50"
                   style={{
                     color: S.muted,
+                    background: S.subtle,
                   }}
                 >
                   {isCheckingOut ? "Processing…" : "Settle Only (No Print)"}
