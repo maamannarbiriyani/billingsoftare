@@ -1,0 +1,212 @@
+"use client";
+
+// ─────────────────────────────────────────────────────────────
+// Thermal-printer friendly receipt printing.
+//
+// Prints via a hidden <iframe> (NOT window.open) so popup blockers
+// never interfere. When the browser is launched in Chrome
+// "kiosk printing" mode (--kiosk-printing), window.print() goes
+// straight to the default printer with NO dialog and NO PDF prompt.
+// Otherwise the normal print dialog appears.
+// ─────────────────────────────────────────────────────────────
+
+function wrapReceipt(inner: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
+<style>
+  @page { margin: 0; size: 80mm auto; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 80mm; background: #fff; color: #000; }
+  body { font-family: 'Courier New', monospace; padding: 4px 6px; font-size: 12px; line-height: 1.35; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
+  .store { font-size: 15px; font-weight: 900; }
+  .muted { font-size: 11px; }
+  .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+  .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 10px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: normal; }
+  td { font-size: 12px; padding: 2px 0; vertical-align: top; }
+  .totrow td { padding: 1px 0; }
+  .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+  .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
+  .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
+  .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
+</style></head><body>${inner}</body></html>`;
+}
+
+let printing: Promise<void> = Promise.resolve();
+
+/** Print one receipt's inner HTML. Calls are queued so multiple
+ *  receipts (e.g. KOT + bill) print one after another, never overlapping. */
+export function printReceipt(innerHtml: string): Promise<void> {
+  printing = printing.then(() => printOne(innerHtml));
+  return printing;
+}
+
+function printOne(innerHtml: string): Promise<void> {
+  return new Promise((resolve) => {
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch { /* already gone */ }
+        resolve();
+      }, 600);
+    };
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) { cleanup(); return; }
+
+    doc.open();
+    doc.write(wrapReceipt(innerHtml));
+    doc.close();
+
+    let triggered = false;
+    const triggerPrint = () => {
+      if (triggered) return;
+      triggered = true;
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch { /* ignore */ }
+      cleanup();
+    };
+
+    // Wait for any images (logo) to load before printing.
+    const imgs = Array.from(doc.images || []);
+    if (imgs.length === 0) {
+      setTimeout(triggerPrint, 150);
+    } else {
+      let remaining = imgs.length;
+      const done = () => { if (--remaining <= 0) triggerPrint(); };
+      imgs.forEach((img) => {
+        if (img.complete) done();
+        else { img.onload = done; img.onerror = done; }
+      });
+      // Safety: print anyway if images stall.
+      setTimeout(triggerPrint, 1500);
+    }
+  });
+}
+
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+// ── Customer bill (80mm) ──────────────────────────────────────
+export type BillData = {
+  storeName: string;
+  phone?: string | null;
+  address?: string | null;
+  gstNumber?: string | null;
+  logoUrl?: string;
+  invoiceNumber: string;
+  date?: Date;
+  customerName?: string | null;
+  paymentMethod?: string | null;
+  items: Array<{ name: string; price: number; qty: number }>;
+  subtotal: number;
+  total: number;
+};
+
+export function buildBillHtml(d: BillData): string {
+  const date = (d.date || new Date());
+  const dateStr = date.toLocaleString("en-IN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).replace(",", "");
+
+  const grand = Math.round(d.total);
+
+  const rows = d.items.map((it) => `
+    <tr>
+      <td style="width:34mm" class="">${esc(it.name)}</td>
+      <td style="width:14mm" class="right">${it.price.toFixed(2)}</td>
+      <td style="width:8mm" class="center">${it.qty}</td>
+      <td style="width:18mm" class="right">${(it.price * it.qty).toFixed(2)}</td>
+    </tr>`).join("");
+
+  return `
+    ${d.logoUrl ? `<img class="logo" src="${esc(d.logoUrl)}" alt="">` : ""}
+    <div class="center">
+      <div class="store">${esc(d.storeName)}</div>
+      ${d.phone ? `<div class="muted">Ph: ${esc(d.phone)}</div>` : ""}
+      ${d.address ? `<div class="muted">${esc(d.address)}</div>` : ""}
+      ${d.gstNumber ? `<div class="muted">GSTIN: ${esc(d.gstNumber)}</div>` : ""}
+    </div>
+    <hr class="hr-solid">
+    <div>${dateStr}</div>
+    <div>Bill No: ${esc(d.invoiceNumber)}</div>
+    ${d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
+    <hr class="hr-solid">
+    <table>
+      <thead><tr>
+        <th style="width:34mm">Item</th>
+        <th style="width:14mm" class="right">Price</th>
+        <th style="width:8mm" class="center">Qty</th>
+        <th style="width:18mm" class="right">Value</th>
+      </tr></thead>
+    </table>
+    <hr class="hr">
+    <table><tbody>${rows}</tbody></table>
+    <hr class="hr-solid">
+    <table>
+      <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:22mm">${d.subtotal.toFixed(2)}</td></tr>
+      <tr class="totrow"><td class="right bold">Grand Total:</td><td class="right bold" style="width:22mm">${grand.toFixed(2)}</td></tr>
+    </table>
+    <hr class="hr">
+    <div>Tender: ${grand.toFixed(2)}</div>
+    <div>Payment Mode: ${esc(d.paymentMethod || "Cash")}</div>
+    <hr class="hr-solid">
+    <div class="center" style="padding:6px 0 10px">Thank You! Visit Again!!</div>
+  `;
+}
+
+// ── Kitchen Order Ticket (80mm) ───────────────────────────────
+export type KotHtmlData = {
+  invoiceNumber: string;
+  orderMode?: string;
+  tableName?: string | null;
+  customerName?: string | null;
+  items: Array<{ name: string; qty: number }>;
+};
+
+export function buildKotHtml(d: KotHtmlData): string {
+  const rows = d.items.map((i) =>
+    `<tr><td class="kot-q">${i.qty}×</td><td class="kot-n">${esc(i.name).toUpperCase()}</td></tr>`).join("");
+  const time = new Date().toLocaleString("en-IN", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+  return `
+    <div class="center kot-h1">KOT</div>
+    <div class="center muted">Kitchen Order Ticket</div>
+    <hr class="hr">
+    <div class="center">
+      ${d.orderMode ? `<div class="badge">${esc(d.orderMode.replace(/_/g, " "))}</div><br>` : ""}
+      <strong>${esc(d.invoiceNumber)}</strong><br>
+      ${d.tableName ? `Table: <strong>${esc(d.tableName)}</strong><br>` : ""}
+      ${d.customerName ? `Customer: <strong>${esc(d.customerName)}</strong><br>` : ""}
+      ${time}
+    </div>
+    <hr class="hr-solid">
+    <table>
+      <thead><tr><th>Qty</th><th>Item</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <hr class="hr-solid">
+    <div class="center muted" style="padding:6px 0">*** END KOT ***</div>
+  `;
+}

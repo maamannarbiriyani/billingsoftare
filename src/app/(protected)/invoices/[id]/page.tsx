@@ -68,7 +68,7 @@ export default async function InvoiceReceiptPage({
         <div className="flex gap-2 items-center flex-wrap">
           <EditInvoiceModal invoice={invoice} />
           <ReturnModal invoice={invoice} />
-          <KitchenCopyButton invoice={invoice} storeName={storeName} />
+          <KitchenCopyButton invoice={invoice} />
           <PrintButton />
           <DeleteInvoiceButton invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} />
         </div>

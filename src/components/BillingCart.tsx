@@ -45,7 +45,14 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { KOTPrintReceipt, KOTData } from "./KOTPrintReceipt";
+import { printReceipt, buildBillHtml, buildKotHtml } from "@/lib/print";
+
+type StoreInfo = {
+  storeName: string;
+  phone?: string | null;
+  address?: string | null;
+  gstNumber?: string | null;
+};
 
 // ─── Design tokens ────────────────────────────────────────────────
 const S = {
@@ -69,7 +76,7 @@ const S = {
   cyanLo:    "var(--cyan-dim)",
 };
 
-// ─── Kitchen receipt popup (goes to kitchen printer) ──────────────
+// ─── Kitchen receipt — prints via hidden iframe (no popup blocker) ──
 function printKitchenCopy(opts: {
   invoiceNumber: string;
   items: Array<{ name: string; qty: number }>;
@@ -77,49 +84,7 @@ function printKitchenCopy(opts: {
   customerName?: string;
   orderMode: string;
 }) {
-  const win = window.open("", "_blank", "width=360,height=640,toolbar=0,scrollbars=0,status=0,menubar=0");
-    if (!win) {
-      toast.warning("⚠️ Popup blocked! Allow popups for this site to print kitchen copy.");
-      return;
-    }
-  const rows = opts.items
-    .map(i => `<tr><td class="qty">${i.qty}×</td><td class="name">${i.name.toUpperCase()}</td></tr>`)
-    .join("");
-
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen Copy</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',monospace;width:80mm;padding:6px 8px;font-size:14px;background:#fff;color:#000}
-  @page{margin:0;size:80mm auto}
-  h1{text-align:center;font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:3px;margin-bottom:2px}
-  .sub{text-align:center;font-size:11px;letter-spacing:1px;margin-bottom:6px}
-  .meta{text-align:center;font-size:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px dashed #000}
-  .badge{display:inline-block;background:#000;color:#fff;padding:2px 8px;font-size:10px;font-weight:900;letter-spacing:2px;margin-bottom:4px}
-  table{width:100%;border-collapse:collapse;margin-bottom:6px}
-  thead tr{border-bottom:2px solid #000}
-  th{font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:3px 0;text-align:left}
-  td{padding:6px 0;border-bottom:1px dashed #888;vertical-align:top;font-weight:bold}
-  .qty{width:32px;font-size:16px;font-weight:900}
-  .name{font-size:15px;padding-left:4px;line-height:1.3}
-  .footer{text-align:center;font-size:11px;margin-top:8px;padding-top:6px;border-top:2px dashed #000;font-weight:bold;letter-spacing:2px}
-</style></head><body>
-<h1>KOT</h1>
-<div class="sub">Kitchen Order Ticket</div>
-<div class="meta">
-  <div class="badge">${opts.orderMode.replace(/_/g, " ")}</div><br>
-  <strong>${opts.invoiceNumber}</strong><br>
-  ${opts.tableName ? `Table: <strong>${opts.tableName}</strong><br>` : ""}
-  ${opts.customerName ? `Customer: <strong>${opts.customerName}</strong><br>` : ""}
-  ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-</div>
-<table>
-  <thead><tr><th>Qty</th><th>Item</th></tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<div class="footer">*** END KOT ***</div>
-</body></html>`);
-  win.document.close();
-  setTimeout(() => { win.print(); win.close(); }, 450);
+  return printReceipt(buildKotHtml(opts));
 }
 
 function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToCart, cartItemsCount, isOverlay = false }: any) {
@@ -230,7 +195,7 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
   );
 }
 
-export function BillingCart({ cashierName = "Admin" }: { cashierName?: string }) {
+export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?: string; storeInfo?: StoreInfo }) {
   const [query, setQuery] = useState("");
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -255,7 +220,6 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState("Cash");
   const [selectedOrderMode, setSelectedOrderMode] = useState("DINE_IN");
-  const [printKotData, setPrintKotData] = useState<KOTData | null>(null);
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
   const [printKOT, setPrintKOT] = useState(false);
   const [applyGst, setApplyGst] = useState(false);
@@ -419,27 +383,23 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
       return;
     }
     const table = tables.find(t => t.id === activeTableId);
-    setPrintKotData({
-      tableId: activeTableId,
-      tableName: table?.name || "Table " + activeTableId,
-      orderId: activeOrderId,
-      time: new Date().toLocaleTimeString(),
-      items: cart.map(item => ({ name: item.name, qty: item.qty }))
-    });
+    const tableName = table?.name || "Table " + activeTableId;
+    const kotItems = cart.map(item => ({ name: item.name, qty: item.qty }));
     startCheckout(async () => {
       const res = await parkOrder(activeTableId, cart, activeOrderId);
       if (res.error) {
         toast.error(res.error);
-        setPrintKotData(null);
       } else {
         toast.success(activeOrderId ? "KOT Updated" : "KOT Sent to Kitchen");
-        setTimeout(async () => {
-          window.print();
-          clearCart();
-          setPrintKotData(null);
-          await loadTablesAndOrders();
-          setViewMode("TABLES");
-        }, 100);
+        printReceipt(buildKotHtml({
+          invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
+          tableName,
+          items: kotItems,
+          orderMode: "DINE_IN",
+        }));
+        clearCart();
+        await loadTablesAndOrders();
+        setViewMode("TABLES");
       }
     });
   };
@@ -467,26 +427,44 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
         toast.error(result.error);
       } else if (result.success && result.invoiceId) {
         if (activeOrderId) await closeOrder(activeOrderId);
+        const invoiceNumber = result.invoiceNumber || `#${result.invoiceId}`;
+        const tableName = tables.find(t => t.id === activeTableId)?.name;
+        // Snapshot totals BEFORE clearing the cart
+        const billSubtotal = cartSnapshot.reduce((a, i) => a + i.price * i.qty, 0);
+        const billTotal = grandTotal;
+
         clearCart();
         setCheckoutModalOpen(false);
         await loadTablesAndOrders();
 
         if (printBill) {
+          // 1. Kitchen copy first (so it tears off at the kitchen printer)
           if (printKOT) {
-            // 1. Print kitchen copy in a popup → user directs to kitchen printer
             printKitchenCopy({
-              invoiceNumber: result.invoiceNumber || `#${result.invoiceId}`,
+              invoiceNumber,
               items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
-              tableName: tables.find(t => t.id === activeTableId)?.name,
+              tableName,
               customerName: customerName || undefined,
               orderMode: selectedOrderMode,
             });
           }
-          // 2. Navigate to invoice with ?autoprint=1 → customer bill auto-prints there
-          router.push(`/invoices/${result.invoiceId}?autoprint=1`);
+          // 2. Customer bill — prints directly via hidden iframe (no page nav, no PDF prompt)
+          printReceipt(buildBillHtml({
+            storeName: storeInfo?.storeName || "My Store",
+            phone: storeInfo?.phone,
+            address: storeInfo?.address,
+            gstNumber: storeInfo?.gstNumber,
+            logoUrl: "/billlogo.png",
+            invoiceNumber,
+            customerName: customerName || undefined,
+            paymentMethod,
+            items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
+            subtotal: billSubtotal,
+            total: billTotal,
+          }));
+          toast.success(`Bill ${invoiceNumber} printed`);
         } else {
           toast.success("Invoice created!");
-          router.push(`/invoices/${result.invoiceId}`);
         }
       }
     });
@@ -502,8 +480,6 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
 
   return (
     <>
-      <KOTPrintReceipt data={printKotData} />
-
       {/* ═══ FULL-SCREEN POS SHELL (no frame/border/rounded) ═══ */}
       <div
         className="flex flex-col print:hidden"
@@ -780,12 +756,12 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                             await acceptOnlineOrder(order.id);
                             setOnlineOrders(p => p.filter(o => o.id !== order.id));
                             toast.success("Accepted & KOT Sent");
-                            setPrintKotData({
-                              tableId: 0, tableName: order.source, orderId: order.id,
-                              time: new Date().toLocaleTimeString(),
-                              items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty }))
-                            });
-                            setTimeout(() => { window.print(); setPrintKotData(null); }, 100);
+                            printReceipt(buildKotHtml({
+                              invoiceNumber: `${order.source} #${order.externalId || order.id}`,
+                              tableName: order.source,
+                              orderMode: order.source,
+                              items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
+                            }));
                           }}
                           className="flex-[2] p-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                           style={{ color: S.emerald, background: S.emeraldLo }}
