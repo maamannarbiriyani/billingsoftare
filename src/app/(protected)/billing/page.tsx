@@ -21,6 +21,7 @@ export default async function BillingPage() {
         phone: setting?.phone || null,
         address: setting?.address || null,
         gstNumber: setting?.gstNumber || null,
+        gstPercent: setting?.gstPercent || 0,
       }}
     />
   );

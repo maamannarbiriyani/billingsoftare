@@ -1,9 +1,10 @@
 "use client";
 
-import { Bell, Search, LogOut, Menu, Store } from "lucide-react";
+import { Search, LogOut, Menu, Store } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { setActiveBranch } from "@/app/actions/branches";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function Header({
   onOpenSidebar,
@@ -106,25 +107,7 @@ export function Header({
         </div>
 
         {/* Notification Bell */}
-        <button
-          suppressHydrationWarning
-          className="relative p-1.5 rounded-lg transition-colors"
-          style={{ color: "var(--muted-foreground)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--muted)";
-            (e.currentTarget as HTMLButtonElement).style.color = "var(--foreground)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-            (e.currentTarget as HTMLButtonElement).style.color = "var(--muted-foreground)";
-          }}
-        >
-          <Bell style={{ width: "1.125rem", height: "1.125rem" }} />
-          <span
-            className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
-            style={{ background: "#ef4444", boxShadow: "0 0 6px rgba(239,68,68,0.8)" }}
-          />
-        </button>
+        <NotificationBell />
 
         {/* Divider */}
         <div className="w-px h-5 mx-1" style={{ background: "var(--border)" }} />

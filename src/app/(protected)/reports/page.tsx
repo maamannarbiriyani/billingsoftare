@@ -12,24 +12,30 @@ import {
   Utensils
 } from "lucide-react";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 import { ExportButton } from "./ExportButton";
 import { DateRangeSelector } from "./DateRangeSelector";
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; month?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
+  const monthParam = params.month; // format: "YYYY-MM"
   const range = params.range || "today";
   const now = new Date();
   let startDate: Date;
   let endDate: Date;
 
-  if (range === "today") {
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    // Specific month selected (e.g. 2026-01)
+    const [y, m] = monthParam.split("-").map(Number);
+    startDate = new Date(y, m - 1, 1, 0, 0, 0);
+    endDate = new Date(y, m, 0, 23, 59, 59, 999);
+  } else if (range === "today") {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
   } else if (range === "yesterday") {
@@ -46,19 +52,30 @@ export default async function ReportsPage({
     endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
   }
 
+  const branchId = await getActiveBranchId();
+  const bf = branchId ? { branchId } : {};
+
+  const periodLabel = monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+    ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : range === "today" ? "Today"
+    : range === "yesterday" ? "Yesterday"
+    : range === "week" ? "Last 7 Days"
+    : range === "month" ? "This Month"
+    : "Today";
+
   const [filteredInvoices, filteredItems, lowStockProducts] =
     await Promise.all([
       prisma.invoice.findMany({
-        where: { createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } },
+        where: { ...bf, createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } },
         orderBy: { createdAt: "desc" },
         include: { customer: true, order: true }
       }),
       prisma.invoiceItem.findMany({
-        where: { invoice: { createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } } },
+        where: { invoice: { ...bf, createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } } },
         include: { product: true }
       }),
       prisma.product.findMany({
-        where: { stock: { lt: 10, not: 999999 } },
+        where: { ...bf, stock: { lt: 10, not: 999999 }, isActive: true },
         orderBy: { stock: "asc" },
         take: 10,
       }),
@@ -149,7 +166,9 @@ export default async function ReportsPage({
             </div>
             <h1 className="page-title text-foreground">System Reports</h1>
           </div>
-          <p className="page-subtitle ml-11 text-muted-foreground">Comprehensive overview of your business performance</p>
+          <p className="page-subtitle ml-11 text-muted-foreground">
+            Showing data for <span className="font-semibold text-foreground">{periodLabel}</span>
+          </p>
         </div>
         
         <div className="flex items-center gap-3">

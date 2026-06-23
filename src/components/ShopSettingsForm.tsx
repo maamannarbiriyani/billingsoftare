@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { updateSettings } from "@/app/actions/settings";
-import { Save, Store, ShieldCheck, MapPin, Printer, AlertCircle, CheckCircle, Phone } from "lucide-react";
+import { Save, Store, ShieldCheck, MapPin, Printer, AlertCircle, CheckCircle, Phone, Percent } from "lucide-react";
 import { toast } from "sonner";
 
 type ShopSettingsFormProps = {
@@ -10,6 +10,7 @@ type ShopSettingsFormProps = {
     storeName: string;
     phone?: string | null;
     gstNumber: string | null;
+    gstPercent?: number | null;
     address: string | null;
     printerName?: string | null;
   } | null;
@@ -109,6 +110,30 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           className="input-field mt-1 font-mono tracking-wider"
         />
         <p className="text-xs text-slate-400 mt-1.5">Printed below the store name on receipts</p>
+      </div>
+
+      {/* GST Percent */}
+      <div>
+        <label htmlFor="gstPercent" className="input-label">
+          <span className="flex items-center gap-1.5">
+            <Percent className="h-3.5 w-3.5 text-slate-400" />
+            Default GST Rate (%)
+          </span>
+        </label>
+        <input
+          type="number"
+          name="gstPercent"
+          id="gstPercent"
+          min="0"
+          max="100"
+          step="0.01"
+          defaultValue={initialData?.gstPercent ?? 0}
+          placeholder="e.g. 5"
+          className="input-field mt-1"
+        />
+        <p className="text-xs text-slate-400 mt-1.5">
+          Applied automatically in billing when GST is enabled. Set to 0 to disable.
+        </p>
       </div>
 
       {/* Address */}

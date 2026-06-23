@@ -109,6 +109,7 @@ model Setting {
   storeName     String    @default("My Retail Store")
   phone         String?
   gstNumber     String?
+  gstPercent    Float     @default(0) // Default GST % applied in billing
   address       String?
   printerName   String?
   licenseKey    String?

@@ -10,6 +10,7 @@ export async function updateSettings(formData: FormData) {
   const gstNumber = formData.get("gstNumber") as string;
   const address = formData.get("address") as string;
   const printerName = formData.get("printerName") as string;
+  const gstPercent = parseFloat(formData.get("gstPercent") as string) || 0;
 
   if (!storeName) {
     return { error: "Store Name is required" };
@@ -30,6 +31,7 @@ export async function updateSettings(formData: FormData) {
           storeName,
           phone,
           gstNumber,
+          gstPercent,
           address,
           printerName,
         },
@@ -41,6 +43,7 @@ export async function updateSettings(formData: FormData) {
           storeName,
           phone,
           gstNumber,
+          gstPercent,
           address,
           printerName,
         },
@@ -48,6 +51,7 @@ export async function updateSettings(formData: FormData) {
     }
 
     revalidatePath("/settings");
+    revalidatePath("/billing");
     revalidatePath("/invoices/[id]");
 
     return { success: true };

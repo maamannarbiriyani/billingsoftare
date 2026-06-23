@@ -52,6 +52,7 @@ type StoreInfo = {
   phone?: string | null;
   address?: string | null;
   gstNumber?: string | null;
+  gstPercent?: number | null;
 };
 
 // ─── Design tokens ────────────────────────────────────────────────
@@ -227,7 +228,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
   const [selectedOrderMode, setSelectedOrderMode] = useState("DINE_IN");
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
   const [printKOT, setPrintKOT] = useState(false);
-  const [applyGst, setApplyGst] = useState(false);
+  const gstRate = storeInfo?.gstPercent || 0;
+  const [applyGst, setApplyGst] = useState(gstRate > 0);
   const [editingTableId, setEditingTableId] = useState<number | null>(null);
   const [editingTableName, setEditingTableName] = useState("");
 
@@ -410,7 +412,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
   };
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const gstAmount = applyGst ? parseFloat(cart.reduce((acc, item) => acc + (item.price * item.qty * (item.gstRate || 0)) / 100, 0).toFixed(2)) : 0;
+  const gstAmount = (applyGst && gstRate > 0) ? parseFloat((cart.reduce((acc, item) => acc + item.price * item.qty, 0) * gstRate / 100).toFixed(2)) : 0;
   const grandTotal = parseFloat(Math.max(0, subtotal + gstAmount - discountAmount).toFixed(2));
 
   const handleCheckout = (paymentMethod: string, printBill: boolean) => {
@@ -1486,14 +1488,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         <div className="flex items-center justify-between w-full mb-2">
                           <div className="flex items-center gap-2">
                             <Tag className="h-5 w-5" style={{ color: applyGst ? S.violet : S.muted }} />
-                            <span className="font-bold text-sm" style={{ color: applyGst ? S.violet : S.txt }}>Apply GST</span>
+                            <span className="font-bold text-sm" style={{ color: applyGst ? S.violet : S.txt }}>Apply GST{gstRate > 0 ? ` (${gstRate}%)` : ""}</span>
                           </div>
                           <div className="w-8 h-5 rounded-full relative transition-colors duration-300" style={{ background: applyGst ? S.violet : S.border }}>
                             <div className="absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-300" style={{ transform: applyGst ? "translateX(12px)" : "translateX(0)" }} />
                           </div>
                         </div>
                         <p className="text-xs font-medium" style={{ color: applyGst ? S.violet : S.muted, opacity: applyGst ? 0.9 : 0.7 }}>
-                          Include tax in final bill
+                          {gstRate > 0 ? `Add ${gstRate}% GST (set in Settings)` : "Set a GST % in Settings first"}
                         </p>
                       </button>
                     </div>
