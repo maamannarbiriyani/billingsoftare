@@ -66,7 +66,7 @@ export function Header({
             }}
             onFocus={(e) => {
               (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--primary)";
-              (e.currentTarget as HTMLInputElement).style.boxShadow = "0 0 0 3px rgba(139,92,246,0.15)";
+              (e.currentTarget as HTMLInputElement).style.boxShadow = "0 0 0 3px var(--primary-glow)";
             }}
             onBlur={(e) => {
               (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--border)";
