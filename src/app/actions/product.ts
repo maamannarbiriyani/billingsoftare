@@ -39,18 +39,18 @@ export async function createProduct(formData: FormData) {
 
   let imageUrl = null;
   if (imageFile && imageFile.size > 0) {
-    const bytes = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    const uploadDir = join(process.cwd(), "public/uploads/products");
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
+    try {
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const uploadDir = join(process.cwd(), "public/uploads/products");
+      if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+      const uniqueName = `${Date.now()}-${imageFile.name.replace(/\s+/g, '-')}`;
+      const path = join(uploadDir, uniqueName);
+      await writeFile(path, buffer);
+      imageUrl = `/uploads/products/${uniqueName}`;
+    } catch {
+      // Filesystem is read-only in production (Vercel) — skip image upload
     }
-
-    const uniqueName = `${Date.now()}-${imageFile.name.replace(/\s+/g, '-')}`;
-    const path = join(uploadDir, uniqueName);
-    await writeFile(path, buffer);
-    imageUrl = `/uploads/products/${uniqueName}`;
   }
 
   try {
@@ -103,18 +103,18 @@ export async function updateProduct(id: number, formData: FormData) {
 
   let imageUrl = undefined;
   if (imageFile && imageFile.size > 0) {
-    const bytes = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    const uploadDir = join(process.cwd(), "public/uploads/products");
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
+    try {
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const uploadDir = join(process.cwd(), "public/uploads/products");
+      if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+      const uniqueName = `${Date.now()}-${imageFile.name.replace(/\s+/g, '-')}`;
+      const path = join(uploadDir, uniqueName);
+      await writeFile(path, buffer);
+      imageUrl = `/uploads/products/${uniqueName}`;
+    } catch {
+      // Filesystem is read-only in production (Vercel) — skip image upload
     }
-
-    const uniqueName = `${Date.now()}-${imageFile.name.replace(/\s+/g, '-')}`;
-    const path = join(uploadDir, uniqueName);
-    await writeFile(path, buffer);
-    imageUrl = `/uploads/products/${uniqueName}`;
   }
 
   try {
@@ -262,3 +262,24 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
     return { error: "Failed to perform bulk import." };
   }
 }
+
+export async function updateProductOrder(updates: { id: number; display_order: number }[]) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  try {
+    await prisma.$transaction(
+      updates.map((update) =>
+        prisma.product.update({
+          where: { id: update.id, branchId },
+          data: { display_order: update.display_order },
+        })
+      )
+    );
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update product order:", error);
+    return { error: "Failed to update product order" };
+  }
+}
+

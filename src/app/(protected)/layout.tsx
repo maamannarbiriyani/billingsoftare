@@ -19,10 +19,7 @@ export default async function ProtectedLayout({
   const branches = await prisma.branch.findMany({ orderBy: { id: "asc" } });
 
   return (
-    <div
-      className="min-h-screen text-foreground font-sans print:bg-white"
-      style={{ background: "#111118" }}
-    >
+    <div className="min-h-screen text-foreground bg-background font-sans print:bg-white">
       <AppShell 
         userRole={session.role as string}
         branches={branches}

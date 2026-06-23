@@ -28,6 +28,48 @@ export async function createTable(name: string) {
   }
 }
 
+export async function updateTable(id: number, name: string) {
+  if (!name) return { error: "Table name is required" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+  try {
+    const table = await prisma.table.update({
+      where: { id, branchId },
+      data: { name }
+    });
+    revalidatePath("/billing");
+    return { success: true, table };
+  } catch (error: any) {
+    if (error.code === 'P2002') return { error: "Table name must be unique" };
+    return { error: "Failed to update table" };
+  }
+}
+
+export async function deleteTable(id: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+  try {
+    // Check if table is in use
+    const table = await prisma.table.findUnique({
+      where: { id, branchId },
+      include: {
+        _count: {
+          select: { orders: { where: { status: "RUNNING" } } }
+        }
+      }
+    });
+
+    if (!table) return { error: "Table not found" };
+    if (table._count.orders > 0) return { error: "Cannot delete table with running orders" };
+
+    await prisma.table.delete({ where: { id, branchId } });
+    revalidatePath("/billing");
+    return { success: true };
+  } catch (error) {
+    return { error: "Failed to delete table. Make sure no orders are attached to it." };
+  }
+}
+
 export async function getRunningOrders() {
   const branchId = await getActiveBranchId();
   if (!branchId) return [];

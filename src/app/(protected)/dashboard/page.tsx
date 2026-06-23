@@ -13,7 +13,7 @@ import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
 import { RecentActivityFeed } from "@/components/dashboard/RecentActivityFeed";
 import { StatCard } from "@/components/dashboard/StatCard";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 
 export default async function DashboardPage({
   searchParams,
@@ -21,6 +21,8 @@ export default async function DashboardPage({
   searchParams: Promise<{ range?: string }>;
 }) {
   await requireAdmin();
+  const branchId = await getActiveBranchId();
+  const bf = branchId ? { branchId } : {};
   const resolvedSearchParams = await searchParams;
   const { range = "7d" } = resolvedSearchParams;
 
@@ -50,18 +52,19 @@ export default async function DashboardPage({
     const results = await Promise.all([
       prisma.invoice.aggregate({
         _sum: { total: true },
-        where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+        where: { ...bf, createdAt: { gte: startOfDay, lte: endOfDay } },
       }),
-      prisma.product.count(),
-      prisma.invoice.count(),
-      prisma.product.count({ where: { stock: { lt: 10, not: 999999 } } }),
+      prisma.product.count({ where: { ...bf, isActive: true } }),
+      prisma.invoice.count({ where: bf }),
+      prisma.product.count({ where: { ...bf, stock: { lt: 10, not: 999999 }, isActive: true } }),
       prisma.invoice.findMany({
         take: 6,
         orderBy: { createdAt: "desc" },
+        where: bf,
         select: { id: true, invoiceNumber: true, total: true, createdAt: true },
       }),
       prisma.invoice.findMany({
-        where: { createdAt: { gte: chartStartDate } },
+        where: { ...bf, createdAt: { gte: chartStartDate } },
         select: {
           total: true,
           createdAt: true,
@@ -71,10 +74,11 @@ export default async function DashboardPage({
         },
       }),
       prisma.invoiceItem.findMany({
-        where: { invoice: { createdAt: { gte: chartStartDate } } },
+        where: { invoice: { ...bf, createdAt: { gte: chartStartDate } } },
         include: { product: { select: { category: true } } },
       }),
       prisma.expense.findMany({
+        where: bf,
         orderBy: { createdAt: "desc" },
         take: 100
       }),

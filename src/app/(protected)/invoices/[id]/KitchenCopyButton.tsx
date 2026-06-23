@@ -14,6 +14,7 @@ export function KitchenCopyButton({
     paymentMethod: string | null;
     items: Item[];
     customer?: { name: string } | null;
+    customerName?: string | null;
   };
   storeName: string;
 }) {
@@ -49,7 +50,7 @@ export function KitchenCopyButton({
 <div class="sub">Kitchen Order Ticket</div>
 <div class="meta">
   <strong>${invoice.invoiceNumber}</strong><br>
-  ${invoice.customer?.name ? `Customer: <strong>${invoice.customer.name}</strong><br>` : ""}
+  ${(invoice.customer?.name || invoice.customerName) ? `Customer: <strong>${invoice.customer?.name || invoice.customerName}</strong><br>` : ""}
   ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
 </div>
 <table>

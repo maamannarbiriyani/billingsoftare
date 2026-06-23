@@ -34,6 +34,7 @@ model Product {
   hsnCode       String?       // HSN/SAC code for GST compliance
   imageUrl      String?
   isActive      Boolean       @default(true) // false = archived (hidden from billing, kept for invoice history)
+  display_order Int           @default(0)
   invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
   orderItems    OrderItem[]
@@ -68,6 +69,8 @@ model Invoice {
   invoiceNumber String        @unique
   customerId    Int?
   customer      Customer?     @relation(fields: [customerId], references: [id])
+  customerName  String?       // For walk-in customers
+  customerPhone String?       // For walk-in customers
 
   subtotal      Float         @default(0)
   gstRate       Float         @default(0)

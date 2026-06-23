@@ -28,7 +28,10 @@ export async function getAllProductsForBilling() {
   if (!branchId) return [];
   const products = await prisma.product.findMany({
     where: { branchId, isActive: true },
-    orderBy: { name: 'asc' }
+    orderBy: [
+      { display_order: 'asc' },
+      { name: 'asc' }
+    ]
   });
   return products;
 }
@@ -116,9 +119,12 @@ export async function createInvoice(
       }
 
       let customerId: number | undefined;
+      let walkInName: string | undefined;
+      let walkInPhone: string | undefined;
 
-      // 1. Create or find Customer if data is provided
+      // 1. Process Customer Information
       if (customerData.name) {
+        // Try to find an existing customer by phone
         if (customerData.phone) {
           const existingCustomer = await tx.customer.findFirst({
             where: { phone: customerData.phone, branchId },
@@ -127,16 +133,24 @@ export async function createInvoice(
             customerId = existingCustomer.id;
           }
         }
-
+        
+        // If no existing customer found...
         if (!customerId) {
-          const newCustomer = await tx.customer.create({
-            data: {
-              name: customerData.name,
-              phone: customerData.phone || null,
-              branchId,
-            },
-          });
-          customerId = newCustomer.id;
+          if (billingDetails.paymentMethod === "CREDIT") {
+            // For CREDIT, we MUST auto-create a Customer to track their Khata balance
+            const newCustomer = await tx.customer.create({
+              data: {
+                name: customerData.name,
+                phone: customerData.phone || null,
+                branchId
+              }
+            });
+            customerId = newCustomer.id;
+          } else {
+            // For Cash/UPI/Card walk-ins, just store their name/phone on the invoice
+            walkInName = customerData.name;
+            if (customerData.phone) walkInPhone = customerData.phone;
+          }
         }
       }
 
@@ -192,6 +206,8 @@ export async function createInvoice(
           branchId,
           invoiceNumber,
           customerId,
+          customerName: walkInName,
+          customerPhone: walkInPhone,
           subtotal: parseFloat(billingDetails.subtotal.toFixed(2)),
           gstRate: parseFloat(billingDetails.gstRate.toFixed(2)),
           gstAmount: parseFloat(billingDetails.gstAmount.toFixed(2)),
@@ -315,3 +331,4 @@ export async function saveKOT(cart: CartItem[], orderId?: number) {
     return { error: "Failed to save KOT" };
   }
 }
+

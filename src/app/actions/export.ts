@@ -59,7 +59,7 @@ export async function exportGSTReportCSV(startDate?: Date, endDate?: Date) {
 
   for (const inv of invoices) {
     const dateStr = new Date(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const customerName = inv.customer?.name || "Walk-in";
+    const customerName = inv.customer?.name || (inv as any).customerName || "Walk-in";
     const paymentMethod = inv.paymentMethod || "Cash";
     const orderMode = inv.order?.source || "DINE_IN";
 

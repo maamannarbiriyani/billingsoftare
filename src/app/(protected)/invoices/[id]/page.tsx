@@ -107,6 +107,11 @@ export default async function InvoiceReceiptPage({
                     hour: "2-digit", minute: "2-digit", hour12: false
                   }).replace(",", "")}</p>
               <p className="text-[12px]">Bill No:{invoice.invoiceNumber}</p>
+              {(invoice.customer?.name || invoice.customerName) && (
+                <p className="text-[12px] font-bold mt-1">
+                  Customer: {invoice.customer?.name || invoice.customerName}
+                </p>
+              )}
             </div>
 
             {/* ── Table Header ── */}

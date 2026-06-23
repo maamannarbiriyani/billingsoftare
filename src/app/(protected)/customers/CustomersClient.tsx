@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { logPayment } from "@/app/actions/customers";
-import { User, Phone, Banknote, Search, IndianRupee, X, CheckCircle, Users } from "lucide-react";
+import { logPayment, createCustomer, updateCustomer } from "@/app/actions/customers";
+import { User, Phone, Banknote, Search, IndianRupee, X, CheckCircle, Users, Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export function CustomersClient({ initialCustomers }: { initialCustomers: any[] }) {
@@ -11,6 +11,9 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
   const [isPending, setIsPending] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({ name: "", phone: "" });
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -43,21 +46,58 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
     setIsPending(false);
   }
 
+  async function handleCustomerSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsPending(true);
+    if (isEditing && selectedCustomer) {
+      const res = await updateCustomer(selectedCustomer.id, formData.name, formData.phone);
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Customer updated!");
+        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, ...res.customer } : c));
+        setSelectedCustomer({ ...selectedCustomer, ...res.customer });
+        setIsEditing(false);
+      }
+    } else {
+      const res = await createCustomer(formData.name, formData.phone);
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Customer added!");
+        setCustomers(prev => [...prev, { ...res.customer, balance: 0, _count: { invoices: 0 } }]);
+        setShowAddForm(false);
+      }
+    }
+    setIsPending(false);
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       {/* Customer List — 2/3 width */}
       <div className="lg:col-span-2 space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search by name or phone number..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="input-field pl-9"
-          />
+        {/* Search & Add */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by name or phone number..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="input-field pl-9"
+            />
+          </div>
+          <button 
+            onClick={() => {
+              setFormData({ name: "", phone: "" });
+              setIsEditing(false);
+              setSelectedCustomer(null);
+              setShowAddForm(true);
+            }} 
+            className="btn btn-primary flex-shrink-0"
+          >
+            <Plus className="h-4 w-4" /> Add Customer
+          </button>
         </div>
 
         {/* Table */}
@@ -126,16 +166,31 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
                         </span>
                       </td>
                       <td className="text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCustomer(customer);
-                            setPaymentAmount(customer.balance > 0 ? customer.balance.toFixed(2) : "");
-                          }}
-                          className="btn btn-ghost btn-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                        >
-                          Manage
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFormData({ name: customer.name, phone: customer.phone || "" });
+                              setIsEditing(true);
+                              setSelectedCustomer(customer);
+                              setShowAddForm(true);
+                            }}
+                            className="p-1.5 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCustomer(customer);
+                              setPaymentAmount(customer.balance > 0 ? customer.balance.toFixed(2) : "");
+                              setShowAddForm(false);
+                            }}
+                            className="btn btn-ghost btn-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                          >
+                            Manage
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -146,9 +201,71 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
         </div>
       </div>
 
-      {/* Right Panel — Khata Management */}
+      {/* Right Panel */}
       <div className="lg:col-span-1">
-        {selectedCustomer ? (
+        {showAddForm ? (
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden sticky top-20">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted">
+              <div>
+                <h3 className="section-title">{isEditing ? "Edit Customer" : "New Customer"}</h3>
+                <p className="section-subtitle">{isEditing ? "Update details" : "Add a regular customer"}</p>
+              </div>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="p-1.5 rounded-lg text-muted-foreground/80 hover:text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <form onSubmit={handleCustomerSubmit} className="space-y-4">
+                <div>
+                  <label className="input-label">Customer Name <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input-field pl-9"
+                      required
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="input-label">Phone Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="input-field pl-9"
+                      placeholder="9999999999"
+                    />
+                  </div>
+                </div>
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="btn btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="btn btn-primary flex-1"
+                  >
+                    {isPending ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : selectedCustomer ? (
           <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden sticky top-20">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted">

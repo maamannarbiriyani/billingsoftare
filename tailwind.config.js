@@ -42,6 +42,15 @@ module.exports = {
           DEFAULT: 'var(--card)',
           foreground: 'var(--card-foreground)',
         },
+        sidebar: {
+          bg: 'var(--sidebar-bg)',
+          border: 'var(--sidebar-border)',
+          text: 'var(--sidebar-text)',
+          'text-active': 'var(--sidebar-text-active)',
+          'active-bg': 'var(--sidebar-active-bg)',
+          'active-border': 'var(--sidebar-active-border)',
+          'hover-bg': 'var(--sidebar-hover-bg)',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

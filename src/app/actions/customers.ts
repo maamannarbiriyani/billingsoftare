@@ -64,3 +64,43 @@ export async function logPayment(customerId: number, amount: number) {
     return { error: error.message || "Failed to log payment" };
   }
 }
+
+export async function createCustomer(name: string, phone?: string) {
+  if (!name.trim()) return { error: "Customer name is required" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  try {
+    const newCustomer = await prisma.customer.create({
+      data: {
+        name: name.trim(),
+        phone: phone?.trim() || null,
+        branchId,
+      },
+    });
+    revalidatePath("/customers");
+    return { success: true, customer: newCustomer };
+  } catch (error: any) {
+    return { error: "Failed to create customer" };
+  }
+}
+
+export async function updateCustomer(id: number, name: string, phone?: string) {
+  if (!name.trim()) return { error: "Customer name is required" };
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  try {
+    const updatedCustomer = await prisma.customer.update({
+      where: { id, branchId },
+      data: {
+        name: name.trim(),
+        phone: phone?.trim() || null,
+      },
+    });
+    revalidatePath("/customers");
+    return { success: true, customer: updatedCustomer };
+  } catch (error: any) {
+    return { error: "Failed to update customer" };
+  }
+}

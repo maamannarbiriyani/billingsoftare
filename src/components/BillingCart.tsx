@@ -7,7 +7,7 @@ import {
   X, Calculator, Printer, Monitor, SplitSquareHorizontal,
   Clock, ArrowLeftRight, Archive, ScanLine, Pizza, CupSoda,
   Receipt, ChevronRight, Zap, Grid3X3, LayoutGrid, CheckCircle2,
-  AlertCircle, RefreshCw, Home, Utensils, Bike, ShoppingBag
+  AlertCircle, RefreshCw, Home, Utensils, Bike, ShoppingBag, Pencil
 } from "lucide-react";
 import {
   getAllProductsForBilling,
@@ -16,7 +16,7 @@ import {
   collectKhataPayment,
   CartItem,
 } from "@/app/actions/billing";
-import { getTables, getRunningOrders, parkOrder, closeOrder, createTable } from "@/app/actions/tables";
+import { getTables, getRunningOrders, parkOrder, closeOrder, createTable, updateTable, deleteTable } from "@/app/actions/tables";
 import {
   getPendingOnlineOrders,
   acceptOnlineOrder,
@@ -25,28 +25,48 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { updateProductOrder } from "@/app/actions/product";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { KOTPrintReceipt, KOTData } from "./KOTPrintReceipt";
 
 // ─── Design tokens ────────────────────────────────────────────────
 const S = {
-  bg:        "#f8fafc",
-  surface:   "#ffffff",
-  card:      "#ffffff",
-  border:    "#e2e8f0",
-  borderHi:  "rgba(0,0,0,0.15)",
-  txt:       "#0f172a",
-  muted:     "#64748b",
-  dim:       "#94a3b8",
-  violet:    "#8b5cf6",
-  violetLo:  "rgba(139,92,246,0.15)",
-  emerald:   "#10b981",
-  emeraldLo: "rgba(16,185,129,0.12)",
-  rose:      "#f43f5e",
-  roseLo:    "rgba(244,63,94,0.12)",
-  amber:     "#f59e0b",
-  amberLo:   "rgba(245,158,11,0.12)",
-  cyan:      "#06b6d4",
-  cyanLo:    "rgba(6,182,212,0.1)",
+  bg:        "var(--background)",
+  surface:   "var(--card)",
+  card:      "var(--card)",
+  border:    "var(--border)",
+  borderHi:  "var(--border)",
+  txt:       "var(--foreground)",
+  muted:     "var(--muted-foreground)",
+  dim:       "var(--foreground-subtle, #a1a1aa)",
+  violet:    "var(--primary)",
+  violetLo:  "var(--primary-glow)",
+  emerald:   "var(--success)",
+  emeraldLo: "var(--success-dim)",
+  rose:      "var(--danger)",
+  roseLo:    "var(--danger-dim)",
+  amber:     "var(--warning)",
+  amberLo:   "var(--warning-dim)",
+  cyan:      "var(--cyan)",
+  cyanLo:    "var(--cyan-dim)",
 };
 
 // ─── Kitchen receipt popup (goes to kitchen printer) ──────────────
@@ -102,6 +122,114 @@ function printKitchenCopy(opts: {
   setTimeout(() => { win.print(); win.close(); }, 450);
 }
 
+function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToCart, cartItemsCount, isOverlay = false }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: isOverlay ? `overlay-${product.id}` : product.id 
+  });
+  
+  if (isDragging && !isOverlay) {
+    return (
+      <div 
+        ref={setNodeRef} 
+        style={{
+          border: '2px dashed #7c3aed', 
+          background: 'rgba(124,58,237,.08)', 
+          borderRadius: '16px', 
+          opacity: 1,
+          height: '100%',
+          minHeight: '160px'
+        }} 
+      />
+    );
+  }
+
+  const style = {
+    transform: isOverlay ? 'scale(1.03) rotate(2deg)' : CSS.Transform.toString(transform),
+    transition,
+    zIndex: isOverlay ? 9999 : (isDragging ? 50 : 1),
+    opacity: isOutOfStock ? 0.45 : 1,
+    background: inCart ? "rgba(139,92,246,0.08)" : S.card,
+    border: inCart
+      ? `1px solid rgba(139,92,246,0.5)`
+      : isOutOfStock
+      ? `1px solid rgba(0,0,0,0.04)`
+      : `1px solid ${S.border}`,
+    boxShadow: isOverlay 
+      ? "0 20px 50px rgba(0,0,0,.15), 0 8px 20px rgba(0,0,0,.1)" 
+      : inCart ? `0 0 16px rgba(139,92,246,0.15)` : "none",
+    cursor: isOverlay ? "grabbing" : "default"
+  };
+
+  return (
+    <div
+      ref={isOverlay ? undefined : setNodeRef}
+      style={style}
+      className={`relative flex flex-col text-left rounded-xl overflow-hidden transition-colors duration-200 ${isOverlay ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}`}
+      {...attributes}
+      {...listeners}
+      onClick={(e) => {
+        if (!isOverlay && !isOutOfStock) {
+          addToCart(product);
+        }
+      }}
+    >
+      <div
+        className="h-24 w-full flex items-center justify-center overflow-hidden relative pointer-events-none"
+        style={{ background: "rgba(0,0,0,0.02)", borderBottom: `1px solid ${S.border}` }}
+      >
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+        ) : product.category?.toLowerCase().includes("food") || product.category?.toLowerCase().includes("pizza") ? (
+          <Pizza className="h-7 w-7" style={{ color: S.dim }} />
+        ) : product.category?.toLowerCase().includes("drink") || product.category?.toLowerCase().includes("bev") ? (
+          <CupSoda className="h-7 w-7" style={{ color: S.dim }} />
+        ) : (
+          <Package className="h-7 w-7" style={{ color: S.dim }} />
+        )}
+      </div>
+
+      <div className="p-2.5 flex flex-col flex-1 pointer-events-none">
+        <p className="font-bold text-sm leading-tight line-clamp-2 mb-1.5" style={{ color: S.txt }}>
+          {product.name}
+        </p>
+        <div className="mt-auto flex items-center justify-between">
+          <span className="text-sm font-black" style={{ color: S.violet }}>
+            ₹{product.price.toFixed(2)}
+          </span>
+          {isOutOfStock ? (
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: S.roseLo, color: S.rose }}>
+              OUT
+            </span>
+          ) : isLowStock ? (
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: S.amberLo, color: S.amber }}>
+              {product.stock} left
+            </span>
+          ) : (
+            <div
+              className="p-1 rounded-lg transition-colors"
+              style={inCart
+                ? { background: S.violet, color: "#fff" }
+                : { background: "rgba(0,0,0,0.06)", color: S.muted }
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {inCart && (
+        <div
+          className="absolute top-2 right-2 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md pointer-events-none"
+          style={{ background: S.violet }}
+        >
+          {cartItemsCount}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BillingCart({ cashierName = "Admin" }: { cashierName?: string }) {
   const [query, setQuery] = useState("");
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -129,10 +257,51 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
   const [selectedOrderMode, setSelectedOrderMode] = useState("DINE_IN");
   const [printKotData, setPrintKotData] = useState<KOTData | null>(null);
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
-  const [printKOT, setPrintKOT] = useState(true);
-  const [applyGst, setApplyGst] = useState(true);
+  const [printKOT, setPrintKOT] = useState(false);
+  const [applyGst, setApplyGst] = useState(false);
+  const [editingTableId, setEditingTableId] = useState<number | null>(null);
+  const [editingTableName, setEditingTableName] = useState("");
 
   const router = useRouter();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const [activeId, setActiveId] = useState<number | null>(null);
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as number);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
+
+    setAllProducts((items) => {
+      const oldIndex = items.findIndex((i) => i.id === active.id);
+      const newIndex = items.findIndex((i) => i.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return items;
+      
+      const newArray = arrayMove(items, oldIndex, newIndex);
+      const updatedArray = newArray.map((p, idx) => ({ ...p, display_order: idx }));
+      
+      const updates = updatedArray.map((p) => ({ id: p.id, display_order: p.display_order }));
+      
+      fetch("/api/products/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: updates })
+      }).catch((err) => {
+        console.error("Failed to persist order", err);
+        toast.error("Failed to save product order");
+      });
+      
+      return updatedArray;
+    });
+  }
 
   const loadTablesAndOrders = async () => {
     const [t, ro] = await Promise.all([getTables(), getRunningOrders()]);
@@ -402,7 +571,9 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
             className="flex flex-col flex-shrink-0 overflow-hidden"
             style={{
               width: "14%",
-              background: S.surface,
+              background: "var(--header-bg)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
               borderRight: `1px solid ${S.border}`,
             }}
           >
@@ -629,95 +800,55 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
 
               {/* ── PRODUCT GRID ── */}
               {viewMode === "PRODUCTS" && (
-                <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
-                  {filteredProducts.map((product) => {
-                    const inCart = cart.find((i) => i.productId === product.id);
-                    const isUnlimited = product.stock === 999999;
-                    const isOutOfStock = !isUnlimited && product.stock <= 0;
-                    const isLowStock = !isUnlimited && !isOutOfStock && product.stock <= 5;
-                    return (
-                      <motion.button
-                        layout
-                        initial={{ opacity: 0, scale: 0.92 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.15 }}
-                        key={product.id}
-                        onClick={() => !isOutOfStock && addToCart(product)}
-                        disabled={isOutOfStock}
-                        className="relative flex flex-col text-left rounded-xl overflow-hidden transition-all duration-200 active:scale-95"
-                        style={{
-                          background: inCart ? "rgba(139,92,246,0.08)" : S.card,
-                          border: inCart
-                            ? `1px solid rgba(139,92,246,0.5)`
-                            : isOutOfStock
-                            ? `1px solid rgba(0,0,0,0.04)`
-                            : `1px solid ${S.border}`,
-                          opacity: isOutOfStock ? 0.45 : 1,
-                          boxShadow: inCart ? `0 0 16px rgba(139,92,246,0.15)` : "none",
-                        }}
-                      >
-                        {/* Image / Icon area */}
-                        <div
-                          className="h-24 w-full flex items-center justify-center overflow-hidden relative"
-                          style={{ background: "rgba(0,0,0,0.02)", borderBottom: `1px solid ${S.border}` }}
-                        >
-                          {product.imageUrl ? (
-                            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                          ) : product.category?.toLowerCase().includes("food") || product.category?.toLowerCase().includes("pizza") ? (
-                            <Pizza className="h-7 w-7" style={{ color: S.dim }} />
-                          ) : product.category?.toLowerCase().includes("drink") || product.category?.toLowerCase().includes("bev") ? (
-                            <CupSoda className="h-7 w-7" style={{ color: S.dim }} />
-                          ) : (
-                            <Package className="h-7 w-7" style={{ color: S.dim }} />
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="p-2.5 flex flex-col flex-1">
-                          <p className="font-bold text-sm leading-tight line-clamp-2 mb-1.5" style={{ color: S.txt }}>
-                            {product.name}
-                          </p>
-                          <div className="mt-auto flex items-center justify-between">
-                            <span className="text-sm font-black" style={{ color: S.violet }}>
-                              ₹{product.price.toFixed(2)}
-                            </span>
-                            {isOutOfStock ? (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: S.roseLo, color: S.rose }}>
-                                OUT
-                              </span>
-                            ) : isLowStock ? (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: S.amberLo, color: S.amber }}>
-                                {product.stock} left
-                              </span>
-                            ) : (
-                              <div
-                                className="p-1 rounded-lg transition-colors"
-                                style={inCart
-                                  ? { background: S.violet, color: "#fff" }
-                                  : { background: "rgba(0,0,0,0.06)", color: S.muted }
-                                }
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Cart badge */}
-                        {inCart && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full text-white text-[10px] font-black flex items-center justify-center"
-                            style={{ background: S.violet, boxShadow: `0 0 8px ${S.violet}` }}
-                          >
-                            {inCart.qty}
-                          </motion.div>
-                        )}
-                      </motion.button>
-                    );
-                  })}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={filteredProducts.map(p => p.id)} strategy={rectSortingStrategy}>
+                    <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
+                      {filteredProducts.map((product) => {
+                        const inCart = cart.find((i) => i.productId === product.id);
+                        const isUnlimited = product.stock === 999999;
+                        const isOutOfStock = !isUnlimited && product.stock <= 0;
+                        const isLowStock = !isUnlimited && !isOutOfStock && product.stock <= 5;
+                        return (
+                          <SortableProductItem
+                            key={product.id}
+                            product={product}
+                            inCart={inCart}
+                            isOutOfStock={isOutOfStock}
+                            isLowStock={isLowStock}
+                            addToCart={addToCart}
+                            cartItemsCount={inCart?.qty}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeId ? (() => {
+                      const product = allProducts.find(p => p.id === activeId);
+                      if (!product) return null;
+                      const inCart = cart.find((i) => i.productId === product.id);
+                      const isUnlimited = product.stock === 999999;
+                      const isOutOfStock = !isUnlimited && product.stock <= 0;
+                      const isLowStock = !isUnlimited && !isOutOfStock && product.stock <= 5;
+                      return (
+                        <SortableProductItem
+                          product={product}
+                          inCart={inCart}
+                          isOutOfStock={isOutOfStock}
+                          isLowStock={isLowStock}
+                          addToCart={addToCart}
+                          cartItemsCount={inCart?.qty}
+                          isOverlay={true}
+                        />
+                      );
+                    })() : null}
+                  </DragOverlay>
+                </DndContext>
               )}
 
               {/* ── TABLES GRID ── */}
@@ -726,7 +857,47 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                   {tables.map(table => {
                     const isOccupied = table.status === "OCCUPIED";
                     const isActive = activeTableId === table.id;
+                    const isEditing = editingTableId === table.id;
                     const order = runningOrders.find(o => o.tableId === table.id);
+
+                    if (isEditing) {
+                      return (
+                        <div key={table.id} className="relative p-4 rounded-xl text-left border-2 border-violet-500 shadow-lg bg-white z-10 flex flex-col gap-2">
+                          <input 
+                            autoFocus
+                            value={editingTableName}
+                            onChange={(e) => setEditingTableName(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && editingTableName.trim()) {
+                                startFetching(async () => {
+                                  const res = await updateTable(table.id, editingTableName.trim());
+                                  if (res.error) toast.error(res.error);
+                                  else { toast.success("Table updated!"); setEditingTableId(null); await loadTablesAndOrders(); }
+                                });
+                              } else if (e.key === "Escape") {
+                                setEditingTableId(null);
+                              }
+                            }}
+                            className="w-full text-sm font-bold border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditingTableId(null)} className="flex-1 py-1 rounded bg-slate-100 text-slate-600 text-xs font-bold">Cancel</button>
+                            <button 
+                              onClick={() => {
+                                if (!editingTableName.trim()) return;
+                                startFetching(async () => {
+                                  const res = await updateTable(table.id, editingTableName.trim());
+                                  if (res.error) toast.error(res.error);
+                                  else { toast.success("Table updated!"); setEditingTableId(null); await loadTablesAndOrders(); }
+                                });
+                              }}
+                              className="flex-1 py-1 rounded bg-violet-500 text-white text-xs font-bold"
+                            >Save</button>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         key={table.id}
@@ -734,7 +905,7 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                           if (isOccupied && order) loadOrderIntoCart(order);
                           else { setActiveTableId(table.id); setActiveOrderId(null); if (cart.length === 0) setViewMode("PRODUCTS"); }
                         }}
-                        className="relative p-4 rounded-xl text-left transition-all duration-200 hover:-translate-y-1 active:scale-95"
+                        className="relative p-4 rounded-xl text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 group overflow-hidden"
                         style={{
                           background: isActive
                             ? "rgba(139,92,246,0.1)"
@@ -749,8 +920,39 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                           boxShadow: isActive ? "0 0 20px rgba(139,92,246,0.12)" : "none",
                         }}
                       >
+                        {/* Hover Actions */}
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/80 rounded backdrop-blur-sm p-0.5">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTableId(table.id);
+                              setEditingTableName(table.name);
+                            }}
+                            className="p-1.5 rounded hover:bg-slate-200 text-slate-500 transition-colors"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </div>
+                          {!isOccupied && (
+                            <div 
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm(`Are you sure you want to delete ${table.name}?`)) {
+                                  startFetching(async () => {
+                                    const res = await deleteTable(table.id);
+                                    if (res.error) toast.error(res.error);
+                                    else { toast.success("Table deleted"); await loadTablesAndOrders(); }
+                                  });
+                                }
+                              }}
+                              className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex items-start justify-between mb-3">
-                          <span className="font-black text-sm" style={{ color: S.txt }}>{table.name}</span>
+                          <span className="font-black text-sm pr-6" style={{ color: S.txt }}>{table.name}</span>
                           {isOccupied && (
                             <span
                               className="h-2 w-2 rounded-full animate-pulse mt-1"
@@ -1167,127 +1369,188 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
 
         {/* ══ CHECKOUT MODAL ══ */}
         {checkoutModalOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)" }}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6" style={{ background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(16px)" }}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
-              style={{ background: S.card, border: `1px solid ${S.borderHi}`, maxHeight: "90vh" }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-4xl rounded-[2rem] overflow-hidden flex flex-col shadow-2xl relative"
+              style={{ background: S.surface, border: `1px solid rgba(255,255,255,0.1)`, maxHeight: "90vh", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
             >
               {/* Header */}
-              <div className="px-6 py-4 flex items-center justify-between" style={{ background: S.surface, borderBottom: `1px solid ${S.border}` }}>
+              <div className="px-8 py-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${S.border}` }}>
                 <div>
-                  <h2 className="font-black text-lg" style={{ color: S.txt }}>Settle Payment</h2>
-                  <p className="text-xs mt-0.5" style={{ color: S.muted }}>{cart.length} item{cart.length !== 1 ? "s" : ""} in order</p>
+                  <h2 className="font-black text-2xl tracking-tight" style={{ color: S.txt }}>Checkout</h2>
+                  <p className="text-sm mt-0.5 font-medium" style={{ color: S.muted }}>{cart.length} item{cart.length !== 1 ? "s" : ""} in the order</p>
                 </div>
                 <button
                   onClick={() => setCheckoutModalOpen(false)}
-                  className="p-2 rounded-xl transition-colors"
-                  style={{ color: S.muted }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.07)"}
-                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = "transparent"}
+                  className="p-2.5 rounded-full transition-all hover:rotate-90 duration-300"
+                  style={{ color: S.muted, background: "rgba(0,0,0,0.04)" }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = S.roseLo;
+                    (e.currentTarget as HTMLButtonElement).style.color = S.rose;
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.04)";
+                    (e.currentTarget as HTMLButtonElement).style.color = S.muted;
+                  }}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="flex flex-1 overflow-hidden">
-                {/* Left: summary */}
-                <div className="w-1/2 p-6 flex flex-col gap-5" style={{ borderRight: `1px solid ${S.border}` }}>
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: S.muted }}>Amount Due</div>
-                    <div
-                      className="text-5xl font-black tabular-nums tracking-tight"
-                      style={{ color: S.violet, textShadow: `0 0 32px rgba(139,92,246,0.5)` }}
-                    >
+              <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+                {/* Left: Summary */}
+                <div className="w-full md:w-5/12 p-8 flex flex-col gap-6" style={{ background: "linear-gradient(to bottom right, #f8fafc, #ffffff)", borderRight: `1px solid ${S.border}` }}>
+                  
+                  {/* Total Amount Card */}
+                  <div className="rounded-3xl p-6 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${S.violet}, #6d28d9)`, color: "#fff", boxShadow: `0 10px 30px -5px ${S.violetLo}` }}>
+                    <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full" style={{ background: "rgba(255,255,255,0.1)", filter: "blur(20px)" }} />
+                    <p className="text-sm font-black uppercase tracking-widest mb-1 opacity-80">Amount Due</p>
+                    <div className="text-5xl lg:text-6xl font-black tabular-nums tracking-tight">
                       ₹{grandTotal.toFixed(2)}
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-3 text-sm font-medium px-2">
                     {[
                       { label: "Subtotal", val: `₹${subtotal.toFixed(2)}` },
-                      { label: "Tax", val: `+₹${gstAmount.toFixed(2)}` },
-                      { label: "Discount", val: `-₹${discountAmount.toFixed(2)}` },
-                    ].map(row => (
-                      <div key={row.label} className="flex justify-between">
+                      { label: "Tax (GST)", val: `+₹${gstAmount.toFixed(2)}`, condition: applyGst },
+                      { label: "Discount", val: `-₹${discountAmount.toFixed(2)}`, condition: discountAmount > 0 },
+                    ].map(row => row.condition !== false && (
+                      <div key={row.label} className="flex justify-between items-center">
                         <span style={{ color: S.muted }}>{row.label}</span>
-                        <span className="font-bold" style={{ color: S.txt }}>{row.val}</span>
+                        <span className="font-bold text-base" style={{ color: S.txt }}>{row.val}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="space-y-2 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
+                  <div className="space-y-5 pt-4 flex-1" style={{ borderTop: `1px dashed ${S.dim}` }}>
                     {customerName && (
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(0,0,0,0.04)" }}>
-                        <User className="h-3.5 w-3.5 flex-shrink-0" style={{ color: S.muted }} />
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold truncate" style={{ color: S.txt }}>{customerName}</p>
-                          {customerPhone && <p className="text-[11px]" style={{ color: S.muted }}>{customerPhone}</p>}
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "rgba(0,0,0,0.03)", border: `1px solid rgba(0,0,0,0.05)` }}>
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ background: S.violetLo, color: S.violet }}>
+                           <User className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold truncate" style={{ color: S.txt }}>{customerName}</p>
+                          {customerPhone && <p className="text-xs font-medium mt-0.5" style={{ color: S.muted }}>{customerPhone}</p>}
                         </div>
                       </div>
                     )}
+
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block" style={{ color: S.dim }}>Order Notes (optional)</label>
+                      <label className="text-xs font-black uppercase tracking-widest mb-2 block" style={{ color: S.dim }}>Order Notes</label>
                       <textarea
                         rows={2}
-                        placeholder="Special instructions, allergies…"
-                        className="w-full rounded-lg px-3 py-2 text-xs font-medium resize-none outline-none transition-all"
-                        style={{ background: "rgba(0,0,0,0.04)", border: `1px solid ${S.border}`, color: S.txt }}
-                        onFocus={e => (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.violet}`}
-                        onBlur={e => (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.border}`}
+                        placeholder="Add special instructions here..."
+                        className="w-full rounded-2xl px-4 py-3 text-sm font-medium resize-none outline-none transition-all shadow-sm"
+                        style={{ background: "#fff", border: `1px solid ${S.border}`, color: S.txt }}
+                        onFocus={e => {
+                          (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.violet}`;
+                          (e.currentTarget as HTMLTextAreaElement).style.boxShadow = `0 0 0 4px ${S.violetLo}`;
+                        }}
+                        onBlur={e => {
+                          (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.border}`;
+                          (e.currentTarget as HTMLTextAreaElement).style.boxShadow = "none";
+                        }}
                       />
-                    </div>
-                    <div className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: "rgba(175,23,99,0.1)", border: `1px solid rgba(175,23,99,0.25)`, color: "#f9a8d4" }}>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={printKOT} onChange={(e) => setPrintKOT(e.target.checked)} className="rounded" style={{ accentColor: S.violet }} />
-                        <span className="font-black">Include KOT (Kitchen Copy)</span>
-                      </label>
-                      <p className="mt-1 opacity-80 pl-5 mb-2">If unchecked, it will only print the customer bill.</p>
-                      
-                      <div className="h-[1px] w-full bg-[rgba(175,23,99,0.15)] my-2"></div>
-
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={applyGst} onChange={(e) => setApplyGst(e.target.checked)} className="rounded" style={{ accentColor: S.violet }} />
-                        <span className="font-black">Apply GST (Taxes)</span>
-                      </label>
-                      <p className="mt-1 opacity-80 pl-5">If unchecked, tax will be excluded from the final total.</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: payment + order modes */}
-                <div className="w-1/2 p-6 flex flex-col gap-5 overflow-y-auto scrollbar-thin">
-                  {/* Payment modes */}
+                {/* Right: Payment + Preferences */}
+                <div className="w-full md:w-7/12 p-8 flex flex-col gap-8 overflow-y-auto scrollbar-thin">
+                  
+                  {/* Preferences Toggles */}
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: S.dim }}>Payment Method</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: S.txt }}>
+                      <Zap className="h-4 w-4" style={{ color: S.amber }} /> Bill Preferences
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* KOT Toggle */}
+                      <button
+                        onClick={() => setPrintKOT(!printKOT)}
+                        className="relative overflow-hidden flex flex-col items-start p-4 rounded-2xl transition-all duration-300 text-left border-2 group"
+                        style={{
+                          background: printKOT ? S.emeraldLo : "rgba(0,0,0,0.02)",
+                          borderColor: printKOT ? S.emerald : "transparent",
+                        }}
+                      >
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <div className="flex items-center gap-2">
+                            <Printer className="h-5 w-5" style={{ color: printKOT ? S.emerald : S.muted }} />
+                            <span className="font-bold text-sm" style={{ color: printKOT ? S.emerald : S.txt }}>Kitchen Copy</span>
+                          </div>
+                          <div className="w-8 h-5 rounded-full relative transition-colors duration-300" style={{ background: printKOT ? S.emerald : S.border }}>
+                            <div className="absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-300" style={{ transform: printKOT ? "translateX(12px)" : "translateX(0)" }} />
+                          </div>
+                        </div>
+                        <p className="text-xs font-medium" style={{ color: printKOT ? S.emerald : S.muted, opacity: printKOT ? 0.9 : 0.7 }}>
+                          Print KOT for kitchen staff
+                        </p>
+                      </button>
+
+                      {/* GST Toggle */}
+                      <button
+                        onClick={() => setApplyGst(!applyGst)}
+                        className="relative overflow-hidden flex flex-col items-start p-4 rounded-2xl transition-all duration-300 text-left border-2 group"
+                        style={{
+                          background: applyGst ? S.violetLo : "rgba(0,0,0,0.02)",
+                          borderColor: applyGst ? S.violet : "transparent",
+                        }}
+                      >
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <div className="flex items-center gap-2">
+                            <Tag className="h-5 w-5" style={{ color: applyGst ? S.violet : S.muted }} />
+                            <span className="font-bold text-sm" style={{ color: applyGst ? S.violet : S.txt }}>Apply GST</span>
+                          </div>
+                          <div className="w-8 h-5 rounded-full relative transition-colors duration-300" style={{ background: applyGst ? S.violet : S.border }}>
+                            <div className="absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-300" style={{ transform: applyGst ? "translateX(12px)" : "translateX(0)" }} />
+                          </div>
+                        </div>
+                        <p className="text-xs font-medium" style={{ color: applyGst ? S.violet : S.muted, opacity: applyGst ? 0.9 : 0.7 }}>
+                          Include tax in final bill
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color: S.txt }}>Payment Method</h3>
+                    <div className="grid grid-cols-3 gap-3">
                       {paymentModes.map(mode => {
                         const isSelected = selectedPaymentMode === mode.method;
                         return (
                           <button
                             key={mode.method}
                             onClick={() => setSelectedPaymentMode(mode.method)}
-                            className="p-3 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all font-bold text-xs"
+                            className="p-4 rounded-2xl flex flex-col items-center justify-center gap-2.5 transition-all font-bold text-sm group relative overflow-hidden"
                             style={{
-                              background: isSelected ? mode.lo : "rgba(0,0,0,0.03)",
-                              border: `1px solid ${isSelected ? mode.accent : S.border}`,
+                              background: isSelected ? mode.lo : "#fff",
+                              border: `2px solid ${isSelected ? mode.accent : S.border}`,
                               color: isSelected ? mode.accent : S.muted,
-                              boxShadow: isSelected ? `0 0 12px ${mode.lo}` : "none",
+                              boxShadow: isSelected ? `0 8px 24px -8px ${mode.accent}` : "0 2px 8px -4px rgba(0,0,0,0.05)",
+                              transform: isSelected ? "translateY(-2px)" : "none"
                             }}
                           >
-                            <mode.icon className="h-5 w-5" />
+                            <mode.icon className="h-6 w-6 transition-transform group-hover:scale-110" />
                             {mode.label}
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 h-2 w-2 rounded-full" style={{ background: mode.accent }} />
+                            )}
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Order modes */}
+                  {/* Order Mode */}
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: S.dim }}>Order Mode</p>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color: S.txt }}>Order Mode</h3>
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { label: "DINE IN",   value: "DINE_IN",  Icon: Utensils },
                         { label: "SWIGGY",    value: "SWIGGY",   Icon: Bike     },
@@ -1299,15 +1562,16 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                           <button
                             key={value}
                             onClick={() => setSelectedOrderMode(value)}
-                            className="p-2 rounded-xl flex flex-col items-center gap-1 transition-all text-[9px] font-black"
+                            className="p-3 rounded-xl flex flex-col items-center gap-1.5 transition-all text-[10px] font-black group"
                             style={{
-                              background: isSelected ? S.emeraldLo : "rgba(0,0,0,0.03)",
+                              background: isSelected ? S.emeraldLo : "#fff",
                               border: `1px solid ${isSelected ? S.emerald : S.border}`,
                               color: isSelected ? S.emerald : S.muted,
+                              boxShadow: isSelected ? `0 4px 12px -4px ${S.emerald}` : "none",
                             }}
                           >
-                            <Icon className="h-4 w-4" />
-                            <span className="text-center leading-tight">{label}</span>
+                            <Icon className={`h-5 w-5 transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`} />
+                            <span className="text-center tracking-wide">{label}</span>
                           </button>
                         );
                       })}
@@ -1316,35 +1580,31 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
                 </div>
               </div>
 
-              {/* Footer actions */}
-              <div className="p-4 flex gap-3" style={{ background: S.surface, borderTop: `1px solid ${S.border}` }}>
+              {/* Footer Actions */}
+              <div className="p-6 flex gap-4 items-center justify-end" style={{ background: "#fff", borderTop: `1px solid ${S.border}` }}>
                 <button
                   onClick={() => handleCheckout(selectedPaymentMode, false)}
                   disabled={isCheckingOut}
-                  className="flex-1 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+                  className="px-8 py-4 rounded-2xl font-black text-sm transition-all active:scale-95 disabled:opacity-50 hover:bg-slate-50"
                   style={{
-                    background: "rgba(0,0,0,0.04)",
-                    border: `1px solid ${S.border}`,
                     color: S.muted,
                   }}
                 >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isCheckingOut ? "Processing…" : "Settle Only"}
+                  {isCheckingOut ? "Processing…" : "Settle Only (No Print)"}
                 </button>
                 <button
                   onClick={() => handleCheckout(selectedPaymentMode, true)}
                   disabled={isCheckingOut}
-                  className="flex-[2] py-4 rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+                  className="px-10 py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 relative overflow-hidden group"
                   style={{
-                    background: isCheckingOut
-                      ? "rgba(0,210,91,0.4)"
-                      : `linear-gradient(135deg, ${S.emerald}, #00a846)`,
+                    background: `linear-gradient(135deg, ${S.emerald}, #059669)`,
                     color: "#fff",
-                    boxShadow: isCheckingOut ? "none" : `0 4px 24px rgba(0,210,91,0.3)`,
+                    boxShadow: `0 10px 25px -5px rgba(16,185,129,0.4)`,
                   }}
                 >
-                  <Printer className="h-5 w-5" />
-                  {isCheckingOut ? "Processing…" : (printKOT ? "Print Bill + KOT" : "Print Bill Only")}
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <Printer className="h-5 w-5 relative z-10" />
+                  <span className="relative z-10 tracking-wide">{isCheckingOut ? "Processing…" : "Print Bill & Settle"}</span>
                 </button>
               </div>
             </motion.div>
@@ -1354,4 +1614,5 @@ export function BillingCart({ cashierName = "Admin" }: { cashierName?: string })
     </>
   );
 }
+
 

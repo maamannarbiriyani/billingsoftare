@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Users, CalendarCheck, IndianRupee, Plus, Save, Clock,
-  ChevronLeft, ChevronRight, X, Pencil, Trash2, AlertTriangle,
+  Users, CalendarCheck, IndianRupee, Plus, Save,
+  X, Pencil, Trash2, AlertTriangle,
   Wallet, TrendingUp, TrendingDown, CreditCard,
+  Briefcase, Phone, BadgeCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -71,7 +73,7 @@ export function StaffClient({ initialEmployees, userRole = "Admin" }: { initialE
       const res = await createEmployee({ ...addForm, dailyWage: Number(addForm.dailyWage) });
       if (res.error) toast.error(res.error);
       else {
-        toast.success("Employee added");
+        toast.success("Employee added successfully");
         setIsAdding(false);
         setAddForm(EMPTY_FORM);
         window.location.reload();
@@ -148,493 +150,598 @@ export function StaffClient({ initialEmployees, userRole = "Admin" }: { initialE
       const res = await paySalary(advanceModal.emp!.id, Number(advanceModal.amount), new Date().toISOString().slice(0, 7), notes);
       if (res.error) toast.error(res.error);
       else {
-        toast.success(`₹${advanceModal.amount} advance recorded — will deduct from salary`);
+        toast.success(`₹${advanceModal.amount} advance recorded`);
         setAdvanceModal({ open: false, emp: null, amount: 0, reason: "" });
         window.location.reload();
       }
     });
   };
 
-  const changeDate = (days: number) => {
-    const d = new Date(attDate);
-    d.setDate(d.getDate() + days);
-    setAttDate(d);
+  const formatDateForInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
   const tabs = [
-    { id: "ROSTER",     label: "Employee Roster",   icon: Users         },
+    { id: "ROSTER",     label: "Roster",      icon: Users         },
     ...(userRole === "Admin" ? [
-      { id: "ATTENDANCE", label: "Daily Attendance",   icon: CalendarCheck },
-      { id: "SALARY",     label: "Salary & Payouts",   icon: IndianRupee   },
+      { id: "ATTENDANCE", label: "Attendance",  icon: CalendarCheck },
+      { id: "SALARY",     label: "Payroll",     icon: IndianRupee   },
     ] : [])
   ] as const;
 
+  const totalEarnedAll = employees.reduce((s, e) => s + e.totalEarned, 0);
+  const totalPendingAll = employees.reduce((s, e) => s + Math.max(0, e.pendingBalance), 0);
+
   return (
-    <div className="animate-fade-in space-y-6 pb-8">
+    <div className="animate-fade-in space-y-8 pb-12 max-w-6xl mx-auto">
 
-      {/* Header */}
-      <div className="pb-6 border-b border-border flex items-center justify-between">
+      {/* Global Header & Metrics */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-              <Users className="h-4 w-4 text-indigo-500" />
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Users className="h-5 w-5 text-white" />
             </div>
-            <h1 className="page-title">Staff Management</h1>
+            <h1 className="text-3xl font-black text-foreground tracking-tight">Staff HQ</h1>
           </div>
-          <p className="page-subtitle ml-11">Manage employees, track attendance, and process payroll</p>
+          <p className="text-muted-foreground ml-13">Manage your team, track daily attendance, and process payouts securely.</p>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex bg-muted p-1 rounded-xl w-fit gap-1">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as "ROSTER" | "ATTENDANCE" | "SALARY")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === t.id
-                ? "bg-card text-primary shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <t.icon className="h-4 w-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden min-h-[500px]">
-
-        {/* ── ROSTER TAB ── */}
-        {activeTab === "ROSTER" && (
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-foreground">Active Employees <span className="text-sm font-normal text-muted-foreground ml-1">({employees.length})</span></h2>
-              <button onClick={() => setIsAdding(!isAdding)} className="btn btn-primary flex items-center gap-2">
-                <Plus className="h-4 w-4" /> Add Employee
-              </button>
+        {userRole === "Admin" && (
+          <div className="flex gap-4">
+            <div className="glass px-5 py-3 rounded-2xl flex flex-col items-end shadow-sm border border-border">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Total Team</span>
+              <span className="text-xl font-black text-foreground flex items-center gap-2">
+                {employees.length} <Users className="h-4 w-4 text-primary" />
+              </span>
             </div>
+            <div className="glass px-5 py-3 rounded-2xl flex flex-col items-end shadow-sm border-l-4 border-l-rose-500 border-y border-r border-border">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Pending Pay</span>
+              <span className="text-xl font-black text-rose-500 flex items-center gap-2">
+                ₹{totalPendingAll.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
-            {/* Add form */}
-            {isAdding && (
-              <div className="mb-6 p-4 border border-border rounded-xl bg-muted/30 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                <div>
-                  <label className="input-label">Name *</label>
-                  <input type="text" className="input-field" placeholder="Full name" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="input-label">Role</label>
-                  <input type="text" className="input-field" placeholder="e.g. Cashier" value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })} />
-                </div>
-                <div>
-                  <label className="input-label">Phone</label>
-                  <input type="text" className="input-field" placeholder="Mobile number" value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} />
-                </div>
-                <div>
-                  <label className="input-label">Daily Wage (₹)</label>
-                  <input type="number" className="input-field" placeholder="0" value={addForm.dailyWage || ""} onChange={e => setAddForm({ ...addForm, dailyWage: Number(e.target.value) })} />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={handleAddEmployee} disabled={isPending || !addForm.name} className="btn btn-success flex-1">
-                    <Save className="h-4 w-4" /> Save
-                  </button>
-                  <button onClick={() => { setIsAdding(false); setAddForm(EMPTY_FORM); }} className="btn btn-secondary px-3">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+      {/* Animated Tabs */}
+      <div className="flex p-1.5 bg-muted/50 backdrop-blur-md border border-border rounded-2xl w-fit gap-1 shadow-inner relative">
+        {tabs.map(t => {
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id as any)}
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors z-10 ${
+                isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="activeStaffTab"
+                  className="absolute inset-0 bg-primary rounded-xl shadow-md"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <t.icon className={`h-4 w-4 relative z-20 ${isActive ? "text-primary-foreground" : ""}`} />
+              <span className="relative z-20">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-            {employees.length === 0 ? (
-              <div className="empty-state">
-                <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />
-                <p className="font-semibold text-muted-foreground">No employees yet</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">Click "Add Employee" to get started</p>
+      {/* Main Content Area */}
+      <div className="bg-card rounded-3xl border border-border shadow-xl shadow-black/5 overflow-hidden min-h-[500px] relative">
+        <AnimatePresence mode="wait">
+          
+          {/* ── ROSTER TAB ── */}
+          {activeTab === "ROSTER" && (
+            <motion.div
+              key="roster"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-8"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-foreground">Employee Roster</h2>
+                  <p className="text-sm text-muted-foreground mt-1">View and manage all active staff members.</p>
+                </div>
+                <button onClick={() => setIsAdding(true)} className="btn btn-primary rounded-xl px-5 shadow-lg shadow-primary/25">
+                  <Plus className="h-4 w-4" /> Add Employee
+                </button>
               </div>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Phone</th>
-                    <th className="text-right">Daily Wage</th>
-                    <th className="text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+
+              {employees.length === 0 ? (
+                <div className="empty-state py-16">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                    <Users className="h-10 w-10 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-2">No employees found</h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">You haven't added any staff members yet. Click the button above to start building your team.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {employees.map(emp => (
-                    <tr key={emp.id}>
-                      <td className="font-semibold text-foreground">{emp.name}</td>
-                      <td>
-                        <span className="badge badge-default">{emp.role}</span>
-                      </td>
-                      <td className="text-muted-foreground">{emp.phone || "—"}</td>
-                      <td className="text-right font-bold text-foreground">₹{emp.dailyWage.toFixed(2)}</td>
-                      <td>
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => openEdit(emp)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                            title="Edit employee"
-                          >
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      key={emp.id}
+                      className="group p-5 rounded-2xl border border-border bg-card-flat hover:border-primary/30 transition-all shadow-sm hover:shadow-md relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between gap-4 relative z-10">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10 text-primary font-black text-lg shadow-inner">
+                            {getInitials(emp.name)}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-foreground text-lg">{emp.name}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="badge badge-purple px-2 py-0.5"><Briefcase className="w-3 h-3 mr-1 inline"/>{emp.role}</span>
+                              {emp.phone && <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3"/> {emp.phone}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(emp)} className="p-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
                             <Pencil className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => setDeleteConfirm({ open: true, emp })}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            title="Remove employee"
-                          >
+                          <button onClick={() => setDeleteConfirm({ open: true, emp })} className="p-2 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {/* ── ATTENDANCE TAB ── */}
-        {activeTab === "ATTENDANCE" && (
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6 bg-muted p-2 rounded-xl border border-border">
-              <button onClick={() => changeDate(-1)} className="btn btn-secondary px-3">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-2 font-bold text-foreground">
-                <Clock className="h-4 w-4 text-primary" />
-                {attDate.toDateString()}
-              </div>
-              <button onClick={() => changeDate(1)} className="btn btn-secondary px-3">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Role</th>
-                  <th className="text-center">Mark Attendance</th>
-                  <th className="text-right">Wage Added</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map(emp => {
-                  const att = attendances.find(a => a.employeeId === emp.id);
-                  return (
-                    <tr key={emp.id}>
-                      <td className="font-semibold text-foreground">{emp.name}</td>
-                      <td className="text-muted-foreground text-sm">{emp.role}</td>
-                      <td>
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => handleMarkAtt(emp, "PRESENT")}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              att?.status === "PRESENT"
-                                ? "bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/20"
-                                : "bg-muted text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500"
-                            }`}
-                          >
-                            Present
-                          </button>
-                          <button
-                            onClick={() => handleMarkAtt(emp, "HALF_DAY")}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              att?.status === "HALF_DAY"
-                                ? "bg-amber-500 text-white shadow-sm ring-2 ring-amber-500/20"
-                                : "bg-muted text-muted-foreground hover:bg-amber-500/10 hover:text-amber-500"
-                            }`}
-                          >
-                            Half Day
-                          </button>
-                          <button
-                            onClick={() => handleMarkAtt(emp, "ABSENT")}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              att?.status === "ABSENT"
-                                ? "bg-rose-500 text-white shadow-sm ring-2 ring-rose-500/20"
-                                : "bg-muted text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
-                            }`}
-                          >
-                            Absent
-                          </button>
-                        </div>
-                      </td>
-                      <td className="text-right">
-                        {att && att.status !== "ABSENT" ? (
-                          <span className="font-bold text-emerald-500">+ ₹{att.calculatedWage.toFixed(2)}</span>
-                        ) : att?.status === "ABSENT" ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not marked</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ── SALARY TAB ── */}
-        {activeTab === "SALARY" && (
-          <div className="p-6">
-            {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {[
-                {
-                  label: "Total Earned (All Staff)",
-                  value: `₹${employees.reduce((s, e) => s + e.totalEarned, 0).toFixed(2)}`,
-                  icon: TrendingUp,
-                  color: "text-emerald-500",
-                  bg: "bg-emerald-500/10",
-                },
-                {
-                  label: "Total Advanced",
-                  value: `₹${employees.reduce((s, e) => s + e.totalAdvanced, 0).toFixed(2)}`,
-                  icon: Wallet,
-                  color: "text-amber-500",
-                  bg: "bg-amber-500/10",
-                },
-                {
-                  label: "Pending Balance",
-                  value: `₹${employees.reduce((s, e) => s + Math.max(0, e.pendingBalance), 0).toFixed(2)}`,
-                  icon: TrendingDown,
-                  color: "text-rose-500",
-                  bg: "bg-rose-500/10",
-                },
-              ].map(card => (
-                <div key={card.label} className="bg-muted/50 rounded-xl p-4 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`p-1.5 rounded-lg ${card.bg}`}>
-                      <card.icon className={`h-4 w-4 ${card.color}`} />
-                    </div>
-                    <span className="text-xs font-semibold text-muted-foreground">{card.label}</span>
-                  </div>
-                  <p className={`text-xl font-black ${card.color}`}>{card.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th className="text-right">Earned</th>
-                  <th className="text-right">Advance Given</th>
-                  <th className="text-right">Total Paid</th>
-                  <th className="text-right">Pending</th>
-                  <th className="text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map(emp => (
-                  <tr key={emp.id}>
-                    <td>
-                      <p className="font-semibold text-foreground">{emp.name}</p>
-                      <p className="text-xs text-muted-foreground">{emp.role}</p>
-                    </td>
-                    <td className="text-right font-semibold text-emerald-500">₹{emp.totalEarned.toFixed(2)}</td>
-                    <td className="text-right font-semibold text-amber-500">
-                      {emp.totalAdvanced > 0 ? `₹${emp.totalAdvanced.toFixed(2)}` : "—"}
-                    </td>
-                    <td className="text-right font-semibold text-muted-foreground">₹{emp.totalPaid.toFixed(2)}</td>
-                    <td className="text-right">
-                      <span className={`font-bold ${emp.pendingBalance > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                        {emp.pendingBalance > 0 ? `₹${emp.pendingBalance.toFixed(2)}` : "Settled"}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => setAdvanceModal({ open: true, emp, amount: 0, reason: "" })}
-                          className="btn btn-sm text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 flex items-center gap-1"
-                          title="Give wage advance"
-                        >
-                          <Wallet className="h-3.5 w-3.5" /> Advance
-                        </button>
-                        {emp.pendingBalance > 0 && (
-                          <button
-                            onClick={() => setPayoutModal({ open: true, emp, amount: emp.pendingBalance, month: new Date().toISOString().slice(0, 7) })}
-                            className="btn btn-sm flex items-center gap-1"
-                          >
-                            <CreditCard className="h-3.5 w-3.5" /> Pay Salary
-                          </button>
-                        )}
                       </div>
-                    </td>
-                  </tr>
+                      <div className="mt-5 pt-4 border-t border-border/50 flex items-center justify-between relative z-10">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Daily Wage:</span>
+                          <span className="ml-2 font-bold text-emerald-500">₹{emp.dailyWage.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-lg">
+                          <BadgeCheck className="w-3.5 h-3.5" /> Active
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── ATTENDANCE TAB ── */}
+          {activeTab === "ATTENDANCE" && (
+            <motion.div
+              key="attendance"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-8"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 bg-muted/30 p-4 rounded-2xl border border-border">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                    <CalendarCheck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">Daily Attendance</h2>
+                    <p className="text-sm text-muted-foreground">Select date to mark staff presence</p>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="input-field font-semibold text-primary bg-card shadow-sm pl-10 cursor-pointer w-full sm:w-auto"
+                    value={formatDateForInput(attDate)}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const [y, m, d] = e.target.value.split('-');
+                        setAttDate(new Date(Number(y), Number(m) - 1, Number(d)));
+                      }
+                    }}
+                  />
+                  <CalendarCheck className="h-4 w-4 text-primary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {employees.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">No employees to mark attendance for.</div>
+              ) : (
+                <div className="space-y-3">
+                  {employees.map(emp => {
+                    const att = attendances.find(a => a.employeeId === emp.id);
+                    return (
+                      <div key={emp.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-border bg-card-flat hover:border-primary/20 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-sm text-foreground">
+                            {getInitials(emp.name)}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-foreground">{emp.name}</h4>
+                            <p className="text-xs text-muted-foreground">{emp.role}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-6">
+                          <div className="flex bg-muted p-1 rounded-xl">
+                            <button
+                              onClick={() => handleMarkAtt(emp, "PRESENT")}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                att?.status === "PRESENT"
+                                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                                  : "text-muted-foreground hover:text-emerald-500"
+                              }`}
+                            >
+                              Present
+                            </button>
+                            <button
+                              onClick={() => handleMarkAtt(emp, "HALF_DAY")}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                att?.status === "HALF_DAY"
+                                  ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                                  : "text-muted-foreground hover:text-amber-500"
+                              }`}
+                            >
+                              Half Day
+                            </button>
+                            <button
+                              onClick={() => handleMarkAtt(emp, "ABSENT")}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                att?.status === "ABSENT"
+                                  ? "bg-rose-500 text-white shadow-md shadow-rose-500/20"
+                                  : "text-muted-foreground hover:text-rose-500"
+                              }`}
+                            >
+                              Absent
+                            </button>
+                          </div>
+                          
+                          <div className="w-24 text-right">
+                            {att && att.status !== "ABSENT" ? (
+                              <span className="font-bold text-emerald-500">+ ₹{att.calculatedWage.toFixed(2)}</span>
+                            ) : att?.status === "ABSENT" ? (
+                              <span className="text-rose-500 font-bold text-sm">—</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Pending</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── SALARY TAB ── */}
+          {activeTab === "SALARY" && (
+            <motion.div
+              key="salary"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-8"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {[
+                  { label: "Total Earned", value: totalEarnedAll, icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                  { label: "Total Paid & Adv", value: employees.reduce((s, e) => s + e.totalPaid + e.totalAdvanced, 0), icon: Wallet, color: "text-amber-500", bg: "bg-amber-500/10" },
+                  { label: "Total Pending", value: totalPendingAll, icon: TrendingDown, color: "text-rose-500", bg: "bg-rose-500/10" },
+                ].map((stat, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl border border-border bg-card-flat flex items-center gap-4">
+                    <div className={`p-3 rounded-xl ${stat.bg}`}>
+                      <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-muted-foreground">{stat.label}</p>
+                      <p className={`text-2xl font-black ${stat.color}`}>₹{stat.value.toFixed(2)}</p>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-border">
+                <table className="data-table w-full">
+                  <thead>
+                    <tr>
+                      <th className="bg-muted/50 py-4 px-6 text-xs tracking-wider">Employee</th>
+                      <th className="bg-muted/50 py-4 px-6 text-right text-xs tracking-wider">Total Earned</th>
+                      <th className="bg-muted/50 py-4 px-6 text-right text-xs tracking-wider">Total Paid</th>
+                      <th className="bg-muted/50 py-4 px-6 text-right text-xs tracking-wider">Pending Pay</th>
+                      <th className="bg-muted/50 py-4 px-6 text-center text-xs tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {employees.map(emp => (
+                      <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="font-bold text-foreground">{emp.name}</div>
+                          <div className="text-xs text-muted-foreground">{emp.role}</div>
+                        </td>
+                        <td className="py-4 px-6 text-right font-bold text-emerald-500">₹{emp.totalEarned.toFixed(2)}</td>
+                        <td className="py-4 px-6 text-right font-semibold text-muted-foreground">₹{emp.totalPaid.toFixed(2)}</td>
+                        <td className="py-4 px-6 text-right">
+                          {emp.pendingBalance > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-500/10 text-rose-500 font-bold text-sm">
+                              ₹{emp.pendingBalance.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-500 font-bold text-sm flex items-center justify-end gap-1"><BadgeCheck className="w-4 h-4"/> Settled</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => setAdvanceModal({ open: true, emp, amount: 0, reason: "" })}
+                              className="btn btn-sm text-amber-600 bg-amber-500/10 hover:bg-amber-500/20"
+                            >
+                              <Wallet className="h-3.5 w-3.5" /> Advance
+                            </button>
+                            {emp.pendingBalance > 0 && (
+                              <button
+                                onClick={() => setPayoutModal({ open: true, emp, amount: emp.pendingBalance, month: new Date().toISOString().slice(0, 7) })}
+                                className="btn btn-sm btn-primary shadow-md shadow-primary/20"
+                              >
+                                <CreditCard className="h-3.5 w-3.5" /> Pay
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
       </div>
 
-      {/* ── EDIT EMPLOYEE MODAL ── */}
-      {editModal.open && editModal.emp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border">
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-              <h3 className="font-bold text-lg text-foreground">Edit Employee</h3>
-              <button onClick={() => setEditModal({ open: false, emp: null })} className="p-2 hover:bg-muted rounded-xl transition-colors">
-                <X className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="p-6 grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="input-label">Full Name</label>
-                <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
-              </div>
-              <div>
-                <label className="input-label">Role</label>
-                <input type="text" className="input-field" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} />
-              </div>
-              <div>
-                <label className="input-label">Phone</label>
-                <input type="text" className="input-field" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} />
-              </div>
-              <div>
-                <label className="input-label">Daily Wage (₹)</label>
-                <input type="number" className="input-field" value={editForm.dailyWage || ""} onChange={e => setEditForm({ ...editForm, dailyWage: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="input-label">Status</label>
-                <select className="input-field" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
-              </div>
-              <div className="col-span-2 flex gap-3 pt-2">
-                <button onClick={() => setEditModal({ open: false, emp: null })} className="btn btn-secondary flex-1">Cancel</button>
-                <button onClick={handleEditEmployee} disabled={isPending || !editForm.name} className="btn btn-primary flex-1">
-                  <Save className="h-4 w-4" /> Save Changes
+      {/* ── MODALS (AnimatePresence) ── */}
+      <AnimatePresence>
+        {isAdding && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-card w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-border"
+            >
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-muted/30">
+                <h3 className="font-black text-xl text-foreground flex items-center gap-2"><Plus className="w-5 h-5 text-primary"/> New Employee</h3>
+                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-muted rounded-full transition-colors">
+                  <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── DELETE CONFIRM MODAL ── */}
-      {deleteConfirm.open && deleteConfirm.emp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-2xl shadow-xl overflow-hidden border border-border">
-            <div className="p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="h-6 w-6 text-rose-500" />
+              <div className="p-8 space-y-5">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="col-span-2">
+                    <label className="input-label">Full Name *</label>
+                    <input type="text" autoFocus className="input-field" placeholder="e.g. Rahul Kumar" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="input-label">Role</label>
+                    <input type="text" className="input-field" placeholder="e.g. Sales" value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="input-label">Phone</label>
+                    <input type="text" className="input-field" placeholder="+91..." value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="input-label">Daily Wage (₹) *</label>
+                    <input type="number" className="input-field text-lg font-bold text-primary" placeholder="0.00" value={addForm.dailyWage || ""} onChange={e => setAddForm({ ...addForm, dailyWage: Number(e.target.value) })} />
+                  </div>
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button onClick={() => setIsAdding(false)} className="btn btn-secondary flex-1 py-3 text-base">Cancel</button>
+                  <button onClick={handleAddEmployee} disabled={isPending || !addForm.name || addForm.dailyWage <= 0} className="btn btn-primary flex-1 py-3 text-base shadow-lg shadow-primary/30">
+                    <Save className="h-5 w-5" /> Save Employee
+                  </button>
+                </div>
               </div>
-              <h3 className="font-bold text-lg text-foreground mb-1">Remove Employee?</h3>
-              <p className="text-sm text-muted-foreground mb-1">
-                <span className="font-semibold text-foreground">{deleteConfirm.emp.name}</span> will be deactivated.
+            </motion.div>
+          </motion.div>
+        )}
+
+        {editModal.open && editModal.emp && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-border"
+            >
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-muted/30">
+                <h3 className="font-black text-xl text-foreground flex items-center gap-2"><Pencil className="w-5 h-5 text-primary"/> Edit Details</h3>
+                <button onClick={() => setEditModal({ open: false, emp: null })} className="p-2 hover:bg-muted rounded-full transition-colors">
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+              <div className="p-8 grid grid-cols-2 gap-5">
+                <div className="col-span-2">
+                  <label className="input-label">Full Name</label>
+                  <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="input-label">Role</label>
+                  <input type="text" className="input-field" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} />
+                </div>
+                <div>
+                  <label className="input-label">Phone</label>
+                  <input type="text" className="input-field" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} />
+                </div>
+                <div>
+                  <label className="input-label">Daily Wage (₹)</label>
+                  <input type="number" className="input-field" value={editForm.dailyWage || ""} onChange={e => setEditForm({ ...editForm, dailyWage: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="input-label">Status</label>
+                  <select className="input-field" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+                <div className="col-span-2 flex gap-3 pt-4">
+                  <button onClick={() => setEditModal({ open: false, emp: null })} className="btn btn-secondary flex-1 py-3 text-base">Cancel</button>
+                  <button onClick={handleEditEmployee} disabled={isPending || !editForm.name} className="btn btn-primary flex-1 py-3 text-base shadow-lg shadow-primary/30">
+                    <Save className="h-5 w-5" /> Save Changes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {deleteConfirm.open && deleteConfirm.emp && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border p-8 text-center relative"
+            >
+              <button onClick={() => setDeleteConfirm({ open: false, emp: null })} className="absolute top-4 right-4 p-2 hover:bg-muted rounded-full transition-colors">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+              <div className="w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-5">
+                <AlertTriangle className="h-8 w-8 text-rose-500" />
+              </div>
+              <h3 className="font-black text-xl text-foreground mb-2">Remove Employee?</h3>
+              <p className="text-muted-foreground mb-6">
+                Are you sure you want to deactivate <span className="font-bold text-foreground">{deleteConfirm.emp.name}</span>? Their past records will be preserved.
               </p>
-              <p className="text-xs text-muted-foreground mb-6">Their attendance and salary history will be preserved.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm({ open: false, emp: null })} className="btn btn-secondary flex-1">Cancel</button>
-                <button onClick={handleDeleteEmployee} disabled={isPending} className="btn btn-danger flex-1">
-                  <Trash2 className="h-4 w-4" /> Remove
+                <button onClick={() => setDeleteConfirm({ open: false, emp: null })} className="btn btn-secondary flex-1 py-3">Cancel</button>
+                <button onClick={handleDeleteEmployee} disabled={isPending} className="btn btn-danger flex-1 py-3 shadow-lg shadow-rose-500/20">
+                  <Trash2 className="h-5 w-5" /> Remove
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
 
-      {/* ── PAY SALARY MODAL ── */}
-      {payoutModal.open && payoutModal.emp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-2xl shadow-xl overflow-hidden border border-border">
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-              <h3 className="font-bold text-lg text-foreground">Pay Salary</h3>
-              <button onClick={() => setPayoutModal({ ...payoutModal, open: false })} className="p-2 hover:bg-muted rounded-xl transition-colors">
-                <X className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-muted/50 rounded-xl p-3 border border-border">
-                <p className="text-xs text-muted-foreground mb-0.5">Employee</p>
-                <p className="font-bold text-foreground">{payoutModal.emp.name}</p>
+        {payoutModal.open && payoutModal.emp && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-card w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border"
+            >
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-muted/30">
+                <h3 className="font-black text-xl text-foreground flex items-center gap-2"><CreditCard className="w-5 h-5 text-primary"/> Pay Salary</h3>
+                <button onClick={() => setPayoutModal({ ...payoutModal, open: false })} className="p-2 hover:bg-muted rounded-full transition-colors">
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground text-xs">Total Earned</p>
-                  <p className="font-bold text-emerald-500">₹{payoutModal.emp.totalEarned.toFixed(2)}</p>
+              <div className="p-8 space-y-6">
+                <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wide mb-1">Paying To</p>
+                  <p className="font-black text-lg text-foreground">{payoutModal.emp.name}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Already Paid</p>
-                  <p className="font-bold text-muted-foreground">₹{payoutModal.emp.totalPaid.toFixed(2)}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                    <p className="text-muted-foreground text-xs font-semibold mb-1">Total Earned</p>
+                    <p className="font-black text-emerald-500">₹{payoutModal.emp.totalEarned.toFixed(2)}</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                    <p className="text-muted-foreground text-xs font-semibold mb-1">Pending Pay</p>
+                    <p className="font-black text-rose-500">₹{payoutModal.emp.pendingBalance.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <label className="input-label">Payment Amount (₹)</label>
+                    <input type="number" className="input-field text-xl font-black text-primary" autoFocus value={payoutModal.amount || ""} onChange={e => setPayoutModal({ ...payoutModal, amount: Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="input-label">Salary Month</label>
+                    <input type="month" className="input-field" value={payoutModal.month} onChange={e => setPayoutModal({ ...payoutModal, month: e.target.value })} />
+                  </div>
+                  <button disabled={isPending || payoutModal.amount <= 0 || payoutModal.amount > payoutModal.emp.pendingBalance} onClick={handlePayout} className="btn btn-primary w-full py-3.5 text-base shadow-lg shadow-primary/30 mt-2">
+                    <CreditCard className="h-5 w-5" /> Confirm Payout
+                  </button>
                 </div>
               </div>
-              <div>
-                <label className="input-label">Amount to Pay (₹)</label>
-                <input type="number" className="input-field" value={payoutModal.amount || ""} onChange={e => setPayoutModal({ ...payoutModal, amount: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="input-label">Month</label>
-                <input type="month" className="input-field" value={payoutModal.month} onChange={e => setPayoutModal({ ...payoutModal, month: e.target.value })} />
-              </div>
-              <button disabled={isPending || payoutModal.amount <= 0} onClick={handlePayout} className="btn btn-success w-full">
-                <CreditCard className="h-4 w-4" /> Confirm Payout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
 
-      {/* ── WAGE ADVANCE MODAL ── */}
-      {advanceModal.open && advanceModal.emp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-2xl shadow-xl overflow-hidden border border-border">
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-lg text-foreground">Wage Advance</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Will be deducted from monthly salary</p>
+        {advanceModal.open && advanceModal.emp && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-card w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border"
+            >
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-amber-500/10">
+                <div>
+                  <h3 className="font-black text-xl text-amber-600 dark:text-amber-500 flex items-center gap-2"><Wallet className="w-5 h-5"/> Wage Advance</h3>
+                  <p className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-1 font-semibold">Deducted from future salary</p>
+                </div>
+                <button onClick={() => setAdvanceModal({ open: false, emp: null, amount: 0, reason: "" })} className="p-2 hover:bg-amber-500/20 rounded-full transition-colors">
+                  <X className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                </button>
               </div>
-              <button onClick={() => setAdvanceModal({ open: false, emp: null, amount: 0, reason: "" })} className="p-2 hover:bg-muted rounded-xl transition-colors">
-                <X className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                  Advance for <span className="font-bold">{advanceModal.emp.name}</span>
-                  {advanceModal.emp.pendingBalance > 0 && (
-                    <> · Pending: <span className="font-bold">₹{advanceModal.emp.pendingBalance.toFixed(2)}</span></>
-                  )}
-                </p>
+              <div className="p-8 space-y-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center font-bold text-amber-600 dark:text-amber-500">
+                    {getInitials(advanceModal.emp.name)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-foreground">{advanceModal.emp.name}</p>
+                    <p className="text-xs text-muted-foreground">{advanceModal.emp.role}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="input-label">Advance Amount (₹)</label>
+                    <input
+                      type="number"
+                      autoFocus
+                      className="input-field text-xl font-black focus:border-amber-500 focus:ring-amber-500"
+                      placeholder="0.00"
+                      value={advanceModal.amount || ""}
+                      onChange={e => setAdvanceModal({ ...advanceModal, amount: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">Reason (optional)</label>
+                    <input
+                      type="text"
+                      className="input-field focus:border-amber-500 focus:ring-amber-500"
+                      placeholder="e.g. Medical emergency"
+                      value={advanceModal.reason}
+                      onChange={e => setAdvanceModal({ ...advanceModal, reason: e.target.value })}
+                    />
+                  </div>
+                  <button disabled={isPending || advanceModal.amount <= 0} onClick={handleAdvance} className="btn w-full py-3.5 text-base font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 mt-2 border-none">
+                    <Wallet className="h-5 w-5" /> Record Advance
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="input-label">Advance Amount (₹)</label>
-                <input
-                  type="number"
-                  autoFocus
-                  className="input-field"
-                  placeholder="Enter amount"
-                  value={advanceModal.amount || ""}
-                  onChange={e => setAdvanceModal({ ...advanceModal, amount: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="input-label">Reason (optional)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Medical emergency"
-                  value={advanceModal.reason}
-                  onChange={e => setAdvanceModal({ ...advanceModal, reason: e.target.value })}
-                />
-              </div>
-              <button disabled={isPending || advanceModal.amount <= 0} onClick={handleAdvance} className="btn w-full font-bold text-amber-600 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/25">
-                <Wallet className="h-4 w-4" /> Record Advance — ₹{advanceModal.amount || "0"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

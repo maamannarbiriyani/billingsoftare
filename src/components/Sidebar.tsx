@@ -63,8 +63,8 @@ export function Sidebar({
     <aside
       className="flex flex-col h-full w-64 print:hidden z-40 relative"
       style={{
-        background: "linear-gradient(180deg, #0e0e14 0%, #111118 100%)",
-        borderRight: "1px solid rgba(255,255,255,0.05)",
+        background: "var(--sidebar-bg)",
+        borderRight: "1px solid var(--sidebar-border)",
       }}
     >
       {/* Close Button */}
@@ -78,15 +78,15 @@ export function Sidebar({
       )}
 
       {/* Logo */}
-      <div className="flex h-[4rem] items-center gap-3 px-4 flex-shrink-0 border-b border-white/5 bg-card/50">
+      <div className="flex h-[4rem] items-center gap-3 px-4 flex-shrink-0 border-b border-sidebar-border bg-sidebar-bg/50">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm overflow-hidden">
           <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0">
-          <p className="text-white font-bold text-sm tracking-tight leading-none">
+          <p className="text-sidebar-text-active font-bold text-sm tracking-tight leading-none">
             Hotel Maamannar
           </p>
-          <p className="text-[11px] font-medium mt-0.5" style={{ color: "#8b5cf6" }}>
+          <p className="text-[11px] font-medium mt-0.5 text-primary">
             Biriyani
           </p>
         </div>
@@ -94,7 +94,7 @@ export function Sidebar({
 
       {/* Nav */}
       <div className="flex-1 flex flex-col overflow-y-auto px-3 pt-4 pb-2 scrollbar-thin gap-0.5">
-        <p className="px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5" style={{ color: "#3d3d5c" }}>
+        <p className="px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70">
           Navigation
         </p>
 
@@ -108,35 +108,35 @@ export function Sidebar({
                 href={item.href}
                 className="group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
                 style={{
-                  background: isActive ? item.glow : "transparent",
-                  color: isActive ? "#f0f0f5" : "#7070a0",
+                  background: isActive ? "var(--sidebar-active-bg)" : "transparent",
+                  color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
                   borderLeft: isActive
-                    ? `2px solid ${item.color.replace("text-", "").replace("-400", "")}`
+                    ? `2px solid var(--sidebar-active-border)`
                     : "2px solid transparent",
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
                     (e.currentTarget as HTMLAnchorElement).style.background =
-                      "rgba(255,255,255,0.04)";
-                    (e.currentTarget as HTMLAnchorElement).style.color = "#c8c8d8";
+                      "var(--sidebar-hover-bg)";
+                    (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text-active)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     (e.currentTarget as HTMLAnchorElement).style.background =
                       "transparent";
-                    (e.currentTarget as HTMLAnchorElement).style.color = "#7070a0";
+                    (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text)";
                   }
                 }}
               >
                 <item.icon
                   className={`h-4 w-4 flex-shrink-0 transition-colors ${
-                    isActive ? item.color : "text-[#3d3d5c] group-hover:text-slate-400"
+                    isActive ? "text-sidebar-text-active" : "text-sidebar-text group-hover:text-sidebar-text-active"
                   }`}
                 />
                 <span className="flex-1 truncate">{item.name}</span>
                 {isActive && (
-                  <ChevronRight className={`h-3 w-3 flex-shrink-0 ${item.color} opacity-60`} />
+                  <ChevronRight className={`h-3 w-3 flex-shrink-0 opacity-60`} />
                 )}
               </Link>
             );
@@ -146,7 +146,7 @@ export function Sidebar({
         {/* Settings */}
         {bottomItems.length > 0 && (
           <>
-            <div className="my-3 mx-1" style={{ height: "1px", background: "rgba(255,255,255,0.05)" }} />
+            <div className="my-3 mx-1" style={{ height: "1px", background: "var(--sidebar-border)" }} />
             <nav className="flex flex-col gap-0.5">
               {bottomItems.map((item) => {
                 const isActive = pathname === item.href;
@@ -156,8 +156,8 @@ export function Sidebar({
                     href={item.href}
                     className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
                     style={{
-                      background: isActive ? item.glow : "transparent",
-                      color: isActive ? "#f0f0f5" : "#7070a0",
+                      background: isActive ? "var(--sidebar-active-bg)" : "transparent",
+                      color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive)
@@ -172,7 +172,7 @@ export function Sidebar({
                   >
                     <item.icon
                       className={`h-4 w-4 flex-shrink-0 ${
-                        isActive ? item.color : "text-[#3d3d5c] group-hover:text-slate-400"
+                        isActive ? "text-sidebar-text-active" : "text-sidebar-text group-hover:text-sidebar-text-active"
                       }`}
                     />
                     <span>{item.name}</span>
@@ -187,23 +187,23 @@ export function Sidebar({
       {/* User Badge */}
       <div
         className="px-3 py-3 flex-shrink-0"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+        style={{ borderTop: "1px solid var(--sidebar-border)" }}
       >
         <div
           className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--sidebar-border)" }}
         >
           <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #8b5cf6, #22d3ee)" }}
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-primary-foreground text-xs font-bold flex-shrink-0"
+            style={{ background: "var(--primary)" }}
           >
             {userRole === "Admin" ? "A" : "C"}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate" style={{ color: "#e0e0f0" }}>
+            <p className="text-sm font-semibold truncate text-sidebar-text-active">
               {userRole === "Admin" ? "Administrator" : "Cashier"}
             </p>
-            <p className="text-xs truncate" style={{ color: "#5c5c72" }}>
+            <p className="text-xs truncate text-sidebar-text">
               {userRole === "Admin" ? "Full access" : "Limited access"}
             </p>
           </div>

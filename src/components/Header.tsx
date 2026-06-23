@@ -134,8 +134,9 @@ export function Header({
           <div
             className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
             style={{
-              background: "linear-gradient(135deg, #8b5cf6, #22d3ee)",
-              boxShadow: "0 0 12px rgba(139,92,246,0.4)",
+              background: "var(--primary)",
+              color: "var(--primary-foreground)",
+              boxShadow: "0 0 12px var(--primary-glow)",
             }}
           >
             A
