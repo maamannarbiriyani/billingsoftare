@@ -1240,7 +1240,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 className="px-4 py-3 flex items-center justify-between"
                 style={{ background: S.card, borderTop: `1px solid ${S.border}`, borderBottom: `1px solid ${S.border}` }}
               >
-                <span className="text-sm font-black uppercase tracking-widest" style={{ color: S.muted }}>Total</span>
+                <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: S.muted }}>Total</span>
                 <span
                   className="text-3xl font-black tabular-nums tracking-tight"
                   style={{ color: S.violet, textShadow: `0 0 24px rgba(139,92,246,0.4)` }}
@@ -1301,7 +1301,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 </button>
               </div>
               <div className="p-5">
-                <label className="text-[10px] font-black uppercase tracking-widest mb-2 block" style={{ color: S.muted }}>Table Name or Number</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider mb-2 block" style={{ color: S.muted }}>Table Name or Number</label>
                 <input
                   autoFocus
                   value={newTableName}
@@ -1358,14 +1358,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-4xl rounded-[2rem] overflow-hidden flex flex-col shadow-2xl relative"
-              style={{ background: S.surface, border: `1px solid rgba(255,255,255,0.1)`, maxHeight: "90vh", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
+              className="w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col relative"
+              style={{ background: S.surface, border: `1px solid ${S.border}`, maxHeight: "92vh", boxShadow: "0 24px 60px -15px rgba(0,0,0,0.4)" }}
             >
               {/* Header */}
-              <div className="px-8 py-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${S.border}` }}>
+              <div className="px-7 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${S.border}` }}>
                 <div>
-                  <h2 className="font-black text-2xl tracking-tight" style={{ color: S.txt }}>Checkout</h2>
-                  <p className="text-sm mt-0.5 font-medium" style={{ color: S.muted }}>{cart.length} item{cart.length !== 1 ? "s" : ""} in the order</p>
+                  <h2 className="font-bold text-xl tracking-tight" style={{ color: S.txt }}>Checkout</h2>
+                  <p className="text-xs mt-0.5 font-medium" style={{ color: S.muted }}>{cart.length} item{cart.length !== 1 ? "s" : ""} in this order</p>
                 </div>
                 <button
                   onClick={() => setCheckoutModalOpen(false)}
@@ -1386,18 +1386,17 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
               <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
                 {/* Left: Summary */}
-                <div className="w-full md:w-5/12 p-8 flex flex-col gap-6" style={{ background: S.panel, borderRight: `1px solid ${S.border}` }}>
-                  
+                <div className="w-full md:w-5/12 p-7 flex flex-col gap-5" style={{ background: S.panel, borderRight: `1px solid ${S.border}` }}>
+
                   {/* Total Amount Card */}
-                  <div className="rounded-3xl p-6 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${S.violet}, #6d28d9)`, color: "#fff", boxShadow: `0 10px 30px -5px ${S.violetLo}` }}>
-                    <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full" style={{ background: "rgba(255,255,255,0.1)", filter: "blur(20px)" }} />
-                    <p className="text-sm font-black uppercase tracking-widest mb-1 opacity-80">Amount Due</p>
-                    <div className="text-5xl lg:text-6xl font-black tabular-nums tracking-tight">
+                  <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: S.violet, color: "#fff", boxShadow: `0 8px 24px -10px ${S.violet}` }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 opacity-75">Amount Payable</p>
+                    <div className="text-[40px] leading-none font-bold tabular-nums tracking-tight">
                       ₹{grandTotal.toFixed(2)}
                     </div>
                   </div>
 
-                  <div className="space-y-3 text-sm font-medium px-2">
+                  <div className="space-y-2.5 text-sm font-medium px-1">
                     {[
                       { label: "Subtotal", val: `₹${subtotal.toFixed(2)}` },
                       { label: "Tax (GST)", val: `+₹${gstAmount.toFixed(2)}`, condition: applyGst },
@@ -1424,7 +1423,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     )}
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-widest mb-2 block" style={{ color: S.dim }}>Order Notes</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: S.dim }}>Order Notes</label>
                       <textarea
                         rows={2}
                         placeholder="Add special instructions here..."
@@ -1448,7 +1447,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   
                   {/* Preferences Toggles */}
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: S.txt }}>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: S.txt }}>
                       <Zap className="h-4 w-4" style={{ color: S.amber }} /> Bill Preferences
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -1502,7 +1501,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
                   {/* Payment Method */}
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color: S.txt }}>Payment Method</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: S.txt }}>Payment Method</h3>
                     <div className="grid grid-cols-3 gap-3">
                       {paymentModes.map(mode => {
                         const isSelected = selectedPaymentMode === mode.method;
@@ -1532,7 +1531,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
                   {/* Order Mode */}
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest mb-4" style={{ color: S.txt }}>Order Mode</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: S.txt }}>Order Mode</h3>
                     <div className="grid grid-cols-4 gap-2">
                       {[
                         { label: "DINE IN",   value: "DINE_IN",  Icon: Utensils },
@@ -1564,31 +1563,32 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               </div>
 
               {/* Footer Actions */}
-              <div className="p-6 flex gap-4 items-center justify-end" style={{ background: S.surface, borderTop: `1px solid ${S.border}` }}>
+              <div className="px-7 py-5 flex flex-col-reverse sm:flex-row gap-3 items-center sm:justify-end" style={{ background: S.surface, borderTop: `1px solid ${S.border}` }}>
                 <button
                   onClick={() => handleCheckout(selectedPaymentMode, false)}
                   disabled={isCheckingOut}
-                  className="px-8 py-4 rounded-2xl font-black text-sm transition-all active:scale-95 disabled:opacity-50"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
                   style={{
-                    color: S.muted,
+                    color: S.txt,
                     background: S.subtle,
+                    border: `1px solid ${S.border}`,
                   }}
                 >
-                  {isCheckingOut ? "Processing…" : "Settle Only (No Print)"}
+                  {isCheckingOut ? "Processing…" : "Settle Only"}
                 </button>
                 <button
                   onClick={() => handleCheckout(selectedPaymentMode, true)}
                   disabled={isCheckingOut}
-                  className="px-10 py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 relative overflow-hidden group"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] disabled:opacity-50 relative overflow-hidden group"
                   style={{
-                    background: `linear-gradient(135deg, ${S.emerald}, #059669)`,
+                    background: S.emerald,
                     color: "#fff",
-                    boxShadow: `0 10px 25px -5px rgba(16,185,129,0.4)`,
+                    boxShadow: `0 8px 22px -8px ${S.emerald}`,
                   }}
                 >
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <div className="absolute inset-0 bg-white/15 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                   <Printer className="h-5 w-5 relative z-10" />
-                  <span className="relative z-10 tracking-wide">{isCheckingOut ? "Processing…" : "Print Bill & Settle"}</span>
+                  <span className="relative z-10">{isCheckingOut ? "Processing…" : "Print Bill & Settle"}</span>
                 </button>
               </div>
             </motion.div>
