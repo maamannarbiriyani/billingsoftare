@@ -34,9 +34,9 @@ export function RevenueBarChart({ data }: { data: { date: string; total: number;
 
   if (!hasData) {
     return (
-      <div className="h-[280px] flex flex-col items-center justify-center text-slate-400 select-none">
-        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-          <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground select-none">
+        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
+          <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         </div>
@@ -52,38 +52,38 @@ export function RevenueBarChart({ data }: { data: { date: string; total: number;
         <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#818cf8" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
               <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
           <XAxis
             dataKey="date"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
             dy={8}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
             tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
           <Area
             type="monotone"
             dataKey="total"
             name="Revenue"
-            stroke="#818cf8"
+            stroke="#3b82f6"
             strokeWidth={2.5}
             fill="url(#revenueGradient)"
-            dot={{ fill: '#818cf8', strokeWidth: 2, r: 3, stroke: '#fff' }}
-            activeDot={{ fill: '#818cf8', strokeWidth: 2, r: 5, stroke: '#fff' }}
+            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3, stroke: 'var(--card)' }}
+            activeDot={{ fill: '#3b82f6', strokeWidth: 2, r: 5, stroke: 'var(--card)' }}
             animationDuration={1200}
             animationEasing="ease-out"
           />

@@ -27,9 +27,9 @@ const CustomTooltip = ({ active, payload }: any) => {
 export function CategoryPieChart({ data }: { data: { name: string; value: number }[] }) {
   if (!data || data.length === 0) {
     return (
-      <div className="h-[280px] flex flex-col items-center justify-center text-slate-400 select-none">
-        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-          <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground select-none">
+        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
+          <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
           </svg>
@@ -75,7 +75,7 @@ export function CategoryPieChart({ data }: { data: { name: string; value: number
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center pt-2">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-tight">Top</span>
             <span className="text-sm font-black text-foreground max-w-[80px] truncate leading-tight mt-0.5">{topCategory.name}</span>
-            <span className="text-lg font-black text-indigo-500 mt-0.5 leading-none">{topPct}%</span>
+            <span className="text-lg font-black text-blue-600 mt-0.5 leading-none">{topPct}%</span>
           </div>
         )}
       </div>
@@ -88,8 +88,8 @@ export function CategoryPieChart({ data }: { data: { name: string; value: number
           return (
             <div key={entry.name} className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color.bg }} />
-              <span className="text-sm text-slate-700 flex-1 truncate font-medium">{entry.name}</span>
-              <span className="text-xs font-bold text-slate-500">{pct}%</span>
+              <span className="text-sm text-foreground flex-1 truncate font-medium">{entry.name}</span>
+              <span className="text-xs font-bold text-muted-foreground">{pct}%</span>
             </div>
           );
         })}

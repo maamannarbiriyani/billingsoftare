@@ -199,8 +199,8 @@ export default async function DashboardPage({
       decimals: 2,
       prefix: "₹",
       icon: IndianRupee,
-      color: "text-violet-500",
-      bg: "bg-violet-50 dark:bg-[rgba(139,92,246,0.1)]",
+      color: "text-blue-600",
+      bg: "bg-blue-50 dark:bg-[rgba(37,99,235,0.12)]",
     },
     {
       name: "Today's Net Profit",
@@ -284,9 +284,9 @@ export default async function DashboardPage({
               style={
                 range === opt.value
                   ? {
-                      background: "rgba(139,92,246,0.2)",
-                      color: "#c4b5fd",
-                      border: "1px solid rgba(139,92,246,0.3)",
+                      background: "var(--primary)",
+                      color: "#ffffff",
+                      border: "1px solid var(--primary)",
                     }
                   : {
                       color: "var(--muted-foreground)",
@@ -324,8 +324,8 @@ export default async function DashboardPage({
               <h2 className="text-sm font-bold text-foreground">Revenue Trends</h2>
               <p className="text-xs mt-0.5 text-muted-foreground">Earnings across the selected timeframe</p>
             </div>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-50 dark:bg-[rgba(139,92,246,0.12)] border border-violet-100 dark:border-[rgba(139,92,246,0.2)]">
-              <ArrowUpRight className="h-4 w-4 text-violet-500 dark:text-[#a78bfa]" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-[rgba(37,99,235,0.12)] border border-blue-100 dark:border-[rgba(37,99,235,0.25)]">
+              <ArrowUpRight className="h-4 w-4 text-blue-600 dark:text-[#60a5fa]" />
             </div>
           </div>
           <RevenueBarChart data={chartData} />

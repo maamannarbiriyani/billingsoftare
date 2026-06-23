@@ -102,7 +102,7 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
       <div 
         ref={setNodeRef} 
         style={{
-          border: '2px dashed #7c3aed', 
+          border: '2px dashed #1e40af', 
           background: 'rgba(124,58,237,.08)', 
           borderRadius: '16px', 
           opacity: 1,
@@ -118,15 +118,15 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
     transition,
     zIndex: isOverlay ? 9999 : (isDragging ? 50 : 1),
     opacity: isOutOfStock ? 0.45 : 1,
-    background: inCart ? "rgba(139,92,246,0.08)" : S.card,
+    background: inCart ? "rgba(59,130,246,0.08)" : S.card,
     border: inCart
-      ? `1px solid rgba(139,92,246,0.5)`
+      ? `1px solid rgba(59,130,246,0.5)`
       : isOutOfStock
       ? `1px solid rgba(0,0,0,0.04)`
       : `1px solid ${S.border}`,
     boxShadow: isOverlay 
       ? "0 20px 50px rgba(0,0,0,.15), 0 8px 20px rgba(0,0,0,.1)" 
-      : inCart ? `0 0 16px rgba(139,92,246,0.15)` : "none",
+      : inCart ? `0 0 16px rgba(59,130,246,0.15)` : "none",
     cursor: isOverlay ? "grabbing" : "default"
   };
 
@@ -524,7 +524,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             {activeTableId && (
               <div
                 className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
-                style={{ background: S.violetLo, color: S.violet, border: `1px solid rgba(139,92,246,0.3)` }}
+                style={{ background: S.violetLo, color: S.violet, border: `1px solid rgba(59,130,246,0.3)` }}
               >
                 <Home className="h-3 w-3" />
                 {tables.find(t => t.id === activeTableId)?.name || "Table"}
@@ -575,7 +575,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     className="relative flex-1 py-1.5 text-[11px] font-black rounded-md transition-all"
                     style={
                       viewMode === mode
-                        ? { background: S.violetLo, color: "#c4b5fd", border: `1px solid rgba(139,92,246,0.3)` }
+                        ? { background: S.violetLo, color: "#bfdbfe", border: `1px solid rgba(59,130,246,0.3)` }
                         : { color: S.muted, border: "1px solid transparent" }
                     }
                   >
@@ -620,7 +620,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                       className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-1"
                       style={
                         isActive
-                          ? { background: "rgba(139,92,246,0.3)", color: "#c4b5fd" }
+                          ? { background: "rgba(59,130,246,0.3)", color: "#bfdbfe" }
                           : { background: S.subtleHi, color: S.dim }
                       }
                     >
@@ -843,7 +843,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
                     if (isEditing) {
                       return (
-                        <div key={table.id} className="relative p-4 rounded-xl text-left border-2 border-violet-500 shadow-lg z-10 flex flex-col gap-2" style={{ background: S.card }}>
+                        <div key={table.id} className="relative p-4 rounded-xl text-left border-2 border-blue-600 shadow-lg z-10 flex flex-col gap-2" style={{ background: S.card }}>
                           <input 
                             autoFocus
                             value={editingTableName}
@@ -859,7 +859,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                                 setEditingTableId(null);
                               }
                             }}
-                            className="w-full text-sm font-bold rounded px-2 py-1 outline-none focus:border-violet-500"
+                            className="w-full text-sm font-bold rounded px-2 py-1 outline-none focus:border-blue-600"
                             style={{ background: S.input2, border: `1px solid ${S.border}`, color: S.txt }}
                           />
                           <div className="flex gap-2">
@@ -873,7 +873,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                                   else { toast.success("Table updated!"); setEditingTableId(null); await loadTablesAndOrders(); }
                                 });
                               }}
-                              className="flex-1 py-1 rounded bg-violet-500 text-white text-xs font-bold"
+                              className="flex-1 py-1 rounded bg-blue-600 text-white text-xs font-bold"
                             >Save</button>
                           </div>
                         </div>
@@ -890,16 +890,16 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                         className="relative p-4 rounded-xl text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 group overflow-hidden"
                         style={{
                           background: isActive
-                            ? "rgba(139,92,246,0.1)"
+                            ? "rgba(59,130,246,0.1)"
                             : isOccupied
                             ? "rgba(244,63,94,0.06)"
                             : S.card,
                           border: isActive
-                            ? "1px solid rgba(139,92,246,0.5)"
+                            ? "1px solid rgba(59,130,246,0.5)"
                             : isOccupied
                             ? `1px solid rgba(244,63,94,0.3)`
                             : `1px solid ${S.border}`,
-                          boxShadow: isActive ? "0 0 20px rgba(139,92,246,0.12)" : "none",
+                          boxShadow: isActive ? "0 0 20px rgba(59,130,246,0.12)" : "none",
                         }}
                       >
                         {/* Hover Actions */}
@@ -1243,7 +1243,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: S.muted }}>Total</span>
                 <span
                   className="text-3xl font-black tabular-nums tracking-tight"
-                  style={{ color: S.violet, textShadow: `0 0 24px rgba(139,92,246,0.4)` }}
+                  style={{ color: S.violet, textShadow: `0 0 24px rgba(59,130,246,0.4)` }}
                 >
                   ₹{grandTotal.toFixed(2)}
                 </span>
@@ -1340,7 +1340,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                     }}
                     disabled={isFetching || !newTableName}
                     className="flex-[2] py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 disabled:opacity-40"
-                    style={{ background: `linear-gradient(135deg, ${S.violet}, #7c3aed)`, color: "#fff" }}
+                    style={{ background: `linear-gradient(135deg, ${S.violet}, #1e40af)`, color: "#fff" }}
                   >
                     {isFetching ? "Saving…" : "Save Table"}
                   </button>
