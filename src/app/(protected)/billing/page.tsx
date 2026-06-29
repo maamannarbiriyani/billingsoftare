@@ -9,9 +9,11 @@ export default async function BillingPage() {
   const cashierName = session?.username || "Admin";
 
   const branchId = await getActiveBranchId();
-  const setting = await prisma.setting.findFirst({
-    where: branchId ? { branchId } : undefined,
-  });
+  // Prefer this branch's settings; fall back to any store settings so the
+  // printed bill always shows a real store name (not "My Store").
+  const setting =
+    (branchId ? await prisma.setting.findFirst({ where: { branchId } }) : null) ||
+    (await prisma.setting.findFirst());
 
   return (
     <BillingCart

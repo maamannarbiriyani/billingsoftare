@@ -467,6 +467,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             paymentMethod,
             items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
             subtotal: billSubtotal,
+            gstAmount,
+            discountAmount,
             total: billTotal,
           }));
           toast.success(`Bill ${invoiceNumber} printed`);

@@ -11,7 +11,11 @@
 // ─────────────────────────────────────────────────────────────
 
 function wrapReceipt(inner: string): string {
+  // <base> ensures relative asset URLs (e.g. /billlogo.png) resolve correctly
+  // inside the document.write'd iframe in every browser.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
+<base href="${origin}/">
 <style>
   @page { margin: 0; size: 80mm auto; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -119,6 +123,8 @@ export type BillData = {
   paymentMethod?: string | null;
   items: Array<{ name: string; price: number; qty: number }>;
   subtotal: number;
+  gstAmount?: number;
+  discountAmount?: number;
   total: number;
 };
 
@@ -165,6 +171,8 @@ export function buildBillHtml(d: BillData): string {
     <hr class="hr-solid">
     <table>
       <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:22mm">${d.subtotal.toFixed(2)}</td></tr>
+      ${d.discountAmount && d.discountAmount > 0 ? `<tr class="totrow"><td class="right">Discount:</td><td class="right" style="width:22mm">-${d.discountAmount.toFixed(2)}</td></tr>` : ""}
+      ${d.gstAmount && d.gstAmount > 0 ? `<tr class="totrow"><td class="right">GST:</td><td class="right" style="width:22mm">+${d.gstAmount.toFixed(2)}</td></tr>` : ""}
       <tr class="totrow"><td class="right bold">Grand Total:</td><td class="right bold" style="width:22mm">${grand.toFixed(2)}</td></tr>
     </table>
     <hr class="hr">
