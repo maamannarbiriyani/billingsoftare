@@ -90,7 +90,7 @@ export function RevenueBarChart({ data }: { data: { date: string; total: number;
           <Area
             type="monotone"
             dataKey="profit"
-            name="Net Profit"
+            name="Gross Profit"
             stroke="#10b981"
             strokeWidth={2.5}
             fill="url(#profitGradient)"

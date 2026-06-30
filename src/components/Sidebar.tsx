@@ -17,13 +17,11 @@ import {
   Briefcase,
   BookOpen,
   X,
-  LineChart,
 } from "lucide-react";
 
 const allNavItems = [
   { name: "Billing", href: "/billing", icon: ShoppingCart, color: "text-emerald-400", glow: "rgba(16,185,129,0.15)" },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, color: "text-violet-400", glow: "rgba(139,92,246,0.15)" },
-  { name: "Analytics", href: "/analytics", icon: LineChart, color: "text-cyan-400", glow: "rgba(34,211,238,0.15)" },
   { name: "Customers", href: "/customers", icon: Users, color: "text-sky-400", glow: "rgba(56,189,248,0.15)" },
   { name: "Products", href: "/products", icon: Package, color: "text-indigo-400", glow: "rgba(99,102,241,0.15)" },
   { name: "Inventory", href: "/inventory", icon: AlertTriangle, color: "text-amber-400", glow: "rgba(245,158,11,0.15)" },

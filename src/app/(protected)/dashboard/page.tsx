@@ -1,99 +1,148 @@
 import { prisma } from "@/lib/prisma";
 import {
+  TrendingUp,
+  TrendingDown,
   IndianRupee,
-  Package,
-  ReceiptText,
-  AlertTriangle,
-  ArrowUpRight,
+  Trophy,
   Clock,
-  PieChart as PieChartIcon
+  Users,
+  Package,
+  ArrowUpRight,
+  ArrowDownRight,
+  CheckCircle,
+  XCircle,
+  AlertOctagon,
+  AlertTriangle,
+  Percent,
+  ReceiptText,
+  ShoppingBag,
+  PieChart as PieChartIcon,
 } from "lucide-react";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
+import Link from "next/link";
 import { RevenueBarChart } from "@/components/dashboard/RevenueBarChart";
 import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
 import { RecentActivityFeed } from "@/components/dashboard/RecentActivityFeed";
 import { StatCard } from "@/components/dashboard/StatCard";
-import Link from "next/link";
-import { requireAdmin, getActiveBranchId } from "@/lib/auth";
+import { DashboardControls } from "./DashboardControls";
+
+export const dynamic = "force-dynamic";
+
+function fmtINR(n: number) {
+  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function pct(n: number, total: number) {
+  if (total === 0) return "0";
+  return ((n / total) * 100).toFixed(1);
+}
+
+function hourLabel(hr: number) {
+  return hr === 0 ? "12a" : hr < 12 ? `${hr}a` : hr === 12 ? "12p" : `${hr - 12}p`;
+}
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; month?: string; sort?: string; view?: string }>;
 }) {
   await requireAdmin();
+
+  const params = await searchParams;
+  const monthParam = params.month;
+  const range = params.range || "month";
+  const sort = params.sort || "qty";
+  const view = params.view || "top"; // "top" | "low"
+  const now = new Date();
+
+  // ── Resolve the selected period ───────────────────────────────
+  let startDate: Date;
+  let endDate: Date;
+  let periodLabel: string;
+  let granularity: "hour" | "day";
+
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const [y, m] = monthParam.split("-").map(Number);
+    startDate = new Date(y, m - 1, 1, 0, 0, 0);
+    endDate = new Date(y, m, 0, 23, 59, 59, 999);
+    periodLabel = startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    granularity = "day";
+  } else if (range === "today") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    endDate = new Date(startDate.getTime() + 86400000 - 1);
+    periodLabel = "Today";
+    granularity = "hour";
+  } else if (range === "yesterday") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    endDate = new Date(startDate.getTime() + 86400000 - 1);
+    periodLabel = "Yesterday";
+    granularity = "hour";
+  } else if (range === "week") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    periodLabel = "Last 7 Days";
+    granularity = "day";
+  } else if (range === "30d") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    periodLabel = "Last 30 Days";
+    granularity = "day";
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    periodLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    granularity = "day";
+  }
+
   const branchId = await getActiveBranchId();
   const bf = branchId ? { branchId } : {};
-  const resolvedSearchParams = await searchParams;
-  const { range = "7d" } = resolvedSearchParams;
+  const dateFilter = { createdAt: { gte: startDate, lte: endDate } };
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
-
-  // Determine chart range date
-  const chartStartDate = new Date();
-  let daysInChart = 7;
-
-  if (range === "30d") {
-    daysInChart = 30;
-    chartStartDate.setDate(chartStartDate.getDate() - 29);
-  } else if (range === "6m") {
-    daysInChart = 180;
-    chartStartDate.setMonth(chartStartDate.getMonth() - 6);
-  } else {
-    chartStartDate.setDate(chartStartDate.getDate() - 6);
-  }
-  chartStartDate.setHours(0, 0, 0, 0);
-
-  let todaySalesResult, totalProducts, totalBills, lowStockItems, recentInvoices, chartDataRaw, categoryDataRaw, expensesRaw;
+  let invoiceItems, invoices, allInvoices, expenses, lowStockItems, recentInvoices, recentExpenses;
 
   try {
-    const results = await Promise.all([
-      prisma.invoice.aggregate({
-        _sum: { total: true },
-        where: { ...bf, createdAt: { gte: startOfDay, lte: endOfDay } },
-      }),
-      prisma.product.count({ where: { ...bf, isActive: true } }),
-      prisma.invoice.count({ where: bf }),
-      prisma.product.count({ where: { ...bf, stock: { lt: 10, not: 999999 }, isActive: true } }),
-      prisma.invoice.findMany({
-        take: 6,
-        orderBy: { createdAt: "desc" },
-        where: bf,
-        select: { id: true, invoiceNumber: true, total: true, createdAt: true },
-      }),
-      prisma.invoice.findMany({
-        where: { ...bf, createdAt: { gte: chartStartDate } },
-        select: {
-          total: true,
-          createdAt: true,
-          subtotal: true,
-          discountAmount: true,
-          items: { select: { qty: true, costPrice: true, returnedQty: true } }
-        },
-      }),
-      prisma.invoiceItem.findMany({
-        where: { invoice: { ...bf, createdAt: { gte: chartStartDate } } },
-        include: { product: { select: { category: true } } },
-      }),
-      prisma.expense.findMany({
-        where: bf,
-        orderBy: { createdAt: "desc" },
-        take: 100
-      }),
-    ]);
-
-    [
-      todaySalesResult,
-      totalProducts,
-      totalBills,
-      lowStockItems,
-      recentInvoices,
-      chartDataRaw,
-      categoryDataRaw,
-      expensesRaw,
-    ] = results;
+    [invoiceItems, invoices, allInvoices, expenses, lowStockItems, recentInvoices, recentExpenses] =
+      await Promise.all([
+        // Items from non-refunded invoices (product / category stats)
+        prisma.invoiceItem.findMany({
+          where: { invoice: { ...bf, ...dateFilter, status: { not: "REFUNDED" } } },
+          include: { product: { select: { name: true, category: true } } },
+        }),
+        // Non-refunded invoices (P&L, customers, peak hours, trend)
+        prisma.invoice.findMany({
+          where: { ...bf, ...dateFilter, status: { not: "REFUNDED" } },
+          select: {
+            id: true,
+            total: true,
+            subtotal: true,
+            discountAmount: true,
+            gstAmount: true,
+            customerId: true,
+            customerName: true,
+            customerPhone: true,
+            createdAt: true,
+            paymentMethod: true,
+            items: { select: { qty: true, returnedQty: true, costPrice: true } },
+          },
+        }),
+        // ALL invoices incl. refunded (fulfillment + leakage)
+        prisma.invoice.findMany({
+          where: { ...bf, ...dateFilter },
+          select: { id: true, status: true, total: true, discountAmount: true, gstAmount: true },
+        }),
+        // Expenses in period
+        prisma.expense.findMany({ where: { ...bf, date: { gte: startDate, lte: endDate } } }),
+        // Current low stock (live, not period-scoped)
+        prisma.product.count({ where: { ...bf, stock: { lt: 10, not: 999999 }, isActive: true } }),
+        // Live activity feed (latest, not period-scoped)
+        prisma.invoice.findMany({
+          take: 6,
+          orderBy: { createdAt: "desc" },
+          where: bf,
+          select: { id: true, invoiceNumber: true, total: true, createdAt: true },
+        }),
+        prisma.expense.findMany({ where: bf, orderBy: { createdAt: "desc" }, take: 3 }),
+      ]);
   } catch (error) {
     console.error("Dashboard DB Error:", error);
     return (
@@ -101,142 +150,182 @@ export default async function DashboardPage({
         <AlertTriangle className="h-12 w-12 text-rose-500 mb-4" />
         <h2 className="text-xl font-bold mb-2">Database Connection Error</h2>
         <p className="text-muted-foreground max-w-md">
-          We could not load the dashboard data. Your database connection might be timing out or limits have been reached. Please check your Vercel Environment Variables and Supabase connection.
+          We couldn&apos;t load your dashboard. The database connection may be timing out. Please check
+          your Vercel environment variables and Supabase connection.
         </p>
       </div>
     );
   }
 
-  const todaySales = todaySalesResult._sum.total || 0;
+  // ── Order status ──────────────────────────────────────────────
+  const totalOrders = allInvoices.length;
+  const fulfilledOrders = allInvoices.filter(
+    (i) => i.status === "PAID" || i.status === "PARTIAL_REFUND"
+  ).length;
+  const refundedOrders = allInvoices.filter((i) => i.status === "REFUNDED").length;
+  const fulfilmentRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
 
-  const todayExpenses = expensesRaw.filter(e => e.date >= startOfDay && e.date <= endOfDay)
-                                  .reduce((sum, e) => sum + e.amount, 0);
+  // ── Revenue leakage ───────────────────────────────────────────
+  const totalDiscountsGiven = allInvoices.reduce((s, i) => s + i.discountAmount, 0);
+  const totalGstCollected = allInvoices.reduce((s, i) => s + i.gstAmount, 0);
+  const totalRefundedRevenue = allInvoices
+    .filter((i) => i.status === "REFUNDED")
+    .reduce((s, i) => s + i.total, 0);
 
-  const todayInvoices = chartDataRaw.filter(inv => inv.createdAt >= startOfDay && inv.createdAt <= endOfDay);
-  let todayProfit = 0;
-  todayInvoices.forEach(inv => {
-    let costOfGoods = 0;
-    inv.items.forEach(item => {
-      const soldQty = item.qty - item.returnedQty;
-      costOfGoods += soldQty * item.costPrice;
+  // ── P&L ───────────────────────────────────────────────────────
+  const totalRevenue = invoices.reduce((s, inv) => s + inv.total, 0);
+  let totalCOGS = 0;
+  invoices.forEach((inv) => {
+    inv.items.forEach((it) => {
+      totalCOGS += (it.qty - it.returnedQty) * it.costPrice;
     });
-    const revenueWithoutTax = inv.subtotal - inv.discountAmount;
-    todayProfit += (revenueWithoutTax - costOfGoods);
   });
-  todayProfit -= todayExpenses;
+  const grossProfit = totalRevenue - totalCOGS;
+  const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const netProfit = grossProfit - totalExpenses;
+  const avgOrderValue = invoices.length > 0 ? totalRevenue / invoices.length : 0;
 
-  const chartMap: Record<string, { revenue: number, profit: number }> = {};
+  // ── Sales vs taxes ────────────────────────────────────────────
+  const taxableBase = totalRevenue - totalGstCollected;
 
-  if (range === "6m") {
-    for (let i = 0; i <= 6; i++) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      chartMap[key] = { revenue: 0, profit: 0 };
-    }
-    chartDataRaw.forEach((invoice) => {
-      const key = invoice.createdAt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      if (chartMap[key]) {
-        chartMap[key].revenue += invoice.total;
-        let costOfGoods = 0;
-        invoice.items.forEach(item => {
-          costOfGoods += (item.qty - item.returnedQty) * item.costPrice;
-        });
-        chartMap[key].profit += ((invoice.subtotal - invoice.discountAmount) - costOfGoods);
-      }
-    });
-    expensesRaw.forEach((expense) => {
-      const key = expense.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      if (chartMap[key]) chartMap[key].profit -= expense.amount;
+  // ── Revenue & profit trend (adapts to period) ─────────────────
+  const trendMap = new Map<string, { revenue: number; profit: number }>();
+  if (granularity === "hour") {
+    for (let h = 0; h < 24; h++) trendMap.set(hourLabel(h), { revenue: 0, profit: 0 });
+    invoices.forEach((inv) => {
+      const key = hourLabel(inv.createdAt.getHours());
+      const bucket = trendMap.get(key)!;
+      bucket.revenue += inv.total;
+      let cogs = 0;
+      inv.items.forEach((it) => (cogs += (it.qty - it.returnedQty) * it.costPrice));
+      bucket.profit += inv.subtotal - inv.discountAmount - cogs;
     });
   } else {
-    for (let i = 0; i < daysInChart; i++) {
-      const d = new Date(chartStartDate);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      chartMap[dateStr] = { revenue: 0, profit: 0 };
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+      const key = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      trendMap.set(key, { revenue: 0, profit: 0 });
+      cursor.setDate(cursor.getDate() + 1);
     }
-    chartDataRaw.forEach((invoice) => {
-      const dateStr = invoice.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      if (chartMap[dateStr]) {
-        chartMap[dateStr].revenue += invoice.total;
-        let costOfGoods = 0;
-        invoice.items.forEach(item => {
-          costOfGoods += (item.qty - item.returnedQty) * item.costPrice;
-        });
-        chartMap[dateStr].profit += ((invoice.subtotal - invoice.discountAmount) - costOfGoods);
-      }
-    });
-    expensesRaw.forEach((expense) => {
-      const dateStr = expense.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      if (chartMap[dateStr]) chartMap[dateStr].profit -= expense.amount;
+    invoices.forEach((inv) => {
+      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const bucket = trendMap.get(key);
+      if (!bucket) return;
+      bucket.revenue += inv.total;
+      let cogs = 0;
+      inv.items.forEach((it) => (cogs += (it.qty - it.returnedQty) * it.costPrice));
+      bucket.profit += inv.subtotal - inv.discountAmount - cogs;
     });
   }
-
-  let chartDataKeys = Object.keys(chartMap);
-  if (range === "6m") chartDataKeys = chartDataKeys.reverse();
-
-  const chartData = chartDataKeys.map((date) => ({
+  const trendData = Array.from(trendMap.entries()).map(([date, d]) => ({
     date,
-    total: chartMap[date].revenue,
-    profit: chartMap[date].profit > 0 ? chartMap[date].profit : 0,
+    total: d.revenue,
+    profit: d.profit > 0 ? d.profit : 0,
   }));
 
-  const catMap: Record<string, number> = {};
-  categoryDataRaw.forEach((item) => {
-    const cat = item.product.category || "Uncategorized";
-    catMap[cat] = (catMap[cat] || 0) + item.qty;
+  // ── Product performance ───────────────────────────────────────
+  const productMap = new Map<
+    number,
+    { name: string; category: string; qty: number; revenue: number; cost: number }
+  >();
+  invoiceItems.forEach((it) => {
+    const sold = it.qty - it.returnedQty;
+    if (sold <= 0) return;
+    const rev = sold * it.price;
+    const cost = sold * it.costPrice;
+    const existing = productMap.get(it.productId);
+    if (existing) {
+      existing.qty += sold;
+      existing.revenue += rev;
+      existing.cost += cost;
+    } else {
+      productMap.set(it.productId, {
+        name: it.product.name,
+        category: it.product.category || "Uncategorized",
+        qty: sold,
+        revenue: parseFloat(rev.toFixed(2)),
+        cost: parseFloat(cost.toFixed(2)),
+      });
+    }
   });
-  const pieData = Object.keys(catMap).map((cat) => ({
-    name: cat,
-    value: catMap[cat],
-  })).sort((a, b) => b.value - a.value);
 
-  const stats = [
-    {
-      name: "Today's Revenue",
-      value: todaySales,
-      decimals: 2,
-      prefix: "₹",
-      icon: IndianRupee,
-      color: "text-blue-600",
-      bg: "bg-blue-50 dark:bg-[rgba(37,99,235,0.12)]",
-    },
-    {
-      name: "Today's Net Profit",
-      value: todayProfit,
-      decimals: 2,
-      prefix: "₹",
-      icon: IndianRupee,
-      color: "text-emerald-500",
-      bg: "bg-emerald-50 dark:bg-[rgba(16,185,129,0.08)]",
-    },
-    {
-      name: "Total Bills",
-      value: totalBills,
-      decimals: 0,
-      prefix: "",
-      icon: ReceiptText,
-      color: "text-cyan-500",
-      bg: "bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)]",
-    },
-    {
-      name: "Low Stock Items",
-      value: lowStockItems,
-      decimals: 0,
-      prefix: "",
-      icon: AlertTriangle,
-      color: "text-rose-500",
-      bg: "bg-rose-50 dark:bg-[rgba(239,68,68,0.08)]",
-    },
-  ];
+  const allProducts = Array.from(productMap.values());
+  const productList = [...allProducts].sort((a, b) => {
+    if (view === "low") return a.qty - b.qty;
+    if (sort === "revenue") return b.revenue - a.revenue;
+    if (sort === "profit") return b.revenue - b.cost - (a.revenue - a.cost);
+    return b.qty - a.qty;
+  });
+  const totalQty = allProducts.reduce((s, p) => s + p.qty, 0);
 
+  // ── Category breakdown ────────────────────────────────────────
+  const catMap = new Map<string, { qty: number; revenue: number }>();
+  allProducts.forEach((p) => {
+    const existing = catMap.get(p.category);
+    if (existing) {
+      existing.qty += p.qty;
+      existing.revenue += p.revenue;
+    } else {
+      catMap.set(p.category, { qty: p.qty, revenue: p.revenue });
+    }
+  });
+  const categories = Array.from(catMap.entries())
+    .map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.revenue - a.revenue);
+  const pieData = categories.map((c) => ({ name: c.name, value: c.qty }));
+
+  // ── Peak hours ────────────────────────────────────────────────
+  const hourMap: { count: number; revenue: number }[] = Array.from({ length: 24 }, () => ({
+    count: 0,
+    revenue: 0,
+  }));
+  invoices.forEach((inv) => {
+    const h = inv.createdAt.getHours();
+    hourMap[h].count++;
+    hourMap[h].revenue += inv.total;
+  });
+  const maxHourCount = Math.max(...hourMap.map((h) => h.count), 1);
+
+  // ── Top customers ─────────────────────────────────────────────
+  const custMap = new Map<
+    string,
+    { name: string; phone: string | null; visits: number; spent: number }
+  >();
+  invoices.forEach((inv) => {
+    const key = inv.customerId
+      ? `cust-${inv.customerId}`
+      : `walkin-${inv.customerPhone || inv.customerName || "anon"}`;
+    const name = inv.customerName || "Walk-in";
+    const existing = custMap.get(key);
+    if (existing) {
+      existing.visits++;
+      existing.spent += inv.total;
+    } else {
+      custMap.set(key, { name, phone: inv.customerPhone ?? null, visits: 1, spent: inv.total });
+    }
+  });
+  const topCustomers = Array.from(custMap.values())
+    .filter((c) => c.name !== "Walk-in" || c.phone)
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 10);
+
+  // ── Expense breakdown ─────────────────────────────────────────
+  const expCatMap = new Map<string, number>();
+  expenses.forEach((e) => {
+    expCatMap.set(e.category, (expCatMap.get(e.category) || 0) + e.amount);
+  });
+  const expBreakdown = Array.from(expCatMap.entries())
+    .map(([cat, amount]) => ({ cat, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // ── Live activity feed ────────────────────────────────────────
   const activities: any[] = [];
   if (lowStockItems > 0) {
     activities.push({
       id: "alert-1",
       type: "ALERT",
-      title: `${lowStockItems} Items low on stock`,
+      title: `${lowStockItems} items low on stock`,
       timestamp: new Date(),
       status: "warning",
     });
@@ -245,93 +334,113 @@ export default async function DashboardPage({
     activities.push({
       id: `inv-${inv.id}`,
       type: "INVOICE",
-      title: `Invoice #${inv.invoiceNumber} Generated`,
+      title: `Invoice #${inv.invoiceNumber} generated`,
       timestamp: inv.createdAt,
       status: "success",
     });
   });
-  expensesRaw.slice(0, 3).forEach((exp) => {
+  recentExpenses.forEach((exp) => {
     activities.push({
       id: `exp-${exp.id}`,
       type: "EXPENSE",
-      title: `Expense Logged: ₹${exp.amount.toLocaleString()}`,
+      title: `Expense logged: ₹${exp.amount.toLocaleString("en-IN")}`,
       timestamp: exp.createdAt,
       status: "info",
     });
   });
   activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
+  const SORTS = [
+    { label: "By Qty", value: "qty" },
+    { label: "By Revenue", value: "revenue" },
+    { label: "By Profit", value: "profit" },
+  ];
+  const sortBase = monthParam ? `month=${monthParam}` : `range=${range}`;
+
   return (
-    <div className="animate-fade-in pb-12 space-y-6">
-      {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 mb-2 border-b border-border">
+    <div className="animate-fade-in space-y-8 pb-12">
+      {/* ───────────── Header ───────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-border">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle mt-1">Welcome back — here&apos;s your store at a glance.</p>
+          <h1 className="page-title text-foreground">Dashboard</h1>
+          <p className="page-subtitle mt-1 text-muted-foreground">
+            Your full business picture for{" "}
+            <span className="font-semibold text-foreground">{periodLabel}</span> — sales, profit and
+            what&apos;s selling.
+          </p>
         </div>
-
-        {/* Range Switcher */}
-        <div className="flex items-center p-1 gap-1 self-start rounded-lg bg-muted border border-border">
-          {[
-            { label: "7D", value: "7d" },
-            { label: "30D", value: "30d" },
-            { label: "6M", value: "6m" },
-          ].map((opt) => (
-            <Link
-              key={opt.value}
-              href={`?range=${opt.value}`}
-              className="px-3.5 py-1.5 text-xs font-bold rounded-md transition-all"
-              style={
-                range === opt.value
-                  ? {
-                      background: "var(--primary)",
-                      color: "#ffffff",
-                      border: "1px solid var(--primary)",
-                    }
-                  : {
-                      color: "var(--muted-foreground)",
-                      border: "1px solid transparent",
-                    }
-              }
-            >
-              {opt.label}
-            </Link>
-          ))}
-        </div>
+        <DashboardControls />
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((item) => (
-          <StatCard
-            key={item.name}
-            name={item.name}
-            value={item.value as number}
-            decimals={item.decimals}
-            prefix={item.prefix}
-            icon={<item.icon className={`h-5 w-5 ${item.color}`} />}
-            bg={item.bg}
-          />
-        ))}
+      {/* Low-stock alert banner */}
+      {lowStockItems > 0 && (
+        <Link
+          href="/inventory"
+          className="flex items-center gap-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3 hover:bg-amber-100 dark:hover:bg-amber-500/15 transition-colors"
+        >
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            {lowStockItems} {lowStockItems === 1 ? "item is" : "items are"} running low on stock
+          </p>
+          <span className="ml-auto text-xs font-bold text-amber-600 dark:text-amber-400">
+            View inventory →
+          </span>
+        </Link>
+      )}
+
+      {/* ───────────── Headline KPIs ───────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          name="Total Revenue"
+          value={totalRevenue}
+          decimals={2}
+          prefix="₹"
+          icon={<IndianRupee className="h-5 w-5 text-blue-600" />}
+          bg="bg-blue-50 dark:bg-[rgba(37,99,235,0.12)]"
+        />
+        <StatCard
+          name="Net Profit"
+          value={netProfit}
+          decimals={2}
+          prefix="₹"
+          icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
+          bg="bg-emerald-50 dark:bg-[rgba(16,185,129,0.08)]"
+        />
+        <StatCard
+          name="Bills Generated"
+          value={invoices.length}
+          decimals={0}
+          prefix=""
+          icon={<ReceiptText className="h-5 w-5 text-cyan-500" />}
+          bg="bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)]"
+        />
+        <StatCard
+          name="Avg Bill Value"
+          value={avgOrderValue}
+          decimals={2}
+          prefix="₹"
+          icon={<ShoppingBag className="h-5 w-5 text-indigo-500" />}
+          bg="bg-indigo-50 dark:bg-[rgba(99,102,241,0.1)]"
+        />
       </div>
 
-      {/* Charts Row */}
+      {/* ───────────── Charts ───────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Revenue Chart */}
         <div className="xl:col-span-2 rounded-xl p-5 bg-card border border-border shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-sm font-bold text-foreground">Revenue Trends</h2>
-              <p className="text-xs mt-0.5 text-muted-foreground">Earnings across the selected timeframe</p>
+              <h2 className="text-sm font-bold text-foreground">Revenue &amp; Profit Trend</h2>
+              <p className="text-xs mt-0.5 text-muted-foreground">
+                {granularity === "hour" ? "By hour of day" : "Day by day"} across {periodLabel}
+              </p>
             </div>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-[rgba(37,99,235,0.12)] border border-blue-100 dark:border-[rgba(37,99,235,0.25)]">
               <ArrowUpRight className="h-4 w-4 text-blue-600 dark:text-[#60a5fa]" />
             </div>
           </div>
-          <RevenueBarChart data={chartData} />
+          <RevenueBarChart data={trendData} />
         </div>
 
-        {/* Category Chart */}
         <div className="rounded-xl p-5 flex flex-col bg-card border border-border shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
@@ -348,12 +457,715 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* Live Intelligence Feed */}
+      {/* ───────────── PROFIT & LOSS band ───────────── */}
+      <SectionHeader
+        title="Profit & Loss"
+        desc="How revenue turns into take-home profit after costs and expenses."
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[
+          {
+            label: "Total Revenue",
+            value: `₹${fmtINR(totalRevenue)}`,
+            sub: "Money taken in",
+            icon: IndianRupee,
+            color: "text-blue-600",
+            bg: "bg-blue-50 dark:bg-[rgba(37,99,235,0.1)]",
+          },
+          {
+            label: "Cost of Goods",
+            value: `₹${fmtINR(totalCOGS)}`,
+            sub: "What stock cost you",
+            icon: Package,
+            color: "text-orange-500",
+            bg: "bg-orange-50 dark:bg-[rgba(249,115,22,0.1)]",
+          },
+          {
+            label: "Gross Profit",
+            value: `₹${fmtINR(grossProfit)}`,
+            sub: `${grossMargin.toFixed(1)}% margin`,
+            icon: grossProfit >= 0 ? TrendingUp : TrendingDown,
+            color: grossProfit >= 0 ? "text-emerald-500" : "text-rose-500",
+            bg:
+              grossProfit >= 0
+                ? "bg-emerald-50 dark:bg-[rgba(16,185,129,0.1)]"
+                : "bg-rose-50 dark:bg-[rgba(239,68,68,0.1)]",
+          },
+          {
+            label: "Expenses",
+            value: `₹${fmtINR(totalExpenses)}`,
+            sub: "Rent, salary, bills",
+            icon: TrendingDown,
+            color: "text-rose-500",
+            bg: "bg-rose-50 dark:bg-[rgba(239,68,68,0.1)]",
+          },
+          {
+            label: "Net Profit",
+            value: `₹${fmtINR(netProfit)}`,
+            sub: "Your actual take-home",
+            icon: netProfit >= 0 ? ArrowUpRight : ArrowDownRight,
+            color: netProfit >= 0 ? "text-emerald-500" : "text-rose-500",
+            bg:
+              netProfit >= 0
+                ? "bg-emerald-50 dark:bg-[rgba(16,185,129,0.1)]"
+                : "bg-rose-50 dark:bg-[rgba(239,68,68,0.1)]",
+          },
+        ].map((card) => (
+          <div key={card.label} className="rounded-2xl border border-border p-4 shadow-sm bg-card">
+            <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
+              <card.icon className={`h-4 w-4 ${card.color}`} />
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {card.label}
+            </p>
+            <p className={`text-base font-extrabold mt-0.5 ${card.color}`}>{card.value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{card.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* P&L statement */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+        <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
+          <IndianRupee className="h-4 w-4 text-emerald-500" />
+          Profit &amp; Loss Statement
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Step-by-step view for {periodLabel}
+        </p>
+        <div className="space-y-2 max-w-md">
+          {[
+            { label: "Total Revenue", value: totalRevenue, color: "text-foreground" },
+            { label: "(–) Cost of Goods Sold", value: -totalCOGS, color: "text-orange-500" },
+            {
+              label: "= Gross Profit",
+              value: grossProfit,
+              color: grossProfit >= 0 ? "text-emerald-500" : "text-rose-500",
+              bold: true,
+            },
+            { label: "(–) Operating Expenses", value: -totalExpenses, color: "text-rose-500" },
+            { label: "(–) Discounts Given", value: -totalDiscountsGiven, color: "text-amber-500" },
+            {
+              label: "= Net Profit",
+              value: netProfit - totalDiscountsGiven,
+              color: netProfit - totalDiscountsGiven >= 0 ? "text-emerald-600" : "text-rose-600",
+              bold: true,
+              border: true,
+            },
+          ].map((row) => (
+            <div
+              key={row.label}
+              className={`flex justify-between items-center py-1.5 ${
+                row.border ? "border-t-2 border-border mt-2 pt-3" : ""
+              }`}
+            >
+              <span
+                className={`text-sm ${
+                  row.bold ? "font-bold text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {row.label}
+              </span>
+              <span className={`font-bold text-sm ${row.color}`}>
+                {row.value >= 0 ? "₹" : "–₹"}
+                {fmtINR(Math.abs(row.value))}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ───────────── ORDERS & TAX band ───────────── */}
+      <SectionHeader
+        title="Orders & Tax"
+        desc="Order completion, money lost to refunds & discounts, and GST set aside."
+      />
+
+      {/* Order health */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="col-span-2 sm:col-span-1 bg-card rounded-2xl border border-border p-5 flex flex-col items-center justify-center gap-2 shadow-sm">
+          <div className="relative w-24 h-24">
+            <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+              <circle
+                cx="18"
+                cy="18"
+                r="15.9"
+                fill="none"
+                stroke={
+                  fulfilmentRate >= 90 ? "#22c55e" : fulfilmentRate >= 70 ? "#f59e0b" : "#ef4444"
+                }
+                strokeWidth="3"
+                strokeDasharray={`${fulfilmentRate} ${100 - fulfilmentRate}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-lg font-extrabold text-foreground">
+                {fulfilmentRate.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
+            Completed Orders
+          </p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+            <ReceiptText className="h-4 w-4 text-blue-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Total Orders
+          </p>
+          <p className="text-2xl font-extrabold text-foreground mt-0.5">{totalOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{invoices.length} active bills</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Completed
+          </p>
+          <p className="text-2xl font-extrabold text-emerald-500 mt-0.5">{fulfilledOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Paid bills</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center mb-3">
+            <XCircle className="h-4 w-4 text-rose-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Refunded / Void
+          </p>
+          <p className="text-2xl font-extrabold text-rose-500 mt-0.5">{refundedOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">₹{fmtINR(totalRefundedRevenue)} lost</p>
+        </div>
+      </div>
+
+      {/* Revenue leakage + sales vs taxes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-1">
+            <AlertOctagon className="h-4 w-4 text-rose-500" />
+            Money Lost (Leakage)
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Revenue you gave up through discounts and refunds.
+          </p>
+          <div className="space-y-3">
+            {[
+              {
+                label: "Discounts Given",
+                value: totalDiscountsGiven,
+                note: "Knocked off customers' bills",
+                color: "text-amber-500",
+              },
+              {
+                label: "Refunded Bills",
+                value: totalRefundedRevenue,
+                note: `${refundedOrders} bill${refundedOrders !== 1 ? "s" : ""} voided`,
+                color: "text-rose-500",
+              },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border"
+              >
+                <div>
+                  <p className="font-semibold text-foreground text-sm">{row.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{row.note}</p>
+                </div>
+                <span className={`font-extrabold text-base ${row.color}`}>₹{fmtINR(row.value)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <span className="font-bold text-foreground text-sm">Total Lost</span>
+              <span className="font-extrabold text-rose-500">
+                ₹{fmtINR(totalDiscountsGiven + totalRefundedRevenue)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-1">
+            <Percent className="h-4 w-4 text-indigo-500" />
+            Sales vs GST
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            How much of your revenue is real sales vs tax to pass on.
+          </p>
+          {totalRevenue === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No data for this period</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-6 justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative w-24 h-24">
+                    <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r="15.9"
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="3"
+                        strokeDasharray={`${pct(taxableBase, totalRevenue)} ${
+                          100 - parseFloat(pct(taxableBase, totalRevenue))
+                        }`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-sm font-extrabold text-foreground">
+                        {pct(taxableBase, totalRevenue)}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground">Net Sales</p>
+                  <p className="text-sm font-bold text-blue-500">₹{fmtINR(taxableBase)}</p>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative w-24 h-24">
+                    <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r="15.9"
+                        fill="none"
+                        stroke="#a855f7"
+                        strokeWidth="3"
+                        strokeDasharray={`${pct(totalGstCollected, totalRevenue)} ${
+                          100 - parseFloat(pct(totalGstCollected, totalRevenue))
+                        }`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-sm font-extrabold text-foreground">
+                        {pct(totalGstCollected, totalRevenue)}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground">GST Collected</p>
+                  <p className="text-sm font-bold text-purple-500">₹{fmtINR(totalGstCollected)}</p>
+                </div>
+              </div>
+              <div className="border-t border-border pt-3 grid grid-cols-2 gap-3 text-sm">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">Net Sales (excl. GST)</p>
+                  <p className="font-extrabold text-foreground mt-0.5">₹{fmtINR(taxableBase)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">GST Payable to Govt</p>
+                  <p className="font-extrabold text-purple-500 mt-0.5">₹{fmtINR(totalGstCollected)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ───────────── PRODUCTS band ───────────── */}
+      <SectionHeader
+        title="Products"
+        desc="What's selling, what's not, and how each dish performs on profit."
+      />
+
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-wrap gap-3">
+          <div>
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              {view === "low" ? "Slow Movers" : "Best Sellers"} — {productList.length} items
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {view === "low"
+                ? "Items barely selling — consider promoting or dropping them"
+                : "Your top performers in this period"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
+              <Link
+                href={`?${sortBase}&sort=${sort}&view=top`}
+                className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                style={
+                  view === "top"
+                    ? { background: "var(--primary)", color: "#fff" }
+                    : { color: "var(--muted-foreground)" }
+                }
+              >
+                Best Sellers
+              </Link>
+              <Link
+                href={`?${sortBase}&sort=${sort}&view=low`}
+                className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                style={
+                  view === "low"
+                    ? { background: "#ef4444", color: "#fff" }
+                    : { color: "var(--muted-foreground)" }
+                }
+              >
+                Slow Movers
+              </Link>
+            </div>
+            {view === "top" && (
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
+                {SORTS.map((s) => (
+                  <Link
+                    key={s.value}
+                    href={`?${sortBase}&sort=${s.value}&view=top`}
+                    className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                    style={
+                      sort === s.value
+                        ? { background: "var(--primary)", color: "#fff" }
+                        : { color: "var(--muted-foreground)" }
+                    }
+                  >
+                    {s.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-muted sticky top-0">
+              <tr>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase w-10">#</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Product</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">Category</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Qty Sold</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">% of Sales</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Revenue</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Cost</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Profit</th>
+                <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {productList.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      No sales data for this period
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                productList.map((p, idx) => {
+                  const profit = p.revenue - p.cost;
+                  const margin = p.revenue > 0 ? (profit / p.revenue) * 100 : 0;
+                  const qtyShare = totalQty > 0 ? (p.qty / totalQty) * 100 : 0;
+                  const isLow = view === "low";
+                  return (
+                    <tr key={idx} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                            isLow
+                              ? "text-muted-foreground"
+                              : idx === 0
+                              ? "bg-amber-500/20 text-amber-500"
+                              : idx === 1
+                              ? "bg-slate-400/20 text-slate-400"
+                              : idx === 2
+                              ? "bg-orange-500/20 text-orange-500"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-foreground text-sm">{p.name}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                          {p.category}
+                        </span>
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-bold ${
+                          isLow ? "text-rose-500" : "text-foreground"
+                        }`}
+                      >
+                        {p.qty}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${qtyShare}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-10 text-right">
+                            {qtyShare.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">
+                        ₹{fmtINR(p.revenue)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-muted-foreground text-sm">
+                        ₹{fmtINR(p.cost)}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-bold ${
+                          profit >= 0 ? "text-emerald-500" : "text-rose-500"
+                        }`}
+                      >
+                        {profit >= 0 ? "+" : ""}₹{fmtINR(profit)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span
+                          className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                            margin >= 50
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : margin >= 20
+                              ? "bg-amber-500/10 text-amber-500"
+                              : "bg-rose-500/10 text-rose-500"
+                          }`}
+                        >
+                          {margin.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Category performance + peak hours */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Package className="h-4 w-4 text-indigo-500" />
+              Category Performance
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Revenue and volume by food category</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No data for this period</p>
+            ) : (
+              categories.map((cat) => (
+                <div key={cat.name}>
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="font-semibold text-foreground">{cat.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground text-xs">{cat.qty} sold</span>
+                      <span className="font-bold text-foreground">₹{fmtINR(cat.revenue)}</span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 rounded-full"
+                      style={{ width: `${pct(cat.revenue, totalRevenue)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 text-right">
+                    {pct(cat.revenue, totalRevenue)}% of revenue
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-cyan-500" />
+              Busiest Hours
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              When orders come in — plan staff and prep around this
+            </p>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-12 gap-0.5">
+              {hourMap.map((h, hr) => {
+                const heightPct = (h.count / maxHourCount) * 100;
+                const isActive = h.count > 0;
+                const isPeak = h.count === maxHourCount && h.count > 0;
+                const label = hourLabel(hr);
+                return (
+                  <div key={hr} className="flex flex-col items-center gap-1">
+                    <div className="relative w-full h-20 flex items-end">
+                      <div
+                        title={`${label}: ${h.count} orders, ₹${fmtINR(h.revenue)}`}
+                        className={`w-full rounded-t-sm transition-all ${
+                          isPeak ? "bg-cyan-500" : isActive ? "bg-primary/60" : "bg-muted"
+                        }`}
+                        style={{ height: `${Math.max(heightPct, isActive ? 8 : 2)}%` }}
+                      />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 space-y-1">
+              {hourMap
+                .map((h, hr) => ({ ...h, hr }))
+                .filter((h) => h.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5)
+                .map((h) => {
+                  const label =
+                    h.hr === 0
+                      ? "12:00 AM"
+                      : h.hr < 12
+                      ? `${h.hr}:00 AM`
+                      : h.hr === 12
+                      ? "12:00 PM"
+                      : `${h.hr - 12}:00 PM`;
+                  return (
+                    <div key={h.hr} className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-foreground w-20">{label}</span>
+                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-cyan-500 rounded-full"
+                          style={{ width: `${(h.count / maxHourCount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-muted-foreground text-xs w-16 text-right">
+                        {h.count} orders
+                      </span>
+                      <span className="font-bold text-foreground w-24 text-right">
+                        ₹{fmtINR(h.revenue)}
+                      </span>
+                    </div>
+                  );
+                })}
+              {hourMap.every((h) => h.count === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No orders in this period
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ───────────── CUSTOMERS & COSTS band ───────────── */}
+      <SectionHeader
+        title="Customers & Costs"
+        desc="Your most valuable regulars and where the money goes out."
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-sky-500" />
+              Top Customers
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Loyal customers by total spend</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase">#</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase">Customer</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase text-center">Visits</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Total Spent</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {topCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        No named customers in this period
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  topCustomers.map((c, i) => (
+                    <tr key={i} className="hover:bg-muted/50">
+                      <td className="px-5 py-3 text-muted-foreground text-sm">{i + 1}</td>
+                      <td className="px-5 py-3">
+                        <p className="font-semibold text-foreground text-sm">{c.name}</p>
+                        {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-500/10 text-sky-500 text-xs font-bold">
+                          {c.visits}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold text-emerald-500">
+                        ₹{fmtINR(c.spent)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+              Expense Breakdown
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Where your money is going</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {expBreakdown.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No expenses logged for this period
+              </p>
+            ) : (
+              expBreakdown.map((e) => (
+                <div key={e.cat}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-semibold text-foreground">{e.cat}</span>
+                    <span className="font-bold text-foreground">₹{fmtINR(e.amount)}</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-rose-500/70 rounded-full"
+                      style={{ width: `${pct(e.amount, totalExpenses)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 text-right">
+                    {pct(e.amount, totalExpenses)}% of expenses
+                  </p>
+                </div>
+              ))
+            )}
+            {expBreakdown.length > 0 && (
+              <div className="pt-3 border-t border-border flex justify-between">
+                <span className="font-bold text-foreground text-sm">Total</span>
+                <span className="font-extrabold text-rose-500">₹{fmtINR(totalExpenses)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ───────────── Live activity ───────────── */}
       <div className="rounded-xl overflow-hidden bg-card border border-border shadow-sm">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="text-sm font-bold text-foreground">Live Intelligence</h2>
-            <p className="text-xs mt-0.5 text-muted-foreground">Real-time system activity</p>
+            <h2 className="text-sm font-bold text-foreground">Live Activity</h2>
+            <p className="text-xs mt-0.5 text-muted-foreground">Latest bills, expenses and alerts</p>
           </div>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)] border border-cyan-100 dark:border-[rgba(34,211,238,0.15)]">
             <Clock className="h-4 w-4 text-cyan-500 dark:text-[#22d3ee]" />
@@ -363,6 +1175,18 @@ export default async function DashboardPage({
           <RecentActivityFeed activities={activities} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="pt-2">
+      <div className="flex items-center gap-3">
+        <span className="h-5 w-1 rounded-full bg-primary" />
+        <h2 className="text-lg font-extrabold text-foreground tracking-tight">{title}</h2>
+      </div>
+      <p className="text-sm text-muted-foreground mt-1 ml-4">{desc}</p>
     </div>
   );
 }
