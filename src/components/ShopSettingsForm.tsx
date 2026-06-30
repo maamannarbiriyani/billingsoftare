@@ -39,8 +39,8 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
         <div
           className={`flex items-center gap-3 p-4 rounded-xl text-sm font-medium border ${
             message.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-red-50 border-red-200 text-red-700"
+              ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+              : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"
           }`}
         >
           {message.type === "success"
@@ -55,7 +55,7 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
       <div>
         <label htmlFor="storeName" className="input-label">
           <span className="flex items-center gap-1.5">
-            <Store className="h-3.5 w-3.5 text-slate-400" />
+            <Store className="h-3.5 w-3.5 text-muted-foreground" />
             Store Name
             <span className="text-rose-500">*</span>
           </span>
@@ -69,16 +69,16 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           placeholder="Your store name"
           className="input-field mt-1"
         />
-        <p className="text-xs text-slate-400 mt-1.5">This name appears on all printed receipts</p>
+        <p className="text-xs text-muted-foreground mt-1.5">This name appears on all printed receipts</p>
       </div>
 
       {/* Phone */}
       <div>
         <label htmlFor="phone" className="input-label">
           <span className="flex items-center gap-1.5">
-            <Phone className="h-3.5 w-3.5 text-slate-400" />
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
             Phone Number
-            <span className="text-slate-400 font-normal">(Optional)</span>
+            <span className="text-muted-foreground font-normal">(Optional)</span>
           </span>
         </label>
         <input
@@ -89,16 +89,16 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           placeholder="e.g. 9944970360"
           className="input-field mt-1"
         />
-        <p className="text-xs text-slate-400 mt-1.5">Shown on receipts below the store name</p>
+        <p className="text-xs text-muted-foreground mt-1.5">Shown on receipts below the store name</p>
       </div>
 
       {/* GST Number */}
       <div>
         <label htmlFor="gstNumber" className="input-label">
           <span className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
             GST / Tax Number
-            <span className="text-slate-400 font-normal">(Optional)</span>
+            <span className="text-muted-foreground font-normal">(Optional)</span>
           </span>
         </label>
         <input
@@ -109,14 +109,14 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           placeholder="e.g. 29ABCDE1234F1Z5"
           className="input-field mt-1 font-mono tracking-wider"
         />
-        <p className="text-xs text-slate-400 mt-1.5">Printed below the store name on receipts</p>
+        <p className="text-xs text-muted-foreground mt-1.5">Printed below the store name on receipts</p>
       </div>
 
       {/* GST Percent */}
       <div>
         <label htmlFor="gstPercent" className="input-label">
           <span className="flex items-center gap-1.5">
-            <Percent className="h-3.5 w-3.5 text-slate-400" />
+            <Percent className="h-3.5 w-3.5 text-muted-foreground" />
             Default GST Rate (%)
           </span>
         </label>
@@ -131,7 +131,7 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           placeholder="e.g. 5"
           className="input-field mt-1"
         />
-        <p className="text-xs text-slate-400 mt-1.5">
+        <p className="text-xs text-muted-foreground mt-1.5">
           Applied automatically in billing when GST is enabled. Set to 0 to disable.
         </p>
       </div>
@@ -140,9 +140,9 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
       <div>
         <label htmlFor="address" className="input-label">
           <span className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-slate-400" />
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
             Store Address
-            <span className="text-slate-400 font-normal">(Optional)</span>
+            <span className="text-muted-foreground font-normal">(Optional)</span>
           </span>
         </label>
         <textarea
@@ -153,25 +153,25 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
           placeholder="Full store address"
           className="input-field mt-1 resize-none"
         />
-        <p className="text-xs text-slate-400 mt-1.5">Shown on customer receipts and invoices</p>
+        <p className="text-xs text-muted-foreground mt-1.5">Shown on customer receipts and invoices</p>
       </div>
 
       {/* Printer Connection */}
-      <div className="pt-4 border-t border-slate-100">
+      <div className="pt-4 border-t border-border">
         <label className="input-label">
           <span className="flex items-center gap-1.5">
-            <Printer className="h-3.5 w-3.5 text-slate-400" />
+            <Printer className="h-3.5 w-3.5 text-muted-foreground" />
             Receipt Printer Connection
           </span>
         </label>
-        <div className="flex gap-3 mt-1">
+        <div className="flex flex-col sm:flex-row gap-3 mt-1">
           <input
             type="text"
             name="printerName"
             id="printerName"
             defaultValue={initialData?.printerName || ""}
             placeholder="No printer connected"
-            className="input-field flex-1 bg-slate-50"
+            className="input-field flex-1 bg-muted"
             readOnly
           />
           <button
@@ -192,20 +192,20 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
                 console.error("Printer connection cancelled or failed", err);
               }
             }}
-            className="btn btn-secondary whitespace-nowrap"
+            className="btn btn-secondary whitespace-nowrap w-full sm:w-auto"
           >
-            Detect & Connect
+            Detect &amp; Connect
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-1.5">Connect a live USB/Serial thermal printer for billing output.</p>
+        <p className="text-xs text-muted-foreground mt-1.5">Connect a live USB/Serial thermal printer for billing output.</p>
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end pt-2 border-t border-slate-100">
+      <div className="flex justify-end pt-4 border-t border-border">
         <button
           type="submit"
           disabled={isPending}
-          className="btn btn-primary"
+          className="btn btn-primary w-full sm:w-auto"
         >
           {isPending ? (
             <span className="flex items-center gap-2">

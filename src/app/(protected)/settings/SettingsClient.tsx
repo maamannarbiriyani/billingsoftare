@@ -91,7 +91,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
     <div className="space-y-6">
       {/* Shop Settings */}
       <section className="card overflow-hidden">
-        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
             <Store className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -102,14 +102,14 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
             </p>
           </div>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <ShopSettingsForm initialData={initialSetting} />
         </div>
       </section>
 
       {/* Backup & Restore Section */}
       <section className="card overflow-hidden">
-        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
             <Download className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -121,7 +121,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Backup */}
           <div className="card-flat p-5 flex flex-col items-center text-center">
             <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4">
@@ -170,7 +170,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
         {restoreMessage && (
           <div
-            className={`flex items-center gap-2 px-6 py-4 border-t text-sm font-medium ${
+            className={`flex items-center gap-2 px-4 sm:px-6 py-4 border-t text-sm font-medium ${
               restoreMessage.type === "success"
                 ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                 : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"
@@ -184,14 +184,14 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
       {/* User Management Section */}
       <section className="card">
-        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="section-title">User Management (RBAC)</h2>
             <p className="section-subtitle">
               Add or remove staff accounts and manage permissions (Admin vs Cashier).
             </p>
           </div>
-          <button onClick={() => router.push('/settings/users')} className="btn btn-secondary flex-shrink-0">
+          <button onClick={() => router.push('/settings/users')} className="btn btn-secondary flex-shrink-0 w-full sm:w-auto">
             Manage Users
           </button>
         </div>
@@ -199,14 +199,14 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
       {/* Branch Management Section */}
       <section className="card">
-        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="section-title">Branch Management</h2>
             <p className="section-subtitle">
               Add and manage store branches (locations, phone numbers, addresses).
             </p>
           </div>
-          <button onClick={() => router.push('/settings/branches')} className="btn btn-secondary flex-shrink-0">
+          <button onClick={() => router.push('/settings/branches')} className="btn btn-secondary flex-shrink-0 w-full sm:w-auto">
             <GitBranch className="h-4 w-4" /> Manage Branches
           </button>
         </div>
@@ -214,7 +214,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
       {/* Owner Portal Section */}
       <section className="card overflow-hidden">
-        <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center flex-shrink-0">
             <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
@@ -225,7 +225,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
             </p>
           </div>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {ownerMsg && (
             <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border mb-4 ${ownerMsg.type === "success" ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"}`}>
               {ownerMsg.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -254,7 +254,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
-              <button type="submit" disabled={ownerPending} className="btn btn-primary">
+              <button type="submit" disabled={ownerPending} className="btn btn-primary w-full sm:w-auto">
                 {ownerPending ? "Saving..." : "Save Owner Account"}
               </button>
             </div>

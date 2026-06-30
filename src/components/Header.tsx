@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LogOut, Menu, Store } from "lucide-react";
+import { LogOut, Menu, Store } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { setActiveBranch } from "@/app/actions/branches";
@@ -47,35 +47,6 @@ export function Header({
           <Menu className="h-5 w-5" />
         </button>
       )}
-
-      {/* Search Bar */}
-      <div className="flex-1 max-w-xs">
-        <div className="relative">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
-            style={{ color: "var(--muted-foreground)" }}
-          />
-          <input
-            suppressHydrationWarning
-            type="text"
-            placeholder="Search..."
-            className="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg transition-all outline-none"
-            style={{
-              background: "var(--muted)",
-              border: "1px solid var(--border)",
-              color: "var(--foreground)",
-            }}
-            onFocus={(e) => {
-              (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--primary)";
-              (e.currentTarget as HTMLInputElement).style.boxShadow = "0 0 0 3px var(--primary-glow)";
-            }}
-            onBlur={(e) => {
-              (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--border)";
-              (e.currentTarget as HTMLInputElement).style.boxShadow = "none";
-            }}
-          />
-        </div>
-      </div>
 
       <div className="flex-1" />
 
