@@ -39,8 +39,10 @@ function ReportShell({
       <ReportNav />
       <div className="px-4 py-4 space-y-4 pb-12">
         <div className="flex items-end justify-between gap-3">
-          <h1 className="text-lg font-extrabold text-foreground tracking-tight">{title}</h1>
-          <span className="text-xs text-muted-foreground font-medium text-right flex-shrink-0">
+          <h1 className="text-base sm:text-lg font-extrabold text-foreground tracking-tight leading-tight">
+            {title}
+          </h1>
+          <span className="text-xs text-muted-foreground font-medium text-right flex-shrink-0 whitespace-nowrap">
             {periodLabel}
           </span>
         </div>

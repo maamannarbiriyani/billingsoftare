@@ -32,9 +32,9 @@ export function DashboardControls() {
   }
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5 lg:flex-wrap lg:overflow-visible">
       {/* Quick ranges */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-card border border-border shadow-sm flex-wrap">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-card border border-border shadow-sm flex-shrink-0">
         <div className="pl-2 pr-1 flex items-center text-muted-foreground">
           <Calendar className="h-4 w-4" />
         </div>

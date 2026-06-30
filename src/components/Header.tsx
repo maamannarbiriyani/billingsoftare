@@ -19,7 +19,7 @@ export function Header({
 }) {
   return (
     <header
-      className="h-14 flex items-center px-5 gap-3 print:hidden sticky top-0 z-30 flex-shrink-0"
+      className="h-14 flex items-center px-3 sm:px-5 gap-2 sm:gap-3 print:hidden sticky top-0 z-30 flex-shrink-0"
       style={{
         background: "var(--header-bg)",
         backdropFilter: "blur(20px)",
@@ -52,15 +52,15 @@ export function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5">
-        {/* Branch Switcher (Admin Only) */}
-        {branches && branches.length > 0 && (
-          <div className="flex items-center mr-2">
-            <Store className="h-4 w-4 mr-1.5 text-muted-foreground" />
+        {/* Branch Switcher — only when there's more than one branch to switch */}
+        {branches && branches.length > 1 && (
+          <div className="flex items-center mr-1 sm:mr-2 min-w-0">
+            <Store className="h-4 w-4 mr-1.5 text-muted-foreground flex-shrink-0" />
             <select
               suppressHydrationWarning
               value={activeBranchId || branches[0]?.id || ""}
               onChange={(e) => setActiveBranch(Number(e.target.value))}
-              className="bg-transparent text-sm font-medium outline-none cursor-pointer"
+              className="bg-transparent text-sm font-medium outline-none cursor-pointer max-w-[100px] sm:max-w-[160px] truncate"
               style={{ color: "var(--foreground)" }}
             >
               {branches.map((b) => (
