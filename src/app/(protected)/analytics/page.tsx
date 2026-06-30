@@ -10,6 +10,10 @@ import {
   Package,
   ArrowUpRight,
   ArrowDownRight,
+  CheckCircle,
+  XCircle,
+  AlertOctagon,
+  Percent,
 } from "lucide-react";
 import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 import Link from "next/link";
@@ -29,14 +33,15 @@ function pct(n: number, total: number) {
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; month?: string; sort?: string }>;
+  searchParams: Promise<{ range?: string; month?: string; sort?: string; view?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
   const monthParam = params.month;
   const range = params.range || "month";
-  const sort = params.sort || "qty"; // "qty" | "revenue" | "profit"
+  const sort = params.sort || "qty";
+  const view = params.view || "top"; // "top" | "low"
   const now = new Date();
 
   let startDate: Date;
@@ -57,7 +62,6 @@ export default async function AnalyticsPage({
     endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     periodLabel = "Last 7 Days";
   } else {
-    // default: this month
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     periodLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -65,24 +69,19 @@ export default async function AnalyticsPage({
 
   const branchId = await getActiveBranchId();
   const bf = branchId ? { branchId } : {};
+  const dateFilter = { createdAt: { gte: startDate, lte: endDate } };
 
-  const [invoiceItems, invoices, expenses] = await Promise.all([
+  const [invoiceItems, invoices, allInvoices, expenses] = await Promise.all([
+    // Items from non-refunded invoices (for product stats)
     prisma.invoiceItem.findMany({
       where: {
-        invoice: {
-          ...bf,
-          createdAt: { gte: startDate, lte: endDate },
-          status: { not: "REFUNDED" },
-        },
+        invoice: { ...bf, ...dateFilter, status: { not: "REFUNDED" } },
       },
       include: { product: { select: { name: true, category: true } } },
     }),
+    // Non-refunded invoices (for P&L, customers, peak hours)
     prisma.invoice.findMany({
-      where: {
-        ...bf,
-        createdAt: { gte: startDate, lte: endDate },
-        status: { not: "REFUNDED" },
-      },
+      where: { ...bf, ...dateFilter, status: { not: "REFUNDED" } },
       select: {
         id: true,
         total: true,
@@ -93,13 +92,38 @@ export default async function AnalyticsPage({
         customerName: true,
         customerPhone: true,
         createdAt: true,
+        paymentMethod: true,
         items: { select: { qty: true, returnedQty: true, costPrice: true } },
+      },
+    }),
+    // ALL invoices including refunded (for order status stats & leakage)
+    prisma.invoice.findMany({
+      where: { ...bf, ...dateFilter },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        discountAmount: true,
+        gstAmount: true,
       },
     }),
     prisma.expense.findMany({
       where: { ...bf, date: { gte: startDate, lte: endDate } },
     }),
   ]);
+
+  // ── Order status stats ────────────────────────────────────────
+  const totalOrders = allInvoices.length;
+  const fulfilledOrders = allInvoices.filter((i) => i.status === "PAID" || i.status === "PARTIAL_REFUND").length;
+  const refundedOrders = allInvoices.filter((i) => i.status === "REFUNDED").length;
+  const fulfilmentRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
+
+  // ── Revenue leakage ───────────────────────────────────────────
+  const totalDiscountsGiven = allInvoices.reduce((s, i) => s + i.discountAmount, 0);
+  const totalGstCollected = allInvoices.reduce((s, i) => s + i.gstAmount, 0);
+  const totalRefundedRevenue = allInvoices
+    .filter((i) => i.status === "REFUNDED")
+    .reduce((s, i) => s + i.total, 0);
 
   // ── P&L ──────────────────────────────────────────────────────
   const totalRevenue = invoices.reduce((s, inv) => s + inv.total, 0);
@@ -113,6 +137,9 @@ export default async function AnalyticsPage({
   const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const netProfit = grossProfit - totalExpenses;
+
+  // ── Sales vs Taxes ────────────────────────────────────────────
+  const taxableBase = totalRevenue - totalGstCollected;
 
   // ── Product performance ───────────────────────────────────────
   const productMap = new Map<
@@ -140,17 +167,22 @@ export default async function AnalyticsPage({
     }
   });
 
-  const productList = Array.from(productMap.values()).sort((a, b) => {
+  const allProducts = Array.from(productMap.values());
+  const productList = [...allProducts].sort((a, b) => {
+    if (view === "low") {
+      // Low selling: ascending by qty
+      return a.qty - b.qty;
+    }
     if (sort === "revenue") return b.revenue - a.revenue;
-    if (sort === "profit") return (b.revenue - b.cost) - (a.revenue - a.cost);
-    return b.qty - a.qty; // default: qty
+    if (sort === "profit") return b.revenue - b.cost - (a.revenue - a.cost);
+    return b.qty - a.qty;
   });
 
-  const totalQty = productList.reduce((s, p) => s + p.qty, 0);
+  const totalQty = allProducts.reduce((s, p) => s + p.qty, 0);
 
   // ── Category breakdown ────────────────────────────────────────
   const catMap = new Map<string, { qty: number; revenue: number }>();
-  productList.forEach((p) => {
+  allProducts.forEach((p) => {
     const existing = catMap.get(p.category);
     if (existing) {
       existing.qty += p.qty;
@@ -190,7 +222,7 @@ export default async function AnalyticsPage({
       existing.visits++;
       existing.spent += inv.total;
     } else {
-      custMap.set(key, { name, phone: inv.customerPhone, visits: 1, spent: inv.total });
+      custMap.set(key, { name, phone: inv.customerPhone ?? null, visits: 1, spent: inv.total });
     }
   });
   const topCustomers = Array.from(custMap.values())
@@ -234,7 +266,58 @@ export default async function AnalyticsPage({
         <AnalyticsDateSelector />
       </div>
 
-      {/* P&L Cards */}
+      {/* ── Order Fulfillment Overview ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Fulfillment rate ring */}
+        <div className="col-span-2 sm:col-span-1 bg-card rounded-2xl border border-border p-5 flex flex-col items-center justify-center gap-2 shadow-sm">
+          {/* SVG ring */}
+          <div className="relative w-24 h-24">
+            <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+              <circle
+                cx="18" cy="18" r="15.9" fill="none"
+                stroke={fulfilmentRate >= 90 ? "#22c55e" : fulfilmentRate >= 70 ? "#f59e0b" : "#ef4444"}
+                strokeWidth="3"
+                strokeDasharray={`${fulfilmentRate} ${100 - fulfilmentRate}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-lg font-extrabold text-foreground">{fulfilmentRate.toFixed(1)}%</span>
+            </div>
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">Fulfilment Rate</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+            <BarChart3 className="h-4 w-4 text-blue-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Orders</p>
+          <p className="text-2xl font-extrabold text-foreground mt-0.5">{totalOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{invoices.length} active bills</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fulfilled</p>
+          <p className="text-2xl font-extrabold text-emerald-500 mt-0.5">{fulfilledOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Paid bills</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center mb-3">
+            <XCircle className="h-4 w-4 text-rose-500" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Refunded / Void</p>
+          <p className="text-2xl font-extrabold text-rose-500 mt-0.5">{refundedOrders}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">₹{fmtINR(totalRefundedRevenue)} lost</p>
+        </div>
+      </div>
+
+      {/* ── P&L Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
           {
@@ -274,7 +357,7 @@ export default async function AnalyticsPage({
             bg: netProfit >= 0 ? "bg-emerald-50 dark:bg-[rgba(16,185,129,0.1)]" : "bg-rose-50 dark:bg-[rgba(239,68,68,0.1)]",
           },
         ].map((card) => (
-          <div key={card.label} className={`rounded-2xl border border-border p-4 shadow-sm bg-card`}>
+          <div key={card.label} className="rounded-2xl border border-border p-4 shadow-sm bg-card">
             <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
               <card.icon className={`h-4 w-4 ${card.color}`} />
             </div>
@@ -285,31 +368,164 @@ export default async function AnalyticsPage({
         ))}
       </div>
 
-      {/* Product Performance */}
+      {/* ── Revenue Leakage + Sales vs Taxes ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Leakage */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-4">
+            <AlertOctagon className="h-4 w-4 text-rose-500" />
+            Revenue Leakage
+          </h2>
+          <div className="space-y-3">
+            {[
+              {
+                label: "Discounts Given",
+                value: totalDiscountsGiven,
+                count: null,
+                note: "Reduced from customers' bills",
+                color: "text-amber-500",
+                bg: "bg-amber-500/10",
+              },
+              {
+                label: "Refunded Bills",
+                value: totalRefundedRevenue,
+                count: refundedOrders,
+                note: `${refundedOrders} bill${refundedOrders !== 1 ? "s" : ""} voided`,
+                color: "text-rose-500",
+                bg: "bg-rose-500/10",
+              },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border">
+                <div>
+                  <p className="font-semibold text-foreground text-sm">{row.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{row.note}</p>
+                </div>
+                <span className={`font-extrabold text-base ${row.color}`}>₹{fmtINR(row.value)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <span className="font-bold text-foreground text-sm">Total Leakage</span>
+              <span className="font-extrabold text-rose-500">
+                ₹{fmtINR(totalDiscountsGiven + totalRefundedRevenue)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sales vs Taxes */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-4">
+            <Percent className="h-4 w-4 text-indigo-500" />
+            Sales vs Taxes
+          </h2>
+          {totalRevenue === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No data for this period</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-6 justify-center">
+                {/* Sales donut */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative w-24 h-24">
+                    <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+                      <circle
+                        cx="18" cy="18" r="15.9" fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="3"
+                        strokeDasharray={`${pct(taxableBase, totalRevenue)} ${100 - parseFloat(pct(taxableBase, totalRevenue))}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-sm font-extrabold text-foreground">{pct(taxableBase, totalRevenue)}%</span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground">Sales</p>
+                  <p className="text-sm font-bold text-blue-500">₹{fmtINR(taxableBase)}</p>
+                </div>
+                {/* Tax donut */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative w-24 h-24">
+                    <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" />
+                      <circle
+                        cx="18" cy="18" r="15.9" fill="none"
+                        stroke="#a855f7"
+                        strokeWidth="3"
+                        strokeDasharray={`${pct(totalGstCollected, totalRevenue)} ${100 - parseFloat(pct(totalGstCollected, totalRevenue))}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-sm font-extrabold text-foreground">{pct(totalGstCollected, totalRevenue)}%</span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground">GST Collected</p>
+                  <p className="text-sm font-bold text-purple-500">₹{fmtINR(totalGstCollected)}</p>
+                </div>
+              </div>
+              <div className="border-t border-border pt-3 grid grid-cols-2 gap-3 text-sm">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">Net Sales (excl. GST)</p>
+                  <p className="font-extrabold text-foreground mt-0.5">₹{fmtINR(taxableBase)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-muted-foreground text-xs">GST Payable to Govt</p>
+                  <p className="font-extrabold text-purple-500 mt-0.5">₹{fmtINR(totalGstCollected)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Product Performance ── */}
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-wrap gap-3">
           <div>
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <Trophy className="h-4 w-4 text-amber-500" />
-              Product Performance ({productList.length} items)
+              Product Statistics — {productList.length} items
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">All items sold in this period</p>
           </div>
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
-            {SORTS.map((s) => (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Top / Low toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
               <Link
-                key={s.value}
-                href={`?${sortBase}&sort=${s.value}`}
+                href={`?${sortBase}&sort=${sort}&view=top`}
                 className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
-                style={
-                  sort === s.value
-                    ? { background: "var(--primary)", color: "#fff" }
-                    : { color: "var(--muted-foreground)" }
-                }
+                style={view === "top" ? { background: "var(--primary)", color: "#fff" } : { color: "var(--muted-foreground)" }}
               >
-                {s.label}
+                Top Selling
               </Link>
-            ))}
+              <Link
+                href={`?${sortBase}&sort=${sort}&view=low`}
+                className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                style={view === "low" ? { background: "#ef4444", color: "#fff" } : { color: "var(--muted-foreground)" }}
+              >
+                Low Selling
+              </Link>
+            </div>
+            {/* Sort (only when top selling) */}
+            {view === "top" && (
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
+                {SORTS.map((s) => (
+                  <Link
+                    key={s.value}
+                    href={`?${sortBase}&sort=${s.value}&view=top`}
+                    className="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                    style={
+                      sort === s.value
+                        ? { background: "var(--primary)", color: "#fff" }
+                        : { color: "var(--muted-foreground)" }
+                    }
+                  >
+                    {s.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
@@ -339,12 +555,15 @@ export default async function AnalyticsPage({
                   const profit = p.revenue - p.cost;
                   const margin = p.revenue > 0 ? (profit / p.revenue) * 100 : 0;
                   const qtyShare = totalQty > 0 ? (p.qty / totalQty) * 100 : 0;
+                  const isLow = view === "low";
                   return (
                     <tr key={idx} className="hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                            idx === 0
+                            isLow
+                              ? "text-muted-foreground"
+                              : idx === 0
                               ? "bg-amber-500/20 text-amber-500"
                               : idx === 1
                               ? "bg-slate-400/20 text-slate-400"
@@ -362,7 +581,9 @@ export default async function AnalyticsPage({
                           {p.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-foreground">{p.qty}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${isLow ? "text-rose-500" : "text-foreground"}`}>
+                        {p.qty}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -401,7 +622,7 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      {/* Category + Peak Hours */}
+      {/* ── Category + Peak Hours ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Category Breakdown */}
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
@@ -472,7 +693,6 @@ export default async function AnalyticsPage({
                 );
               })}
             </div>
-            {/* Top 5 peak hours table */}
             <div className="mt-4 space-y-1">
               {hourMap
                 .map((h, hr) => ({ ...h, hr }))
@@ -481,13 +701,7 @@ export default async function AnalyticsPage({
                 .slice(0, 5)
                 .map((h) => {
                   const label =
-                    h.hr === 0
-                      ? "12:00 AM"
-                      : h.hr < 12
-                      ? `${h.hr}:00 AM`
-                      : h.hr === 12
-                      ? "12:00 PM"
-                      : `${h.hr - 12}:00 PM`;
+                    h.hr === 0 ? "12:00 AM" : h.hr < 12 ? `${h.hr}:00 AM` : h.hr === 12 ? "12:00 PM" : `${h.hr - 12}:00 PM`;
                   return (
                     <div key={h.hr} className="flex items-center justify-between text-sm">
                       <span className="font-semibold text-foreground w-20">{label}</span>
@@ -510,9 +724,8 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      {/* Top Customers + Expense Breakdown */}
+      {/* ── Top Customers + Expense Breakdown ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Customers */}
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-border">
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -560,7 +773,6 @@ export default async function AnalyticsPage({
           </div>
         </div>
 
-        {/* Expense Breakdown */}
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-border">
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -601,11 +813,11 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      {/* Quick Summary */}
+      {/* ── P&L Statement ── */}
       <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
         <h2 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
           <IndianRupee className="h-4 w-4 text-emerald-500" />
-          Profit & Loss Summary — {periodLabel}
+          Profit & Loss Statement — {periodLabel}
         </h2>
         <div className="space-y-2 max-w-sm">
           {[
@@ -613,7 +825,8 @@ export default async function AnalyticsPage({
             { label: "(-) Cost of Goods Sold", value: -totalCOGS, color: "text-orange-500" },
             { label: "= Gross Profit", value: grossProfit, color: grossProfit >= 0 ? "text-emerald-500" : "text-rose-500", bold: true },
             { label: "(-) Operating Expenses", value: -totalExpenses, color: "text-rose-500" },
-            { label: "= Net Profit", value: netProfit, color: netProfit >= 0 ? "text-emerald-600" : "text-rose-600", bold: true, border: true },
+            { label: "(-) Discounts Given", value: -totalDiscountsGiven, color: "text-amber-500" },
+            { label: "= Net Profit", value: netProfit - totalDiscountsGiven, color: (netProfit - totalDiscountsGiven) >= 0 ? "text-emerald-600" : "text-rose-600", bold: true, border: true },
           ].map((row) => (
             <div
               key={row.label}
