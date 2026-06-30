@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar } from "lucide-react";
+import { MonthPicker } from "@/components/MonthPicker";
 
 const RANGES = [
   { label: "Today", value: "today" },
@@ -56,25 +57,13 @@ export function DashboardControls() {
       </div>
 
       {/* Specific month picker */}
-      <div
-        className={`flex items-center gap-2 bg-card border p-1 pl-3 rounded-xl shadow-sm transition-colors ${
-          monthParam ? "border-primary" : "border-border"
-        }`}
-      >
-        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-          Pick Month
-        </span>
-        <input
-          type="month"
-          value={monthParam || currentMonthStr}
-          max={currentMonthStr}
-          onChange={(e) => {
-            if (e.target.value) go({ month: e.target.value });
-          }}
-          className="bg-transparent text-sm font-semibold outline-none cursor-pointer rounded-lg px-2 py-1 text-foreground"
-          style={{ colorScheme: "light dark" }}
-        />
-      </div>
+      <MonthPicker
+        value={monthParam}
+        max={currentMonthStr}
+        active={!!monthParam}
+        onSelect={(m) => go({ month: m })}
+        className="rounded-xl px-3 py-2"
+      />
     </div>
   );
 }

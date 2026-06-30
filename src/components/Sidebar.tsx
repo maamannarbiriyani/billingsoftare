@@ -56,6 +56,17 @@ const allNavItems = [
   { name: "Settings", href: "/settings", icon: Settings, color: "text-slate-400", glow: "rgba(148,163,184,0.1)" },
 ];
 
+// Desktop sidebar grouped by what the task actually is, so related tools sit
+// together instead of one long flat list.
+const NAV_GROUPS: { label: string; items: string[] }[] = [
+  { label: "Operations", items: ["Billing", "Dashboard", "Reports"] },
+  { label: "Catalog & Stock", items: ["Products", "Inventory", "Purchases"] },
+  { label: "People", items: ["Customers", "Staff", "Shifts"] },
+  { label: "Finance", items: ["Expenses", "Tally"] },
+];
+
+const navByName = Object.fromEntries(allNavItems.map((i) => [i.name, i]));
+
 export function Sidebar({
   userRole,
   onClose,
@@ -88,6 +99,42 @@ export function Sidebar({
 
   const mainItems = navItems.filter((i) => i.name !== "Settings");
   const bottomItems = navItems.filter((i) => i.name === "Settings");
+
+  const renderItem = (item: (typeof allNavItems)[number]) => {
+    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        className="group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+        style={{
+          background: isActive ? "var(--sidebar-active-bg)" : "transparent",
+          color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+          borderLeft: isActive ? `2px solid var(--sidebar-active-border)` : "2px solid transparent",
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            (e.currentTarget as HTMLAnchorElement).style.background = "var(--sidebar-hover-bg)";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text-active)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text)";
+          }
+        }}
+      >
+        <item.icon
+          className={`h-4 w-4 flex-shrink-0 transition-colors ${
+            isActive ? "text-sidebar-text-active" : "text-sidebar-text group-hover:text-sidebar-text-active"
+          }`}
+        />
+        <span className="flex-1 truncate">{item.name}</span>
+        {isActive && <ChevronRight className="h-3 w-3 flex-shrink-0 opacity-60" />}
+      </Link>
+    );
+  };
 
   return (
     <aside
@@ -163,58 +210,27 @@ export function Sidebar({
         )}
 
         {/* DESKTOP (and non-admin mobile): full navigation */}
-        <p
-          className={`${
-            isAdmin ? "hidden md:block" : "block"
-          } px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70`}
-        >
-          Navigation
-        </p>
-
-        <nav className={`${isAdmin ? "hidden md:flex" : "flex"} flex-col gap-0.5`}>
-          {mainItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-                style={{
-                  background: isActive ? "var(--sidebar-active-bg)" : "transparent",
-                  color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
-                  borderLeft: isActive
-                    ? `2px solid var(--sidebar-active-border)`
-                    : "2px solid transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLAnchorElement).style.background =
-                      "var(--sidebar-hover-bg)";
-                    (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text-active)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLAnchorElement).style.background =
-                      "transparent";
-                    (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text)";
-                  }
-                }}
-              >
-                <item.icon
-                  className={`h-4 w-4 flex-shrink-0 transition-colors ${
-                    isActive ? "text-sidebar-text-active" : "text-sidebar-text group-hover:text-sidebar-text-active"
-                  }`}
-                />
-                <span className="flex-1 truncate">{item.name}</span>
-                {isActive && (
-                  <ChevronRight className={`h-3 w-3 flex-shrink-0 opacity-60`} />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+        {isAdmin ? (
+          <div className="hidden md:flex flex-col gap-0.5">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.label} className="mb-1">
+                <p className="px-2 mt-2 mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-sidebar-text opacity-70">
+                  {group.label}
+                </p>
+                <nav className="flex flex-col gap-0.5">
+                  {group.items.map((name) => navByName[name]).filter(Boolean).map(renderItem)}
+                </nav>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <p className="px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70">
+              Navigation
+            </p>
+            <nav className="flex flex-col gap-0.5">{mainItems.map(renderItem)}</nav>
+          </>
+        )}
 
         {/* Settings */}
         {bottomItems.length > 0 && (

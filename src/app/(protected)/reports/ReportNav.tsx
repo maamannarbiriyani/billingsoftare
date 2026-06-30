@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar } from "lucide-react";
+import { MonthPicker } from "@/components/MonthPicker";
 import { REPORT_TYPES } from "./reportTypes";
 
 export function ReportNav() {
@@ -65,19 +66,13 @@ export function ReportNav() {
               {r.label}
             </button>
           ))}
-          <div className="flex items-center gap-1.5 flex-shrink-0 bg-card border border-border rounded-full px-3 py-1.5">
-            <Calendar className="h-3 w-3 text-muted-foreground" />
-            <input
-              type="month"
-              value={monthParam || ""}
-              max={currentMonthStr}
-              onChange={(e) => {
-                if (e.target.value) navigate({ month: e.target.value });
-              }}
-              className="text-xs font-semibold bg-transparent outline-none text-foreground w-28"
-              style={{ colorScheme: "light dark" }}
-            />
-          </div>
+          <MonthPicker
+            value={monthParam}
+            max={currentMonthStr}
+            active={!!monthParam}
+            onSelect={(m) => navigate({ month: m })}
+            className="rounded-full px-3 py-1.5"
+          />
         </div>
       ) : (
         <div className="px-3 py-2 bg-muted/30">
