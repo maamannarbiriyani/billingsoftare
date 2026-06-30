@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 
@@ -17,15 +17,18 @@ export function AppShell({
   activeBranchId?: number | null;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
   const isBilling = pathname?.startsWith("/billing");
   const isReports = pathname?.startsWith("/reports");
 
   const [isOpen, setIsOpen] = useState(false);
 
-  // Close sidebar on route change
+  // Close sidebar on navigation — including switching report type, which only
+  // changes the query string (pathname stays /reports).
   useEffect(() => {
     setIsOpen(false);
-  }, [pathname]);
+  }, [pathname, queryString]);
 
   const hamburgerClass = isBilling ? "block" : "block md:hidden";
 

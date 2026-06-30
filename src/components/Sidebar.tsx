@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -17,7 +17,29 @@ import {
   Briefcase,
   BookOpen,
   X,
+  Home,
+  ReceiptText,
+  List,
+  Layers,
+  Clock,
+  LayoutList,
+  CalendarDays,
+  CalendarRange,
 } from "lucide-react";
+
+// Mobile drawer = a focused Reports app (matches the owner's phone workflow).
+// Billing / Inventory / Staff etc. stay on the desktop sidebar only.
+const reportNav = [
+  { name: "Home", type: null as string | null, href: "/dashboard", icon: Home },
+  { name: "Sales Report", type: "sales", href: "/reports?type=sales", icon: ReceiptText },
+  { name: "Item Wise Sales Report", type: "items", href: "/reports?type=items", icon: List },
+  { name: "Item Sales Report", type: "itemsales", href: "/reports?type=itemsales", icon: Package },
+  { name: "Consolidated Category Report", type: "category", href: "/reports?type=category", icon: Layers },
+  { name: "Hourly Sales Report", type: "hourly", href: "/reports?type=hourly", icon: Clock },
+  { name: "Category Item Wise Sales Report", type: "categoryitems", href: "/reports?type=categoryitems", icon: LayoutList },
+  { name: "Day Wise Sales Report", type: "daywise", href: "/reports?type=daywise", icon: CalendarDays },
+  { name: "Monthly Sales Report", type: "monthly", href: "/reports?type=monthly", icon: CalendarRange },
+];
 
 const allNavItems = [
   { name: "Billing", href: "/billing", icon: ShoppingCart, color: "text-emerald-400", glow: "rgba(16,185,129,0.15)" },
@@ -44,6 +66,14 @@ export function Sidebar({
   showClose?: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentType = searchParams.get("type") || "sales";
+  const isAdmin = userRole === "Admin";
+
+  function reportActive(item: { type: string | null }) {
+    if (item.type === null) return pathname === "/dashboard";
+    return pathname.startsWith("/reports") && currentType === item.type;
+  }
 
   const navItems =
     userRole === "Admin"
@@ -94,11 +124,54 @@ export function Sidebar({
 
       {/* Nav */}
       <div className="flex-1 flex flex-col overflow-y-auto px-3 pt-4 pb-2 scrollbar-thin gap-0.5">
-        <p className="px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70">
+        {/* MOBILE: focused Reports menu (Admin only) */}
+        {isAdmin && (
+          <div className="md:hidden flex flex-col gap-0.5 mb-1">
+            <p className="px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70">
+              Reports
+            </p>
+            <nav className="flex flex-col gap-0.5">
+              {reportNav.map((item) => {
+                const isActive = reportActive(item);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200"
+                    style={{
+                      background: isActive ? "var(--sidebar-active-bg)" : "transparent",
+                      color: isActive ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+                      borderLeft: isActive
+                        ? `2px solid var(--sidebar-active-border)`
+                        : "2px solid transparent",
+                    }}
+                  >
+                    <item.icon
+                      className={`h-4 w-4 flex-shrink-0 ${
+                        isActive
+                          ? "text-sidebar-text-active"
+                          : "text-sidebar-text group-hover:text-sidebar-text-active"
+                      }`}
+                    />
+                    <span className="flex-1 truncate">{item.name}</span>
+                    {isActive && <ChevronRight className="h-3 w-3 flex-shrink-0 opacity-60" />}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        )}
+
+        {/* DESKTOP (and non-admin mobile): full navigation */}
+        <p
+          className={`${
+            isAdmin ? "hidden md:block" : "block"
+          } px-2 text-[10px] font-bold uppercase tracking-[0.1em] mb-2.5 text-sidebar-text opacity-70`}
+        >
           Navigation
         </p>
 
-        <nav className="flex flex-col gap-0.5">
+        <nav className={`${isAdmin ? "hidden md:flex" : "flex"} flex-col gap-0.5`}>
           {mainItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
