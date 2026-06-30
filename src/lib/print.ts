@@ -26,7 +26,9 @@ function wrapReceipt(inner: string): string {
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: bold; }
-  .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
+  /* brightness(0) forces the (red) logo to solid black for a crisp thermal print,
+     while preserving transparency and smooth anti-aliased edges. */
+  .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: brightness(0); }
   .store { font-size: 15px; font-weight: 900; }
   .muted { font-size: 11px; }
   .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
