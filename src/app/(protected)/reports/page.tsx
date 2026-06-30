@@ -10,6 +10,11 @@ function fmt(n: number) {
   return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Whole counts show as integers (e.g. "5"); weight-based show up to 3 decimals.
+function fmtQty(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(3);
+}
+
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card rounded-xl border border-border p-4 flex flex-col gap-1 shadow-sm">
@@ -69,7 +74,7 @@ export default async function ReportsPage({
       where: { ...bf, ...dateF },
       orderBy: { createdAt: "desc" },
       include: {
-        items: { include: { product: { select: { name: true, category: true } } } },
+        items: { select: { qty: true } },
       },
     });
 
@@ -79,12 +84,13 @@ export default async function ReportsPage({
     const totalGst = invoices.reduce((s, i) => s + i.gstAmount, 0);
 
     // Payment breakdown
-    const payMap: Record<string, { count: number; amount: number }> = {};
+    const payMap: Record<string, { count: number; amount: number; gst: number }> = {};
     invoices.filter(i => i.status !== "REFUNDED").forEach((inv) => {
       const m = inv.paymentMethod || "Cash";
-      if (!payMap[m]) payMap[m] = { count: 0, amount: 0 };
+      if (!payMap[m]) payMap[m] = { count: 0, amount: 0, gst: 0 };
       payMap[m].count++;
       payMap[m].amount += inv.total;
+      payMap[m].gst += inv.gstAmount;
     });
 
     const allMethods = ["Cash", "Card", "UPI", "Wallet", "Khata", "Online"];
@@ -129,7 +135,7 @@ export default async function ReportsPage({
                         <td className="px-4 py-2.5 font-semibold text-foreground">{method} Sales</td>
                         <td className="px-4 py-2.5 text-center text-muted-foreground">{d?.count ?? 0}</td>
                         <td className="px-4 py-2.5 text-right font-bold text-foreground">{fmt(d?.amount ?? 0)}</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">{fmt(0)}</td>
+                        <td className="px-4 py-2.5 text-right text-muted-foreground">{fmt(d?.gst ?? 0)}</td>
                       </tr>
                     );
                   })}
@@ -149,80 +155,53 @@ export default async function ReportsPage({
               </div>
             ) : (
               invoices.map((inv) => {
-                const statusColor = inv.status === "PAID" ? "text-emerald-600" : inv.status === "REFUNDED" ? "text-rose-500" : "text-amber-500";
-                const statusLabel = inv.status === "PAID" ? "Settled" : inv.status === "REFUNDED" ? "Refunded" : "Partial Refund";
+                const st =
+                  inv.status === "PAID"
+                    ? { label: "Settled", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" }
+                    : inv.status === "REFUNDED"
+                    ? { label: "Refunded", cls: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400" }
+                    : { label: "Partial Refund", cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400" };
+                const units = inv.items.reduce((s, it) => s + it.qty, 0);
                 return (
-                  <Link key={inv.id} href={`/invoices/${inv.id}`}>
-                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm active:opacity-70 transition-opacity">
-                      {/* Bill number + arrow */}
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-extrabold text-base text-foreground font-mono">{inv.invoiceNumber}</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      {/* Grid of fields */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Bill Date</p>
-                          <p className="font-semibold text-foreground">
-                            {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                            {" "}
-                            {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                  <Link key={inv.id} href={`/invoices/${inv.id}/details`} className="block">
+                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm active:bg-muted/40 transition-colors">
+                      {/* Top: bill no + status */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-mono font-extrabold text-foreground text-base truncate">
+                            {inv.invoiceNumber}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                            {" · "}
+                            {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Status</p>
-                          <p className={`font-bold ${statusColor}`}>{statusLabel}</p>
+                        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${st.cls}`}>
+                          {st.label}
+                        </span>
+                      </div>
+
+                      {/* Middle: meta + total */}
+                      <div className="mt-3 flex items-end justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                          <span className="rounded-md bg-muted px-2 py-0.5 font-semibold text-foreground">
+                            {inv.paymentMethod || "Cash"}
+                          </span>
+                          <span>{units} item{units !== 1 ? "s" : ""}</span>
+                          {inv.customerName && <span className="truncate">· {inv.customerName}</span>}
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Payment Mode</p>
-                          <p className="font-semibold text-foreground">{inv.paymentMethod}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Customer</p>
-                          <p className="font-semibold text-foreground">{inv.customerName || "--"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Cart Discounts</p>
-                          <p className="font-semibold text-foreground">{fmt(inv.discountAmount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Tax Amount</p>
-                          <p className="font-semibold text-foreground">{fmt(inv.gstAmount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Base Amount</p>
-                          <p className="font-semibold text-foreground">{fmt(inv.subtotal)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Total Amount</p>
-                          <p className="font-extrabold text-foreground text-base">{fmt(inv.total)}</p>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[11px] text-muted-foreground">Total</p>
+                          <p className="text-lg font-black text-foreground leading-none">₹{fmt(inv.total)}</p>
                         </div>
                       </div>
-                      {/* Items mini-table */}
-                      {inv.items.length > 0 && (
-                        <div className="mt-3 rounded-lg overflow-hidden border border-border">
-                          <table className="w-full text-xs">
-                            <thead className="bg-muted">
-                              <tr>
-                                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Category</th>
-                                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Item</th>
-                                <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Qty</th>
-                                <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Amount</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                              {inv.items.map((it) => (
-                                <tr key={it.id}>
-                                  <td className="px-3 py-2 text-muted-foreground">{it.product.category || "—"}</td>
-                                  <td className="px-3 py-2 font-medium text-foreground">{it.product.name}</td>
-                                  <td className="px-3 py-2 text-right text-foreground">{it.qty}</td>
-                                  <td className="px-3 py-2 text-right font-semibold text-foreground">{fmt(it.qty * it.price)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+
+                      {/* Footer: view details affordance */}
+                      <div className="mt-3 pt-3 border-t border-border flex items-center justify-end gap-0.5 text-xs font-bold text-primary">
+                        View full details
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </div>
                     </div>
                   </Link>
                 );
@@ -275,7 +254,7 @@ export default async function ReportsPage({
             Period: <span className="font-bold text-foreground">{periodLabel}</span>
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <StatBox label="Total Quantity" value={totalQty.toFixed(3)} />
+            <StatBox label="Total Quantity" value={fmtQty(totalQty)} />
             <StatBox label="Total Sales Amount (₹)" value={fmt(totalRevenue)} />
           </div>
 
@@ -291,7 +270,7 @@ export default async function ReportsPage({
                   <div className="flex items-center justify-between text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Quantity</p>
-                      <p className="font-bold text-foreground text-lg">{p.qty.toFixed(3)}</p>
+                      <p className="font-bold text-foreground text-lg">{fmtQty(p.qty)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">Sales Amount</p>
@@ -380,7 +359,7 @@ export default async function ReportsPage({
             Period: <span className="font-bold text-foreground">{periodLabel}</span>
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <StatBox label="Total Quantity" value={totalQty.toFixed(3)} />
+            <StatBox label="Total Quantity" value={fmtQty(totalQty)} />
             <StatBox label="Total Sales Amount (₹)" value={fmt(totalRevenue)} />
           </div>
 
@@ -405,7 +384,7 @@ export default async function ReportsPage({
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Quantity</p>
-                      <p className="font-bold text-foreground text-lg">{row.qty.toFixed(3)}</p>
+                      <p className="font-bold text-foreground text-lg">{fmtQty(row.qty)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Sales Amount (₹)</p>

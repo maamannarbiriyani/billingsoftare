@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { AutoPrint } from "@/components/AutoPrint";
-import Link from "next/link";
-import { ArrowLeft, Printer, UtensilsCrossed } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
+import { Printer, UtensilsCrossed } from "lucide-react";
 import { ReturnModal } from "./ReturnModal";
 import { KitchenCopyButton } from "./KitchenCopyButton";
 import { EditInvoiceModal } from "./EditInvoiceModal";
@@ -61,10 +61,8 @@ export default async function InvoiceReceiptPage({
 
       {/* ── Screen Only Action Bar ── */}
       <div className="w-full max-w-2xl mb-6 flex justify-between items-center print:hidden bg-card p-4 rounded-2xl border border-border shadow-sm gap-3">
-        <Link href="/billing" className="btn btn-ghost btn-sm flex-shrink-0">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
+        <BackButton fallback="/invoices" className="btn btn-ghost btn-sm flex-shrink-0" />
+
         <div className="flex gap-2 items-center flex-wrap">
           <EditInvoiceModal invoice={invoice} />
           <ReturnModal invoice={invoice} />
