@@ -19,8 +19,10 @@ function wrapReceipt(inner: string): string {
 <style>
   @page { margin: 0; size: 80mm auto; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 80mm; background: #fff; color: #000; }
-  body { font-family: 'Courier New', monospace; padding: 4px 6px; font-size: 12px; line-height: 1.35; }
+  html { background: #fff; }
+  /* 80mm paper has a ~72mm printable area — keep content inside it to avoid
+     the right edge (Value column) clipping on 3" printers like the RP326. */
+  body { width: 72mm; margin: 0 auto; background: #fff; color: #000; font-family: 'Courier New', monospace; padding: 2mm 1.5mm; font-size: 12px; line-height: 1.35; }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: bold; }
@@ -139,10 +141,10 @@ export function buildBillHtml(d: BillData): string {
 
   const rows = d.items.map((it) => `
     <tr>
-      <td style="width:34mm" class="">${esc(it.name)}</td>
-      <td style="width:14mm" class="right">${it.price.toFixed(2)}</td>
-      <td style="width:8mm" class="center">${it.qty}</td>
-      <td style="width:18mm" class="right">${(it.price * it.qty).toFixed(2)}</td>
+      <td style="width:30mm" class="">${esc(it.name)}</td>
+      <td style="width:13mm" class="right">${it.price.toFixed(2)}</td>
+      <td style="width:7mm" class="center">${it.qty}</td>
+      <td style="width:17mm" class="right">${(it.price * it.qty).toFixed(2)}</td>
     </tr>`).join("");
 
   return `
@@ -160,10 +162,10 @@ export function buildBillHtml(d: BillData): string {
     <hr class="hr-solid">
     <table>
       <thead><tr>
-        <th style="width:34mm">Item</th>
-        <th style="width:14mm" class="right">Price</th>
-        <th style="width:8mm" class="center">Qty</th>
-        <th style="width:18mm" class="right">Value</th>
+        <th style="width:30mm">Item</th>
+        <th style="width:13mm" class="right">Price</th>
+        <th style="width:7mm" class="center">Qty</th>
+        <th style="width:17mm" class="right">Value</th>
       </tr></thead>
     </table>
     <hr class="hr">
