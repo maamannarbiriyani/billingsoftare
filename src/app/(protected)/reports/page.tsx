@@ -1,370 +1,514 @@
 import { prisma } from "@/lib/prisma";
-import {
-  IndianRupee,
-  TrendingUp,
-  Receipt,
-  PackageOpen,
-  AlertTriangle,
-  Eye,
-  Trophy,
-  BarChart3,
-  CreditCard,
-  Utensils
-} from "lucide-react";
-import Link from "next/link";
 import { requireAdmin, getActiveBranchId } from "@/lib/auth";
-import { ExportButton } from "./ExportButton";
-import { DateRangeSelector } from "./DateRangeSelector";
+import { ReportNav } from "./ReportNav";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
+
+export const dynamic = "force-dynamic";
+
+function fmt(n: number) {
+  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function StatBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 flex flex-col gap-1 shadow-sm">
+      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+      <span className="text-xl font-extrabold text-foreground">{value}</span>
+    </div>
+  );
+}
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; month?: string }>;
+  searchParams: Promise<{ type?: string; range?: string; month?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const monthParam = params.month; // format: "YYYY-MM"
+  const type = params.type || "sales";
+  const monthParam = params.month;
   const range = params.range || "today";
   const now = new Date();
+
   let startDate: Date;
   let endDate: Date;
+  let periodLabel: string;
 
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-    // Specific month selected (e.g. 2026-01)
     const [y, m] = monthParam.split("-").map(Number);
     startDate = new Date(y, m - 1, 1, 0, 0, 0);
     endDate = new Date(y, m, 0, 23, 59, 59, 999);
-  } else if (range === "today") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
+    periodLabel = startDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   } else if (range === "yesterday") {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
+    endDate = new Date(startDate.getTime() + 86400000 - 1);
+    periodLabel = "Yesterday";
   } else if (range === "week") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
     endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    periodLabel = "Last 7 Days";
   } else if (range === "month") {
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    periodLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   } else {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
+    endDate = new Date(startDate.getTime() + 86400000 - 1);
+    periodLabel = "Today";
   }
 
   const branchId = await getActiveBranchId();
   const bf = branchId ? { branchId } : {};
+  const dateF = { createdAt: { gte: startDate, lte: endDate } };
 
-  const periodLabel = monthParam && /^\d{4}-\d{2}$/.test(monthParam)
-    ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-    : range === "today" ? "Today"
-    : range === "yesterday" ? "Yesterday"
-    : range === "week" ? "Last 7 Days"
-    : range === "month" ? "This Month"
-    : "Today";
+  // ─── Sales Report ────────────────────────────────────────────
+  if (type === "sales") {
+    const invoices = await prisma.invoice.findMany({
+      where: { ...bf, ...dateF },
+      orderBy: { createdAt: "desc" },
+      include: {
+        items: { include: { product: { select: { name: true, category: true } } } },
+      },
+    });
 
-  const [filteredInvoices, filteredItems, lowStockProducts] =
-    await Promise.all([
-      prisma.invoice.findMany({
-        where: { ...bf, createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } },
-        orderBy: { createdAt: "desc" },
-        include: { customer: true, order: true }
-      }),
-      prisma.invoiceItem.findMany({
-        where: { invoice: { ...bf, createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } } },
-        include: { product: true }
-      }),
-      prisma.product.findMany({
-        where: { ...bf, stock: { lt: 10, not: 999999 }, isActive: true },
-        orderBy: { stock: "asc" },
-        take: 10,
-      }),
-    ]);
+    const totalBills = invoices.length;
+    const totalSales = invoices.filter(i => i.status !== "REFUNDED").reduce((s, i) => s + i.total, 0);
+    const totalDiscount = invoices.reduce((s, i) => s + i.discountAmount, 0);
+    const totalGst = invoices.reduce((s, i) => s + i.gstAmount, 0);
 
-  const periodSales = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
+    // Payment breakdown
+    const payMap: Record<string, { count: number; amount: number }> = {};
+    invoices.filter(i => i.status !== "REFUNDED").forEach((inv) => {
+      const m = inv.paymentMethod || "Cash";
+      if (!payMap[m]) payMap[m] = { count: 0, amount: 0 };
+      payMap[m].count++;
+      payMap[m].amount += inv.total;
+    });
 
-  // Breakdowns
-  const paymentBreakdown = filteredInvoices.reduce((acc, inv) => {
-    const method = inv.paymentMethod || "Cash";
-    acc[method] = (acc[method] || 0) + inv.total;
-    return acc;
-  }, {} as Record<string, number>);
+    const allMethods = ["Cash", "Card", "UPI", "Wallet", "Khata", "Online"];
 
-  const sourceBreakdown = filteredInvoices.reduce((acc, inv) => {
-    const source = inv.order?.source || "DINE_IN";
-    acc[source] = (acc[source] || 0) + inv.total;
-    return acc;
-  }, {} as Record<string, number>);
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <ReportNav />
+        <div className="px-4 py-4 space-y-4 pb-10">
+          {/* Period label */}
+          <p className="text-xs text-muted-foreground font-medium">
+            Period: <span className="font-bold text-foreground">{periodLabel}</span>
+          </p>
 
-  const productSales = new Map<number, { name: string; qty: number; revenue: number }>();
-  filteredItems.forEach((item) => {
-    const soldQty = item.qty - item.returnedQty;
-    if (soldQty <= 0) return;
-    const revenue = parseFloat((soldQty * item.price).toFixed(2));
-    const existing = productSales.get(item.productId);
-    if (existing) {
-      existing.qty += soldQty;
-      existing.revenue += revenue;
-    } else {
-      productSales.set(item.productId, {
-        name: item.product.name,
-        qty: soldQty,
-        revenue,
-      });
-    }
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox label="Total No. of Bills" value={String(totalBills)} />
+            <StatBox label="Total Tax Amount (₹)" value={fmt(totalGst)} />
+            <StatBox label="Total Discount (₹)" value={fmt(totalDiscount)} />
+            <StatBox label="Total Sales Amount (₹)" value={fmt(totalSales)} />
+          </div>
+
+          {/* Payment breakdown table */}
+          <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="font-bold text-foreground text-sm">Payment Type Breakdown</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Method</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground">Bills</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Amount (₹)</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">GST</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {allMethods.map((method) => {
+                    const d = payMap[method];
+                    return (
+                      <tr key={method} className={d ? "bg-amber-50/30 dark:bg-amber-500/5" : ""}>
+                        <td className="px-4 py-2.5 font-semibold text-foreground">{method} Sales</td>
+                        <td className="px-4 py-2.5 text-center text-muted-foreground">{d?.count ?? 0}</td>
+                        <td className="px-4 py-2.5 text-right font-bold text-foreground">{fmt(d?.amount ?? 0)}</td>
+                        <td className="px-4 py-2.5 text-right text-muted-foreground">{fmt(0)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bill cards */}
+          <h3 className="font-bold text-foreground text-sm pt-2">
+            Bills ({totalBills})
+          </h3>
+          <div className="space-y-3">
+            {invoices.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground text-sm">
+                No bills found for this period
+              </div>
+            ) : (
+              invoices.map((inv) => {
+                const statusColor = inv.status === "PAID" ? "text-emerald-600" : inv.status === "REFUNDED" ? "text-rose-500" : "text-amber-500";
+                const statusLabel = inv.status === "PAID" ? "Settled" : inv.status === "REFUNDED" ? "Refunded" : "Partial Refund";
+                return (
+                  <Link key={inv.id} href={`/invoices/${inv.id}`}>
+                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm active:opacity-70 transition-opacity">
+                      {/* Bill number + arrow */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-extrabold text-base text-foreground font-mono">{inv.invoiceNumber}</span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {/* Grid of fields */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Bill Date</p>
+                          <p className="font-semibold text-foreground">
+                            {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                            {" "}
+                            {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <p className={`font-bold ${statusColor}`}>{statusLabel}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Payment Mode</p>
+                          <p className="font-semibold text-foreground">{inv.paymentMethod}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Customer</p>
+                          <p className="font-semibold text-foreground">{inv.customerName || "--"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Cart Discounts</p>
+                          <p className="font-semibold text-foreground">{fmt(inv.discountAmount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Tax Amount</p>
+                          <p className="font-semibold text-foreground">{fmt(inv.gstAmount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Base Amount</p>
+                          <p className="font-semibold text-foreground">{fmt(inv.subtotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Amount</p>
+                          <p className="font-extrabold text-foreground text-base">{fmt(inv.total)}</p>
+                        </div>
+                      </div>
+                      {/* Items mini-table */}
+                      {inv.items.length > 0 && (
+                        <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Category</th>
+                                <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Item</th>
+                                <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Qty</th>
+                                <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {inv.items.map((it) => (
+                                <tr key={it.id}>
+                                  <td className="px-3 py-2 text-muted-foreground">{it.product.category || "—"}</td>
+                                  <td className="px-3 py-2 font-medium text-foreground">{it.product.name}</td>
+                                  <td className="px-3 py-2 text-right text-foreground">{it.qty}</td>
+                                  <td className="px-3 py-2 text-right font-semibold text-foreground">{fmt(it.qty * it.price)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Item Wise Sales Report ───────────────────────────────────
+  if (type === "items") {
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: { ...bf, ...dateF, status: { not: "REFUNDED" } },
+      },
+      include: { product: { select: { name: true, category: true } } },
+    });
+
+    const productMap = new Map<number, { name: string; category: string; qty: number; revenue: number; bills: Set<number> }>();
+    items.forEach((it) => {
+      const sold = it.qty - it.returnedQty;
+      if (sold <= 0) return;
+      const existing = productMap.get(it.productId);
+      if (existing) {
+        existing.qty += sold;
+        existing.revenue += sold * it.price;
+        existing.bills.add(it.invoiceId);
+      } else {
+        productMap.set(it.productId, {
+          name: it.product.name,
+          category: it.product.category || "Uncategorized",
+          qty: sold,
+          revenue: sold * it.price,
+          bills: new Set([it.invoiceId]),
+        });
+      }
+    });
+
+    const products = Array.from(productMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const totalQty = products.reduce((s, p) => s + p.qty, 0);
+    const totalRevenue = products.reduce((s, p) => s + p.revenue, 0);
+
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <ReportNav />
+        <div className="px-4 py-4 space-y-4 pb-10">
+          <p className="text-xs text-muted-foreground font-medium">
+            Period: <span className="font-bold text-foreground">{periodLabel}</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox label="Total Quantity" value={totalQty.toFixed(3)} />
+            <StatBox label="Total Sales Amount (₹)" value={fmt(totalRevenue)} />
+          </div>
+
+          <div className="space-y-3">
+            {products.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground text-sm">
+                No items sold in this period
+              </div>
+            ) : (
+              products.map((p, i) => (
+                <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                  <h3 className="font-extrabold text-foreground text-base mb-3">{p.name}</h3>
+                  <div className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quantity</p>
+                      <p className="font-bold text-foreground text-lg">{p.qty.toFixed(3)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Sales Amount</p>
+                      <p className="font-extrabold text-foreground text-lg">{fmt(p.revenue)}</p>
+                    </div>
+                  </div>
+                  {/* Store row */}
+                  <div className="mt-3 rounded-lg overflow-hidden border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Category</th>
+                          <th className="px-3 py-2 text-center font-semibold text-muted-foreground">Qty</th>
+                          <th className="px-3 py-2 text-center font-semibold text-muted-foreground">Bills</th>
+                          <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="px-3 py-2 text-muted-foreground">{p.category}</td>
+                          <td className="px-3 py-2 text-center font-semibold text-foreground">{p.qty}</td>
+                          <td className="px-3 py-2 text-center font-semibold text-foreground">{p.bills.size}</td>
+                          <td className="px-3 py-2 text-right font-bold text-foreground">{fmt(p.revenue)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Consolidated Category Report ────────────────────────────
+  if (type === "category") {
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: { ...bf, ...dateF, status: { not: "REFUNDED" } },
+      },
+      include: {
+        product: { select: { category: true } },
+        invoice: { select: { createdAt: true } },
+      },
+    });
+
+    // Group by category + date
+    const catDateMap = new Map<string, { category: string; date: Date; qty: number; revenue: number }>();
+    items.forEach((it) => {
+      const sold = it.qty - it.returnedQty;
+      if (sold <= 0) return;
+      const cat = it.product.category || "Uncategorized";
+      const d = it.invoice.createdAt;
+      const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const key = `${cat}__${dateKey}`;
+      const existing = catDateMap.get(key);
+      if (existing) {
+        existing.qty += sold;
+        existing.revenue += sold * it.price;
+      } else {
+        catDateMap.set(key, {
+          category: cat,
+          date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+          qty: sold,
+          revenue: sold * it.price,
+        });
+      }
+    });
+
+    const catRows = Array.from(catDateMap.values()).sort((a, b) => {
+      const dc = b.date.getTime() - a.date.getTime();
+      if (dc !== 0) return dc;
+      return a.category.localeCompare(b.category);
+    });
+
+    const totalQty = catRows.reduce((s, r) => s + r.qty, 0);
+    const totalRevenue = catRows.reduce((s, r) => s + r.revenue, 0);
+
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <ReportNav />
+        <div className="px-4 py-4 space-y-4 pb-10">
+          <p className="text-xs text-muted-foreground font-medium">
+            Period: <span className="font-bold text-foreground">{periodLabel}</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox label="Total Quantity" value={totalQty.toFixed(3)} />
+            <StatBox label="Total Sales Amount (₹)" value={fmt(totalRevenue)} />
+          </div>
+
+          <div className="space-y-3">
+            {catRows.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground text-sm">
+                No category data for this period
+              </div>
+            ) : (
+              catRows.map((row, i) => (
+                <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Date</p>
+                      <p className="font-bold text-foreground">
+                        {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Category Name</p>
+                      <p className="font-extrabold text-foreground">{row.category}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quantity</p>
+                      <p className="font-bold text-foreground text-lg">{row.qty.toFixed(3)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Sales Amount (₹)</p>
+                      <p className="font-extrabold text-foreground text-lg">{fmt(row.revenue)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Hourly Sales Report ──────────────────────────────────────
+  const invoices = await prisma.invoice.findMany({
+    where: { ...bf, ...dateF, status: { not: "REFUNDED" } },
+    select: { total: true, createdAt: true, id: true },
   });
 
-  const topProducts = Array.from(productSales.values())
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5);
+  const hourMap: { count: number; revenue: number }[] = Array.from({ length: 24 }, () => ({ count: 0, revenue: 0 }));
+  invoices.forEach((inv) => {
+    const h = inv.createdAt.getHours();
+    hourMap[h].count++;
+    hourMap[h].revenue += inv.total;
+  });
 
-  const stats = [
-    {
-      label: "Period Revenue",
-      value: `₹${periodSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: IndianRupee,
-      iconBg: "bg-indigo-500/10",
-      iconColor: "text-indigo-500",
-      sub: `${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? "s" : ""}`,
-    },
-    {
-      label: "Avg Order Value",
-      value: `₹${filteredInvoices.length > 0 ? (periodSales / filteredInvoices.length).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : 0}`,
-      icon: TrendingUp,
-      iconBg: "bg-emerald-500/10",
-      iconColor: "text-emerald-500",
-      sub: "Per invoice",
-    },
-    {
-      label: "Top Payment",
-      value: Object.entries(paymentBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A",
-      icon: CreditCard,
-      iconBg: "bg-blue-500/10",
-      iconColor: "text-blue-500",
-      sub: "Preferred method",
-      isText: true,
-    },
-    {
-      label: "Best Seller",
-      value: topProducts[0]?.name || "N/A",
-      icon: Trophy,
-      iconBg: "bg-amber-500/10",
-      iconColor: "text-amber-500",
-      sub: topProducts[0] ? `${topProducts[0].qty} units sold` : "No sales yet",
-      isText: true,
-    },
-  ];
+  const totalSales = invoices.reduce((s, i) => s + i.total, 0);
+  const activeHours = hourMap.filter((h) => h.count > 0);
+  let peakHour = { count: 0, revenue: 0, hr: -1 };
+  hourMap.forEach((h, hr) => {
+    if (h.count > peakHour.count) peakHour = { ...h, hr };
+  });
+
+  function hrLabel(h: number) {
+    if (h === 0) return "12:00 AM";
+    if (h < 12) return `${h}:00 AM`;
+    if (h === 12) return "12:00 PM";
+    return `${h - 12}:00 PM`;
+  }
 
   return (
-    <div className="animate-fade-in space-y-6 pb-8">
-      {/* Page Header */}
-      <div className="pb-6 border-b border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-              <BarChart3 className="h-4 w-4 text-indigo-500" />
-            </div>
-            <h1 className="page-title text-foreground">System Reports</h1>
-          </div>
-          <p className="page-subtitle ml-11 text-muted-foreground">
-            Showing data for <span className="font-semibold text-foreground">{periodLabel}</span>
-          </p>
+    <div className="min-h-screen bg-muted/20">
+      <ReportNav />
+      <div className="px-4 py-4 space-y-4 pb-10">
+        <p className="text-xs text-muted-foreground font-medium">
+          Period: <span className="font-bold text-foreground">{periodLabel}</span>
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <StatBox label="Total Bills" value={String(invoices.length)} />
+          <StatBox label="Total Sales (₹)" value={fmt(totalSales)} />
+          <StatBox label="Active Hours" value={String(activeHours.length)} />
+          <StatBox label="Peak Hour" value={peakHour.hr >= 0 ? hrLabel(peakHour.hr) : "—"} />
         </div>
-        
-        <div className="flex items-center gap-3">
-          <DateRangeSelector />
-          <ExportButton />
-        </div>
-      </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
-          <div key={i} className="bg-card border border-border rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center flex-shrink-0`}>
-                <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{stat.label}</p>
-                <p className={`font-extrabold text-foreground mt-0.5 ${stat.isText ? "text-sm leading-tight" : "text-xl"} truncate`} title={stat.value}>
-                  {stat.value}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{stat.sub}</p>
-              </div>
+        <div className="space-y-3">
+          {activeHours.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground text-sm">
+              No sales data for this period
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Breakdowns Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payment Breakdown */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-primary" />
-              Revenue by Payment Method
-            </h2>
-          </div>
-          <div className="space-y-4">
-            {Object.keys(paymentBreakdown).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-            ) : (
-              Object.entries(paymentBreakdown).sort((a,b) => b[1] - a[1]).map(([method, amount]) => (
-                <div key={method}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-foreground">{method}</span>
-                    <span className="font-bold text-foreground">₹{amount.toLocaleString()}</span>
+          ) : (
+            hourMap.map((h, hr) => {
+              if (h.count === 0) return null;
+              const isPeak = hr === peakHour.hr;
+              return (
+                <div
+                  key={hr}
+                  className={`bg-card rounded-xl border p-4 shadow-sm ${isPeak ? "border-primary" : "border-border"}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={`font-extrabold text-base ${isPeak ? "text-primary" : "text-foreground"}`}>
+                      {hrLabel(hr)}
+                      {isPeak && <span className="ml-2 text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">Peak</span>}
+                    </h3>
                   </div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary" 
-                      style={{ width: `${(amount / periodSales) * 100}%` }}
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Orders</p>
+                      <p className="font-extrabold text-foreground text-lg">{h.count}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Avg Order</p>
+                      <p className="font-bold text-foreground">₹{fmt(h.revenue / h.count)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Revenue</p>
+                      <p className="font-extrabold text-emerald-500">₹{fmt(h.revenue)}</p>
+                    </div>
+                  </div>
+                  {/* Mini bar */}
+                  <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${isPeak ? "bg-primary" : "bg-primary/50"}`}
+                      style={{ width: `${(h.count / (peakHour.count || 1)) * 100}%` }}
                     />
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Source Breakdown */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-              <Utensils className="h-4 w-4 text-emerald-500" />
-              Revenue by Order Mode
-            </h2>
-          </div>
-          <div className="space-y-4">
-            {Object.keys(sourceBreakdown).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-            ) : (
-              Object.entries(sourceBreakdown).sort((a,b) => b[1] - a[1]).map(([source, amount]) => (
-                <div key={source}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-foreground">{source.replace('_', ' ')}</span>
-                    <span className="font-bold text-foreground">₹{amount.toLocaleString()}</span>
-                  </div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-emerald-500" 
-                      style={{ width: `${(amount / periodSales) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+              );
+            })
+          )}
         </div>
       </div>
-
-      {/* Two-column tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Invoices */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Invoices List</h2>
-              <p className="text-xs text-muted-foreground">Transactions for this period</p>
-            </div>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase">Invoice #</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase">Method</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase">Total</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={4}>
-                      <div className="py-8 text-center text-sm text-muted-foreground font-medium">No invoices found</div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-muted/50">
-                      <td className="px-6 py-3">
-                        <span className="font-mono text-xs font-semibold text-foreground">{inv.invoiceNumber}</span>
-                      </td>
-                      <td className="px-6 py-3">
-                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">{inv.paymentMethod}</span>
-                      </td>
-                      <td className="px-6 py-3">
-                        <span className="font-bold text-foreground">₹{inv.total.toFixed(2)}</span>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <Link
-                          href={`/invoices/${inv.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Top Products */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Top Selling Products</h2>
-              <p className="text-xs text-muted-foreground">Highest volume items for this period</p>
-            </div>
-            <Trophy className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase">#</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase">Product</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Qty</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase text-right">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {topProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={4}>
-                      <div className="py-8 text-center text-sm text-muted-foreground font-medium">No sales data yet</div>
-                    </td>
-                  </tr>
-                ) : (
-                  topProducts.map((product, idx) => (
-                    <tr key={idx} className="hover:bg-muted/50">
-                      <td className="px-6 py-3">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${idx === 0 ? "bg-amber-500/20 text-amber-500" : idx === 1 ? "bg-muted text-foreground" : idx === 2 ? "bg-orange-500/20 text-orange-500" : "text-muted-foreground"}`}>
-                          {idx + 1}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3">
-                        <span className="font-semibold text-foreground">{product.name}</span>
-                      </td>
-                      <td className="px-6 py-3 text-right font-semibold text-foreground/80">{product.qty}</td>
-                      <td className="px-6 py-3 text-right font-bold text-emerald-500">₹{product.revenue.toFixed(2)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }

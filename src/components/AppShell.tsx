@@ -18,6 +18,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const isBilling = pathname?.startsWith("/billing");
+  const isReports = pathname?.startsWith("/reports");
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -75,10 +76,12 @@ export function AppShell({
           style={{ background: "var(--background)" }}
         >
           {isBilling ? (
-            // Full-bleed for billing POS — zero padding
             <div className="h-full w-full">{children}</div>
+          ) : isReports ? (
+            // Reports manages its own padding (mobile card layout)
+            <div className="min-h-full">{children}</div>
           ) : (
-            <div className="py-6 px-5 sm:px-7 lg:px-8 print:py-0 print:px-0 max-w-screen-2xl mx-auto">
+            <div className="py-4 px-3 sm:py-6 sm:px-7 lg:px-8 print:py-0 print:px-0 max-w-screen-2xl mx-auto">
               {children}
             </div>
           )}
