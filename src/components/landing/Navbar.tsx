@@ -47,8 +47,8 @@ export function Navbar() {
               <Command className="w-3 h-3" /> K
             </div>
             <Link
-              href="/dashboard"
-              className="hidden sm:flex items-center gap-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-5 py-2 rounded-full transition-colors shadow-[0_0_20px_rgba(79,70,229,0.4)]"
+              href="/login"
+              className="flex items-center gap-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 sm:px-5 py-2 rounded-full transition-colors shadow-[0_0_20px_rgba(79,70,229,0.4)] whitespace-nowrap"
             >
               <LogIn className="h-4 w-4" /> Sign In
             </Link>
