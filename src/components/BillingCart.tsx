@@ -45,7 +45,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { printBill as printBillReceipt, printKot } from "@/lib/qz-print";
+import { printBill as printBillReceipt, printKot, getQzConfig, qzGetPrinterStatus } from "@/lib/qz-print";
 
 type StoreInfo = {
   storeName: string;
@@ -287,6 +287,27 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
     return () => clearInterval(timer);
   }, []);
 
+  // Real printer status for the status bar — was previously a hardcoded
+  // "Ready" label with no connection to whether the printer actually works.
+  const [printerReady, setPrinterReady] = useState<"browser" | "checking" | "ready" | "offline">("browser");
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      const qzCfg = getQzConfig();
+      if (!qzCfg.enabled) {
+        if (!cancelled) setPrinterReady("browser");
+        return;
+      }
+      if (!cancelled) setPrinterReady("checking");
+      const status = await qzGetPrinterStatus(qzCfg.printer);
+      if (cancelled) return;
+      setPrinterReady(status.online === false ? "offline" : "ready");
+    }
+    check();
+    const timer = setInterval(check, 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
   useEffect(() => {
     const fetchOnline = async () => {
       const data = await getPendingOnlineOrders();
@@ -524,8 +545,22 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             </div>
             <span style={{ background: S.border, width: 1, height: 16 }} />
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: S.emerald }}>
-                <Printer className="h-3.5 w-3.5" /> Ready
+              <div
+                className="flex items-center gap-1.5 text-xs font-bold"
+                style={{
+                  color:
+                    printerReady === "offline" ? S.rose : printerReady === "checking" ? S.muted : S.emerald,
+                }}
+                title={
+                  printerReady === "browser"
+                    ? "QZ Tray printing is off — using browser print dialog"
+                    : printerReady === "offline"
+                    ? "Thermal printer offline or unreachable"
+                    : "Thermal printer ready (QZ Tray)"
+                }
+              >
+                <Printer className="h-3.5 w-3.5" />
+                {printerReady === "offline" ? "Offline" : printerReady === "checking" ? "Checking…" : "Ready"}
               </div>
               <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: S.emerald }}>
                 <ScanLine className="h-3.5 w-3.5" /> Ready

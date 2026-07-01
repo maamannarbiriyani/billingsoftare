@@ -124,6 +124,77 @@ export async function qzListPrinters(): Promise<string[]> {
   return Array.isArray(found) ? found : [found].filter(Boolean);
 }
 
+// Names thermal/receipt printers commonly show up as in Windows — used to
+// auto-select the RP326 (or another receipt printer) out of a printer list
+// that also contains things like "Microsoft Print to PDF" or "OneNote".
+const THERMAL_HINTS = /rp\s?326|pos[-\s]?(58|80)|thermal|receipt|80\s?mm|58\s?mm/i;
+
+/** Best-guess receipt printer from a list of installed printer names. */
+export function pickReceiptPrinter(list: string[]): string | undefined {
+  return list.find((p) => THERMAL_HINTS.test(p));
+}
+
+export type PrinterStatus = {
+  /** true = printer responded OK, false = confirmed offline/error, null = installed but status unknown */
+  online: boolean | null;
+  detail: string;
+};
+
+/**
+ * Best-effort live status for one printer (e.g. after power-off, paper-out,
+ * USB unplugged). Falls back gracefully — if QZ's status stream doesn't
+ * respond in time, we still confirm whether the printer is at least
+ * installed rather than reporting a false negative.
+ */
+export async function qzGetPrinterStatus(printerName: string, timeoutMs = 3000): Promise<PrinterStatus> {
+  if (!printerName) return { online: null, detail: "No printer selected" };
+  let qz: any;
+  try {
+    qz = await ensureConnected();
+  } catch {
+    return { online: null, detail: "QZ Tray unreachable" };
+  }
+
+  try {
+    const list = await qzListPrinters();
+    if (!list.includes(printerName)) {
+      return { online: false, detail: "Not found on this PC" };
+    }
+  } catch {
+    /* fall through to live status attempt */
+  }
+
+  return new Promise<PrinterStatus>((resolve) => {
+    let settled = false;
+    const finish = (result: PrinterStatus) => {
+      if (settled) return;
+      settled = true;
+      try { qz.printers.stopListening(); } catch { /* ignore */ }
+      resolve(result);
+    };
+    try {
+      qz.printers.setPrinterCallbacks((evt: any) => {
+        const name = evt?.printer || evt?.printerName;
+        if (name && name !== printerName) return;
+        const text = String(evt?.statusText || evt?.status || "").toLowerCase();
+        const isBad = /offline|error|not.?avail|paper.?out|door.?open|disconnect|no.?paper/.test(text);
+        const isOk = /ok|ready|idle|normal|online/.test(text);
+        finish({
+          online: isBad ? false : isOk ? true : null,
+          detail: String(evt?.statusText || evt?.status || "Unknown"),
+        });
+      });
+      qz.printers
+        .startListening([printerName])
+        .then(() => qz.printers.getStatus())
+        .catch(() => finish({ online: true, detail: "Installed (live status unavailable)" }));
+    } catch {
+      finish({ online: true, detail: "Installed (live status unavailable)" });
+    }
+    setTimeout(() => finish({ online: true, detail: "Installed (no status response)" }), timeoutMs);
+  });
+}
+
 async function sendRaw(printerName: string, receipt: string, kickDrawer: boolean) {
   const qz = await ensureConnected();
   const printer = printerName || (await qz.printers.getDefault());

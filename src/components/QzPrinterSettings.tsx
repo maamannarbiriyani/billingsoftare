@@ -1,15 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Printer, Check, RefreshCw, Zap, ExternalLink, Loader2, Wifi, WifiOff, Plug } from "lucide-react";
+import {
+  Printer,
+  Check,
+  RefreshCw,
+  Zap,
+  ExternalLink,
+  Loader2,
+  Wifi,
+  WifiOff,
+  Plug,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   getQzConfig,
   setQzConfig,
   qzIsAvailable,
   qzListPrinters,
+  qzGetPrinterStatus,
+  pickReceiptPrinter,
   qzTestPrint,
   type QzConfig,
+  type PrinterStatus,
 } from "@/lib/qz-print";
 
 type ConnStatus = "unknown" | "checking" | "connected" | "unreachable";
@@ -21,6 +37,8 @@ export function QzPrinterSettings() {
   const [testing, setTesting] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<ConnStatus>("unknown");
+  const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
+  const [checkingPrinter, setCheckingPrinter] = useState(false);
 
   useEffect(() => {
     const c = getQzConfig();
@@ -28,7 +46,10 @@ export function QzPrinterSettings() {
     setLoaded(true);
     // Only probe automatically if the user has already opted in, so we don't
     // pop QZ's "Allow" prompt for people who haven't enabled it.
-    if (c.enabled) checkConnection();
+    if (c.enabled) {
+      checkConnection();
+      scan(c.printer);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -45,27 +66,53 @@ export function QzPrinterSettings() {
     setQzConfig(patch); // persist immediately (per-terminal, localStorage)
   }
 
-  async function scan() {
+  // `currentPrinter` is passed explicitly (rather than read from `cfg`) so
+  // this can be called right after enabling, before the `cfg` state update
+  // from that toggle has settled — avoids a stale-closure race.
+  async function scan(currentPrinter?: string, opts: { silent?: boolean } = {}) {
     setScanning(true);
     try {
       const list = await qzListPrinters();
       setPrinters(list);
       setStatus("connected");
-      if (list.length === 0) toast.error("QZ Tray connected, but no printers found");
-      else {
-        toast.success(`Found ${list.length} printer${list.length !== 1 ? "s" : ""}`);
-        // Auto-pick an RP326/thermal-looking printer if none chosen yet
-        if (!cfg.printer) {
-          const guess = list.find((p) => /rp326|pos|thermal|receipt|80mm/i.test(p));
-          if (guess) update({ printer: guess });
+      const selected = currentPrinter ?? cfg.printer;
+      if (list.length === 0) {
+        if (!opts.silent) toast.error("QZ Tray connected, but no printers found");
+      } else {
+        if (!opts.silent) toast.success(`Found ${list.length} printer${list.length !== 1 ? "s" : ""}`);
+        // Auto-pick the RP326 (or another receipt printer) if none chosen yet
+        if (!selected) {
+          const guess = pickReceiptPrinter(list);
+          if (guess) {
+            update({ printer: guess });
+            if (!opts.silent) toast.success(`Auto-selected "${guess}"`);
+            checkPrinterStatus(guess);
+            return;
+          }
         }
       }
+      if (selected) checkPrinterStatus(selected);
     } catch (e) {
       console.error(e);
       setStatus("unreachable");
-      toast.error("Could not reach QZ Tray. Is it installed and running on this PC?");
+      if (!opts.silent) toast.error("Could not reach QZ Tray. Is it installed and running on this PC?");
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function checkPrinterStatus(printerName?: string) {
+    const name = printerName ?? cfg.printer;
+    if (!name) {
+      setPrinterStatus(null);
+      return;
+    }
+    setCheckingPrinter(true);
+    try {
+      const s = await qzGetPrinterStatus(name);
+      setPrinterStatus(s);
+    } finally {
+      setCheckingPrinter(false);
     }
   }
 
@@ -75,9 +122,11 @@ export function QzPrinterSettings() {
       await qzTestPrint(cfg.printer, cfg.kickDrawer);
       setStatus("connected");
       toast.success("Test slip sent to printer");
+      checkPrinterStatus();
     } catch (e) {
       console.error(e);
       toast.error("Test print failed. Check QZ Tray and the selected printer.");
+      checkPrinterStatus();
     } finally {
       setTesting(false);
     }
@@ -152,7 +201,14 @@ export function QzPrinterSettings() {
             type="button"
             role="switch"
             aria-checked={cfg.enabled}
-            onClick={() => update({ enabled: !cfg.enabled })}
+            onClick={() => {
+              const next = !cfg.enabled;
+              update({ enabled: next });
+              if (next) {
+                checkConnection();
+                scan(cfg.printer, { silent: true });
+              }
+            }}
             className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
               cfg.enabled ? "bg-primary" : "bg-muted border border-border"
             }`}
@@ -171,7 +227,10 @@ export function QzPrinterSettings() {
           <div className="flex flex-col sm:flex-row gap-2 mt-1">
             <select
               value={cfg.printer}
-              onChange={(e) => update({ printer: e.target.value })}
+              onChange={(e) => {
+                update({ printer: e.target.value });
+                checkPrinterStatus(e.target.value);
+              }}
               className="input-field flex-1"
             >
               <option value="">System default printer</option>
@@ -186,7 +245,7 @@ export function QzPrinterSettings() {
             </select>
             <button
               type="button"
-              onClick={scan}
+              onClick={() => scan()}
               disabled={scanning}
               className="btn btn-secondary whitespace-nowrap w-full sm:w-auto"
             >
@@ -197,6 +256,37 @@ export function QzPrinterSettings() {
           <p className="text-xs text-muted-foreground mt-1.5">
             Click “Find Printers” to load printers from QZ Tray on this machine.
           </p>
+
+          {/* Live printer status */}
+          {cfg.printer && (
+            <div className="flex items-center gap-2 mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+              {checkingPrinter ? (
+                <Loader2 className="h-4 w-4 text-muted-foreground animate-spin flex-shrink-0" />
+              ) : printerStatus?.online === true ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+              ) : printerStatus?.online === false ? (
+                <XCircle className="h-4 w-4 text-rose-500 flex-shrink-0" />
+              ) : (
+                <HelpCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              )}
+              <span className="text-xs font-semibold text-foreground flex-1 truncate">
+                {checkingPrinter
+                  ? "Checking printer…"
+                  : printerStatus?.online === true
+                  ? "Printer Ready"
+                  : printerStatus?.online === false
+                  ? `Printer Offline — ${printerStatus.detail}`
+                  : "Status unknown"}
+              </span>
+              <button
+                type="button"
+                onClick={() => checkPrinterStatus()}
+                className="text-xs font-semibold text-primary hover:underline flex-shrink-0"
+              >
+                Refresh
+              </button>
+            </div>
+          )}
 
           {/* Cash drawer */}
           <label className="flex items-center gap-2 mt-4 cursor-pointer">
