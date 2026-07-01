@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 
 export type ActivityItem = {
@@ -9,6 +10,22 @@ export type ActivityItem = {
   timestamp: Date;
   status: "success" | "warning" | "info";
 };
+
+// Relative time ("8 minutes ago") drifts between the server render and the
+// client hydration, which triggers a hydration mismatch. Render an empty
+// placeholder until mounted so SSR and first client render agree, then fill
+// it in and refresh every minute.
+function RelativeTime({ date }: { date: Date }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    const d = new Date(date);
+    const update = () => setLabel(formatDistanceToNow(d, { addSuffix: true }));
+    update();
+    const t = setInterval(update, 60_000);
+    return () => clearInterval(t);
+  }, [date]);
+  return <span suppressHydrationWarning>{label || " "}</span>;
+}
 
 export function RecentActivityFeed({ activities }: { activities: ActivityItem[] }) {
   return (
@@ -27,7 +44,7 @@ export function RecentActivityFeed({ activities }: { activities: ActivityItem[] 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{activity.title}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-               {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+               <RelativeTime date={activity.timestamp} />
             </p>
           </div>
         </div>
