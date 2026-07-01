@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Printer, Check, X, RefreshCw, Zap, ExternalLink, Loader2 } from "lucide-react";
+import { Printer, Check, RefreshCw, Zap, ExternalLink, Loader2, Wifi, WifiOff, Plug } from "lucide-react";
 import { toast } from "sonner";
 import {
   getQzConfig,
   setQzConfig,
+  qzIsAvailable,
   qzListPrinters,
   qzTestPrint,
   type QzConfig,
 } from "@/lib/qz-print";
+
+type ConnStatus = "unknown" | "checking" | "connected" | "unreachable";
 
 export function QzPrinterSettings() {
   const [cfg, setCfg] = useState<QzConfig>({ enabled: false, printer: "", kickDrawer: false });
@@ -17,11 +20,24 @@ export function QzPrinterSettings() {
   const [scanning, setScanning] = useState(false);
   const [testing, setTesting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState<ConnStatus>("unknown");
 
   useEffect(() => {
-    setCfg(getQzConfig());
+    const c = getQzConfig();
+    setCfg(c);
     setLoaded(true);
+    // Only probe automatically if the user has already opted in, so we don't
+    // pop QZ's "Allow" prompt for people who haven't enabled it.
+    if (c.enabled) checkConnection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function checkConnection() {
+    setStatus("checking");
+    const ok = await qzIsAvailable();
+    setStatus(ok ? "connected" : "unreachable");
+    return ok;
+  }
 
   function update(patch: Partial<QzConfig>) {
     const next = { ...cfg, ...patch };
@@ -34,6 +50,7 @@ export function QzPrinterSettings() {
     try {
       const list = await qzListPrinters();
       setPrinters(list);
+      setStatus("connected");
       if (list.length === 0) toast.error("QZ Tray connected, but no printers found");
       else {
         toast.success(`Found ${list.length} printer${list.length !== 1 ? "s" : ""}`);
@@ -45,7 +62,8 @@ export function QzPrinterSettings() {
       }
     } catch (e) {
       console.error(e);
-      toast.error("Could not reach QZ Tray. Is it running on this PC?");
+      setStatus("unreachable");
+      toast.error("Could not reach QZ Tray. Is it installed and running on this PC?");
     } finally {
       setScanning(false);
     }
@@ -55,6 +73,7 @@ export function QzPrinterSettings() {
     setTesting(true);
     try {
       await qzTestPrint(cfg.printer, cfg.kickDrawer);
+      setStatus("connected");
       toast.success("Test slip sent to printer");
     } catch (e) {
       console.error(e);
@@ -82,6 +101,45 @@ export function QzPrinterSettings() {
       </div>
 
       <div className="p-4 sm:p-6 space-y-5">
+        {/* Connection status */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {status === "connected" ? (
+              <Wifi className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+            ) : status === "unreachable" ? (
+              <WifiOff className="h-4 w-4 text-rose-500 flex-shrink-0" />
+            ) : status === "checking" ? (
+              <Loader2 className="h-4 w-4 text-muted-foreground animate-spin flex-shrink-0" />
+            ) : (
+              <Plug className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            )}
+            <span className="text-sm font-semibold text-foreground">
+              {status === "connected"
+                ? "QZ Tray connected"
+                : status === "unreachable"
+                ? "QZ Tray not reachable"
+                : status === "checking"
+                ? "Checking QZ Tray…"
+                : "QZ Tray status unknown"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={checkConnection}
+            disabled={status === "checking"}
+            className="btn btn-secondary btn-sm w-full sm:w-auto"
+          >
+            Test Connection
+          </button>
+        </div>
+        {status === "unreachable" && (
+          <p className="text-xs text-rose-500 -mt-2">
+            QZ Tray must be installed and running (look for its icon in the Windows system tray). On
+            an HTTPS site the first connection may ask you to trust QZ&apos;s certificate — click
+            Allow / Trust.
+          </p>
+        )}
+
         {/* Enable toggle */}
         <label className="flex items-start justify-between gap-4 cursor-pointer">
           <div>
