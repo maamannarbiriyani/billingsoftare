@@ -77,16 +77,34 @@ async function setupSecurity(qz: any) {
   }
 }
 
+// Single-flight connect: if a bill and a KOT try to print at the same
+// moment, both would otherwise call qz.websocket.connect() concurrently.
+// QZ Tray can only negotiate one handshake at a time, so the second call
+// gets rejected as "Request blocked" and neither prompt ever gets a clean
+// "Allow" — which is also why it kept re-prompting. Reusing one in-flight
+// connect promise fixes both.
+let connectingPromise: Promise<any> | null = null;
+
 async function ensureConnected(): Promise<any> {
   const qz = await loadQz();
   if (qz.websocket.isActive()) return qz;
-  await setupSecurity(qz);
-  // Race the connect against a timeout so a missing QZ Tray fails fast.
-  await Promise.race([
-    qz.websocket.connect(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("QZ connect timeout")), 4000)),
-  ]);
-  return qz;
+  if (connectingPromise) return connectingPromise;
+
+  connectingPromise = (async () => {
+    try {
+      await setupSecurity(qz);
+      // Race the connect against a timeout so a missing QZ Tray fails fast.
+      await Promise.race([
+        qz.websocket.connect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("QZ connect timeout")), 4000)),
+      ]);
+      return qz;
+    } finally {
+      connectingPromise = null;
+    }
+  })();
+
+  return connectingPromise;
 }
 
 /** True when we can reach QZ Tray right now (used by the settings screen). */

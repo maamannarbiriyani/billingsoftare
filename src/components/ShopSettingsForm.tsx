@@ -189,7 +189,12 @@ export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {
                 toast.error("Live printer detection (Web Serial API) is only supported in Chrome, Edge, or the native Desktop App.");
                 }
               } catch (err) {
-                console.error("Printer connection cancelled or failed", err);
+                // User closing the browser's port picker throws NotFoundError —
+                // that's a normal cancel, not a bug, so don't log it as an error
+                // (Next.js dev overlay surfaces console.error as a crash).
+                if (err instanceof Error && err.name === "NotFoundError") return;
+                console.error("Printer connection failed", err);
+                toast.error("Could not connect to the printer.");
               }
             }}
             className="btn btn-secondary whitespace-nowrap w-full sm:w-auto"

@@ -241,6 +241,15 @@ export function QzPrinterSettings() {
           </p>
           <p>2. Turn on the toggle above, click “Find Printers”, and pick your RP326.</p>
           <p>3. Click “Print Test Slip”. The first print shows a QZ “Allow” prompt — tick “Remember”.</p>
+          <p className="font-semibold text-foreground pt-1">
+            Seeing “Request blocked” or asked to Allow every time?
+          </p>
+          <p>
+            QZ Tray remembered a stale decision for this site. Right-click the QZ icon in the system
+            tray → <strong>Advanced</strong> → <strong>Site Manager</strong>, remove the entry for
+            this website, then click “Print Test Slip” again and tick “Remember this decision” on the
+            new prompt.
+          </p>
         </div>
       </div>
     </section>

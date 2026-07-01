@@ -210,7 +210,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
   const [customerPhone, setCustomerPhone] = useState("");
   const [allCustomers, setAllCustomers] = useState<any[]>([]);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<"AMOUNT" | "PERCENTAGE">("AMOUNT");
+  const [discountValue, setDiscountValue] = useState<number>(0);
   const [isCheckingOut, startCheckout] = useTransition();
   const [isFetching, startFetching] = useTransition();
   const [viewMode, setViewMode] = useState<"PRODUCTS" | "TABLES" | "ONLINE">("PRODUCTS");
@@ -362,7 +363,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
     setCart([]);
     setCustomerName("");
     setCustomerPhone("");
-    setDiscountAmount(0);
+    setDiscountValue(0);
+    setDiscountType("AMOUNT");
     setActiveTableId(null);
     setActiveOrderId(null);
   };
@@ -413,6 +415,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
   const gstAmount = (applyGst && gstRate > 0) ? parseFloat((cart.reduce((acc, item) => acc + item.price * item.qty, 0) * gstRate / 100).toFixed(2)) : 0;
+  const discountAmount = discountType === "PERCENTAGE" ? parseFloat(((subtotal * discountValue) / 100).toFixed(2)) : discountValue;
   const grandTotal = parseFloat(Math.max(0, subtotal + gstAmount - discountAmount).toFixed(2));
 
   const handleCheckout = (paymentMethod: string, printBill: boolean) => {
@@ -445,9 +448,12 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         await loadTablesAndOrders();
 
         if (printBill) {
+          // Print one after another (not in parallel) — firing both at once
+          // would race two QZ Tray connection handshakes simultaneously,
+          // which QZ rejects as "Request blocked".
           // 1. Kitchen copy first (so it tears off at the kitchen printer)
           if (printKOT) {
-            printKitchenCopy({
+            await printKitchenCopy({
               invoiceNumber,
               items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
               tableName,
@@ -456,7 +462,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             });
           }
           // 2. Customer bill — prints directly via hidden iframe (no page nav, no PDF prompt)
-          printBillReceipt({
+          await printBillReceipt({
             storeName: storeInfo?.storeName || "My Store",
             phone: storeInfo?.phone,
             address: storeInfo?.address,
@@ -1219,23 +1225,56 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                   <span className="font-semibold" style={{ color: S.muted }}>Tax</span>
                   <span className="font-bold" style={{ color: S.txt }}>+₹{gstAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
-                  <span className="font-semibold" style={{ color: S.muted }}>Discount (₹)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discountAmount || ""}
-                    onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                    placeholder="0.00"
-                    className="w-24 text-right rounded-lg px-2 py-1.5 text-sm font-bold outline-none transition-all"
-                    style={{
-                      background: S.subtleHi,
-                      border: `1px solid ${S.border}`,
-                      color: S.txt,
-                    }}
-                    onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.violet}`}
-                    onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.border}`}
-                  />
+                <div className="flex flex-col gap-2 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="font-semibold flex items-center gap-2" style={{ color: S.muted }}>
+                      Discount
+                      <div className="flex rounded p-0.5" style={{ background: S.subtleHi }}>
+                        <button
+                          onClick={() => { setDiscountType("AMOUNT"); setDiscountValue(0); }}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all"
+                          style={{
+                            background: discountType === "AMOUNT" ? S.card : "transparent",
+                            color: discountType === "AMOUNT" ? S.txt : S.dim,
+                            boxShadow: discountType === "AMOUNT" ? "0 1px 2px rgba(0,0,0,0.1)" : "none"
+                          }}
+                        >
+                          ₹
+                        </button>
+                        <button
+                          onClick={() => { setDiscountType("PERCENTAGE"); setDiscountValue(0); }}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all"
+                          style={{
+                            background: discountType === "PERCENTAGE" ? S.card : "transparent",
+                            color: discountType === "PERCENTAGE" ? S.txt : S.dim,
+                            boxShadow: discountType === "PERCENTAGE" ? "0 1px 2px rgba(0,0,0,0.1)" : "none"
+                          }}
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={discountValue || ""}
+                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-24 text-right rounded-lg px-2 py-1.5 text-sm font-bold outline-none transition-all"
+                      style={{
+                        background: S.subtleHi,
+                        border: `1px solid ${S.border}`,
+                        color: S.txt,
+                      }}
+                      onFocus={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.violet}`}
+                      onBlur={e => (e.currentTarget as HTMLInputElement).style.border = `1px solid ${S.border}`}
+                    />
+                  </div>
+                  {discountType === "PERCENTAGE" && discountValue > 0 && (
+                    <div className="text-right text-xs font-bold" style={{ color: S.violet }}>
+                      -₹{discountAmount.toFixed(2)}
+                    </div>
+                  )}
                 </div>
               </div>
 
