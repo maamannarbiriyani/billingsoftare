@@ -1,7 +1,7 @@
 "use client";
 
 import { UtensilsCrossed } from "lucide-react";
-import { printReceipt, buildKotHtml } from "@/lib/print";
+import { printKot } from "@/lib/qz-print";
 
 type Item = { product: { name: string }; qty: number };
 
@@ -18,11 +18,11 @@ export function KitchenCopyButton({
   storeName?: string;
 }) {
   const handlePrint = () => {
-    printReceipt(buildKotHtml({
+    printKot({
       invoiceNumber: invoice.invoiceNumber,
       customerName: invoice.customer?.name || invoice.customerName,
       items: invoice.items.map(i => ({ name: i.product.name, qty: i.qty })),
-    }));
+    });
   };
 
   return (

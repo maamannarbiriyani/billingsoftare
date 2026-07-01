@@ -45,7 +45,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { printReceipt, buildBillHtml, buildKotHtml } from "@/lib/print";
+import { printBill as printBillReceipt, printKot } from "@/lib/qz-print";
 
 type StoreInfo = {
   storeName: string;
@@ -82,7 +82,7 @@ const S = {
   subtleHi:  "var(--fill-subtle-hi)",
 };
 
-// ─── Kitchen receipt — prints via hidden iframe (no popup blocker) ──
+// ─── Kitchen receipt — QZ Tray (ESC/POS) with browser-print fallback ──
 function printKitchenCopy(opts: {
   invoiceNumber: string;
   items: Array<{ name: string; qty: number }>;
@@ -90,7 +90,7 @@ function printKitchenCopy(opts: {
   customerName?: string;
   orderMode: string;
 }) {
-  return printReceipt(buildKotHtml(opts));
+  return printKot(opts);
 }
 
 function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToCart, cartItemsCount, isOverlay = false }: any) {
@@ -398,12 +398,12 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         toast.error(res.error);
       } else {
         toast.success(activeOrderId ? "KOT Updated" : "KOT Sent to Kitchen");
-        printReceipt(buildKotHtml({
+        printKot({
           invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
           tableName,
           items: kotItems,
           orderMode: "DINE_IN",
-        }));
+        });
         clearCart();
         await loadTablesAndOrders();
         setViewMode("TABLES");
@@ -456,7 +456,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             });
           }
           // 2. Customer bill — prints directly via hidden iframe (no page nav, no PDF prompt)
-          printReceipt(buildBillHtml({
+          printBillReceipt({
             storeName: storeInfo?.storeName || "My Store",
             phone: storeInfo?.phone,
             address: storeInfo?.address,
@@ -470,7 +470,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             gstAmount,
             discountAmount,
             total: billTotal,
-          }));
+          });
           toast.success(`Bill ${invoiceNumber} printed`);
         } else {
           toast.success("Invoice created!");
@@ -765,12 +765,12 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                             await acceptOnlineOrder(order.id);
                             setOnlineOrders(p => p.filter(o => o.id !== order.id));
                             toast.success("Accepted & KOT Sent");
-                            printReceipt(buildKotHtml({
+                            printKot({
                               invoiceNumber: `${order.source} #${order.externalId || order.id}`,
                               tableName: order.source,
                               orderMode: order.source,
                               items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
-                            }));
+                            });
                           }}
                           className="flex-[2] p-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                           style={{ color: S.emerald, background: S.emeraldLo }}

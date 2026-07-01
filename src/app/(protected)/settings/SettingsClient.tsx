@@ -5,6 +5,7 @@ import { Download, Upload, AlertCircle, Save, Store, GitBranch, BarChart3, Check
 import { upsertOwnerAccount } from "@/app/actions/owner-account";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
+import { QzPrinterSettings } from "@/components/QzPrinterSettings";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
@@ -106,6 +107,9 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           <ShopSettingsForm initialData={initialSetting} />
         </div>
       </section>
+
+      {/* Thermal Printer (QZ Tray) */}
+      <QzPrinterSettings />
 
       {/* Backup & Restore Section */}
       <section className="card overflow-hidden">

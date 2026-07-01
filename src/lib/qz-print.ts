@@ -1,0 +1,270 @@
+"use client";
+
+// ─────────────────────────────────────────────────────────────
+// QZ Tray raw ESC/POS printing for the RP326 (and any ESC/POS
+// thermal printer), with automatic fallback to the browser HTML
+// print in src/lib/print.ts.
+//
+// Flow:  Next.js (browser) ──ws──► QZ Tray (Windows) ──USB──► RP326
+//
+// SAFETY: this is OPT-IN. Until the user enables it in Settings
+// (localStorage flag), and if QZ isn't running or errors, every
+// call falls back to the existing browser print — so nothing about
+// current printing changes unless QZ is turned on and reachable.
+// ─────────────────────────────────────────────────────────────
+
+import {
+  printReceipt,
+  buildBillHtml,
+  buildKotHtml,
+  type BillData,
+  type KotHtmlData,
+} from "@/lib/print";
+import { toast } from "sonner";
+
+// ── Per-terminal config (each billing machine has its own printer) ──
+const LS_ENABLED = "qz_enabled";
+const LS_PRINTER = "qz_printer";
+const LS_DRAWER = "qz_drawer";
+
+export type QzConfig = { enabled: boolean; printer: string; kickDrawer: boolean };
+
+export function getQzConfig(): QzConfig {
+  if (typeof window === "undefined") return { enabled: false, printer: "", kickDrawer: false };
+  return {
+    enabled: localStorage.getItem(LS_ENABLED) === "1",
+    printer: localStorage.getItem(LS_PRINTER) || "",
+    kickDrawer: localStorage.getItem(LS_DRAWER) === "1",
+  };
+}
+
+export function setQzConfig(cfg: Partial<QzConfig>) {
+  if (typeof window === "undefined") return;
+  if (cfg.enabled !== undefined) localStorage.setItem(LS_ENABLED, cfg.enabled ? "1" : "0");
+  if (cfg.printer !== undefined) localStorage.setItem(LS_PRINTER, cfg.printer);
+  if (cfg.kickDrawer !== undefined) localStorage.setItem(LS_DRAWER, cfg.kickDrawer ? "1" : "0");
+}
+
+// ── Lazy-load the qz-tray client (browser only) ──────────────────
+let qzPromise: Promise<any> | null = null;
+async function loadQz(): Promise<any> {
+  if (!qzPromise) {
+    qzPromise = import("qz-tray").then((m: any) => m.default || m);
+  }
+  return qzPromise;
+}
+
+let securityReady = false;
+async function setupSecurity(qz: any) {
+  if (securityReady) return;
+  securityReady = true;
+  // Signed mode (silent, no prompt) if a certificate is configured on the
+  // server; otherwise QZ runs unsigned and shows a one-time "Allow" prompt.
+  try {
+    const cert = await fetch("/api/qz/cert").then((r) => (r.ok ? r.text() : "")).catch(() => "");
+    if (cert && cert.trim()) {
+      qz.security.setCertificatePromise((resolve: any) => resolve(cert));
+      qz.security.setSignatureAlgorithm?.("SHA512");
+      qz.security.setSignaturePromise((toSign: string) => (resolve: any, reject: any) => {
+        fetch("/api/qz/sign?request=" + encodeURIComponent(toSign))
+          .then((r) => r.text())
+          .then(resolve)
+          .catch(reject);
+      });
+    }
+  } catch {
+    /* unsigned mode */
+  }
+}
+
+async function ensureConnected(): Promise<any> {
+  const qz = await loadQz();
+  if (qz.websocket.isActive()) return qz;
+  await setupSecurity(qz);
+  // Race the connect against a timeout so a missing QZ Tray fails fast.
+  await Promise.race([
+    qz.websocket.connect(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("QZ connect timeout")), 4000)),
+  ]);
+  return qz;
+}
+
+/** True when we can reach QZ Tray right now (used by the settings screen). */
+export async function qzIsAvailable(): Promise<boolean> {
+  try {
+    await ensureConnected();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** List installed printers via QZ (settings screen). */
+export async function qzListPrinters(): Promise<string[]> {
+  const qz = await ensureConnected();
+  const found = await qz.printers.find();
+  return Array.isArray(found) ? found : [found].filter(Boolean);
+}
+
+async function sendRaw(printerName: string, receipt: string, kickDrawer: boolean) {
+  const qz = await ensureConnected();
+  const printer = printerName || (await qz.printers.getDefault());
+  const config = qz.configs.create(printer);
+  await qz.print(config, [receipt]);
+  // Cash-drawer pulse is sent as a separate best-effort job so a drawer
+  // issue can never stop the receipt from printing.
+  if (kickDrawer) {
+    try {
+      await qz.print(config, [{ type: "raw", format: "command", flavor: "hex", data: "1B700019FA" }]);
+    } catch {
+      /* ignore drawer errors */
+    }
+  }
+}
+
+// ── ESC/POS command builders ─────────────────────────────────────
+const ESC = "\x1B";
+const GS = "\x1D";
+const INIT = ESC + "@";
+const BOLD_ON = ESC + "E" + "\x01";
+const BOLD_OFF = ESC + "E" + "\x00";
+const AL_L = ESC + "a" + "\x00";
+const AL_C = ESC + "a" + "\x01";
+const SIZE_1 = GS + "!" + "\x00"; // normal
+const SIZE_2 = GS + "!" + "\x11"; // double width + height
+const CUT = "\n\n\n" + GS + "V" + "\x00"; // feed + full cut
+
+const WIDTH = 48; // Font A, 80mm
+
+function rule(ch = "-") {
+  return ch.repeat(WIDTH) + "\n";
+}
+function clip(s: string, w: number) {
+  return s.length > w ? s.slice(0, w) : s;
+}
+function padR(s: string, w: number) {
+  s = clip(s, w);
+  return s + " ".repeat(w - s.length);
+}
+function padL(s: string, w: number) {
+  s = clip(s, w);
+  return " ".repeat(w - s.length) + s;
+}
+function two(l: string, r: string) {
+  const gap = Math.max(1, WIDTH - l.length - r.length);
+  return l + " ".repeat(gap) + r + "\n";
+}
+
+// Item columns: Name(22) Price(9,R) Qty(4,R) Value(13,R) = 48
+function itemRow(name: string, price: string, qty: string, value: string) {
+  return padR(name, 22) + padL(price, 9) + padL(qty, 4) + padL(value, 13) + "\n";
+}
+
+export function buildBillEscPos(d: BillData): string {
+  const date = (d.date || new Date())
+    .toLocaleString("en-IN", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    })
+    .replace(",", "");
+  const grand = Math.round(d.total);
+
+  let o = INIT;
+  o += AL_C + BOLD_ON + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1 + BOLD_OFF;
+  if (d.phone) o += "Ph: " + d.phone + "\n";
+  if (d.address) o += clip(d.address, WIDTH) + "\n";
+  if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
+  o += AL_L + rule("=");
+  o += date + "\n";
+  o += "Bill No: " + d.invoiceNumber + "\n";
+  if (d.customerName) o += "Customer: " + d.customerName + "\n";
+  o += rule("=");
+  o += itemRow("Item", "Price", "Qty", "Value");
+  o += rule();
+  d.items.forEach((it) => {
+    o += itemRow(it.name, it.price.toFixed(2), String(it.qty), (it.price * it.qty).toFixed(2));
+  });
+  o += rule("=");
+  o += two("Sub Total:", d.subtotal.toFixed(2));
+  if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + d.discountAmount.toFixed(2));
+  if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + d.gstAmount.toFixed(2));
+  o += BOLD_ON + two("GRAND TOTAL:", grand.toFixed(2)) + BOLD_OFF;
+  o += rule();
+  o += "Payment: " + (d.paymentMethod || "Cash") + "\n";
+  o += AL_C + "\nThank You! Visit Again!!\n";
+  o += CUT;
+  return o;
+}
+
+export function buildKotEscPos(d: KotHtmlData): string {
+  const time = new Date().toLocaleString("en-IN", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+  let o = INIT + AL_C;
+  o += BOLD_ON + SIZE_2 + "KOT\n" + SIZE_1 + BOLD_OFF;
+  o += "Kitchen Order Ticket\n";
+  o += rule();
+  if (d.orderMode) o += BOLD_ON + d.orderMode.replace(/_/g, " ") + BOLD_OFF + "\n";
+  o += "Bill: " + d.invoiceNumber + "\n";
+  if (d.tableName) o += "Table: " + d.tableName + "\n";
+  if (d.customerName) o += "Customer: " + d.customerName + "\n";
+  o += time + "\n";
+  o += AL_L + rule("=");
+  o += padR("Qty", 6) + "Item\n";
+  o += rule();
+  d.items.forEach((i) => {
+    o += padR(i.qty + "x", 6) + clip(i.name.toUpperCase(), WIDTH - 6) + "\n";
+  });
+  o += rule("=");
+  o += AL_C + "*** END KOT ***\n";
+  o += CUT;
+  return o;
+}
+
+// ── Smart print entry points (QZ if enabled + reachable, else HTML) ──
+export async function printBill(d: BillData): Promise<void> {
+  const cfg = getQzConfig();
+  if (cfg.enabled) {
+    try {
+      const cash = (d.paymentMethod || "Cash").toLowerCase() === "cash";
+      await sendRaw(cfg.printer, buildBillEscPos(d), cfg.kickDrawer && cash);
+      return;
+    } catch (e) {
+      console.error("QZ bill print failed — falling back to browser print", e);
+      toast.error("Printer (QZ Tray) unreachable — printed via browser instead");
+    }
+  }
+  return printReceipt(buildBillHtml(d));
+}
+
+export async function printKot(d: KotHtmlData): Promise<void> {
+  const cfg = getQzConfig();
+  if (cfg.enabled) {
+    try {
+      await sendRaw(cfg.printer, buildKotEscPos(d), false);
+      return;
+    } catch (e) {
+      console.error("QZ KOT print failed — falling back to browser print", e);
+    }
+  }
+  return printReceipt(buildKotHtml(d));
+}
+
+/** Fire a small ESC/POS test slip (settings screen). Throws on failure. */
+export async function qzTestPrint(printerName: string, kickDrawer: boolean) {
+  const receipt =
+    INIT +
+    AL_C +
+    BOLD_ON +
+    SIZE_2 +
+    "TEST OK\n" +
+    SIZE_1 +
+    BOLD_OFF +
+    "QZ Tray + ESC/POS\n" +
+    new Date().toLocaleString("en-IN") +
+    "\n" +
+    rule() +
+    "If you can read this, printing works.\n" +
+    CUT;
+  await sendRaw(printerName, receipt, kickDrawer);
+}
