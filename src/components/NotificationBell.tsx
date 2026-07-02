@@ -15,7 +15,6 @@ const ICONS: Record<AppNotification["type"], React.ElementType> = {
   khata: Wallet,
   purchase: FileWarning,
   online: Bike,
-  shift: Store,
 };
 
 const SEVERITY: Record<AppNotification["severity"], { color: string; bg: string }> = {

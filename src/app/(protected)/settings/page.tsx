@@ -8,16 +8,16 @@ export default async function SettingsPage() {
   const setting = await prisma.setting.findFirst();
 
   return (
-    <div className="animate-fade-in max-w-3xl pb-8">
+    <div className="animate-fade-in max-w-4xl mx-auto pb-12 pt-4">
       {/* Page Header */}
-      <div className="pb-6 border-b border-border/50 mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-xl bg-muted/50 flex items-center justify-center">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <h1 className="page-title">Settings</h1>
+      <div className="flex flex-col items-center justify-center text-center pb-8 mb-8 border-b border-border/50">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 shadow-sm border border-primary/20">
+          <Settings className="h-8 w-8 text-primary" />
         </div>
-        <p className="page-subtitle ml-11">Manage your store configuration and preferences</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Settings & Configuration</h1>
+        <p className="text-muted-foreground mt-2 max-w-lg">
+          Manage your store configuration, user permissions, branches, and system preferences.
+        </p>
       </div>
 
       {/* Info Cards */}

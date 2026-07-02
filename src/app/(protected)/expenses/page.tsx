@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 import { Receipt, Calendar, Tag, FileText } from "lucide-react";
 import { AddExpenseForm } from "@/components/AddExpenseForm";
 import { DeleteExpenseButton } from "@/components/DeleteExpenseButton";
 
 export default async function ExpensesPage() {
   await requireAdmin();
+  const branchId = await getActiveBranchId();
+  if (!branchId) return <div>No active branch selected.</div>;
 
   const expenses = await prisma.expense.findMany({
+    where: { branchId },
     orderBy: { date: "desc" },
   });
 

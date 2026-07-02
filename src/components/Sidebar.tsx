@@ -49,7 +49,6 @@ const allNavItems = [
   { name: "Inventory", href: "/inventory", icon: AlertTriangle, color: "text-amber-400", glow: "rgba(245,158,11,0.15)" },
   { name: "Purchases", href: "/purchases", icon: PackagePlus, color: "text-teal-400", glow: "rgba(20,184,166,0.15)" },
   { name: "Expenses", href: "/expenses", icon: Receipt, color: "text-rose-400", glow: "rgba(251,113,133,0.15)" },
-  { name: "Shifts", href: "/shifts", icon: Store, color: "text-orange-400", glow: "rgba(251,146,60,0.15)" },
   { name: "Reports", href: "/reports", icon: BarChart3, color: "text-pink-400", glow: "rgba(232,121,249,0.15)" },
   { name: "Tally", href: "/tally", icon: BookOpen, color: "text-purple-400", glow: "rgba(192,132,252,0.15)" },
   { name: "Staff", href: "/staff", icon: Briefcase, color: "text-cyan-400", glow: "rgba(34,211,238,0.15)" },
@@ -61,7 +60,7 @@ const allNavItems = [
 const NAV_GROUPS: { label: string; items: string[] }[] = [
   { label: "Operations", items: ["Billing", "Dashboard", "Reports"] },
   { label: "Catalog & Stock", items: ["Products", "Inventory", "Purchases"] },
-  { label: "People", items: ["Customers", "Staff", "Shifts"] },
+  { label: "People", items: ["Customers", "Staff"] },
   { label: "Finance", items: ["Expenses", "Tally"] },
 ];
 
@@ -93,7 +92,6 @@ export function Sidebar({
           (item) =>
             item.name === "Billing" ||
             item.name === "Customers" ||
-            item.name === "Shifts" ||
             item.name === "Staff"
         );
 

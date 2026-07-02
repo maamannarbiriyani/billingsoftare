@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { AlertTriangle, Edit, Package, CheckCircle, TrendingDown, Search } from "lucide-react";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 
 export default async function InventoryPage({
   searchParams,
@@ -9,6 +9,8 @@ export default async function InventoryPage({
   searchParams: Promise<{ filter?: string; q?: string }>;
 }) {
   await requireAdmin();
+  const branchId = await getActiveBranchId();
+  if (!branchId) return <div>No active branch selected.</div>;
 
   const params = await searchParams;
   const filter = params.filter || "all";
@@ -17,9 +19,10 @@ export default async function InventoryPage({
   const LOW_STOCK_THRESHOLD = 10;
 
   const allProducts = await prisma.product.findMany({
-    where: q
-      ? { OR: [{ name: { contains: q } }, { barcode: { contains: q } }, { category: { contains: q } }] }
-      : undefined,
+    where: {
+      branchId,
+      ...(q ? { OR: [{ name: { contains: q } }, { barcode: { contains: q } }, { category: { contains: q } }] } : {}),
+    },
     orderBy: { name: "asc" },
   });
 

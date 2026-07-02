@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Clock, CheckCircle, ChefHat } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { getActiveBranchId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,8 +59,12 @@ async function markReady(orderId: number) {
 
 export default async function KitchenDisplaySystem() {
   headers(); // force dynamic — prevents static prerender
+  const branchId = await getActiveBranchId();
+  if (!branchId) return <div>No active branch selected.</div>;
+
   const activeOrders = await prisma.order.findMany({
     where: {
+      branchId,
       status: { in: ["RECEIVED", "PREPARING"] }
     },
     include: {

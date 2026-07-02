@@ -5,7 +5,7 @@ import { getActiveBranchId } from "@/lib/auth";
 
 export type AppNotification = {
   id: string;
-  type: "stock" | "khata" | "purchase" | "online" | "shift";
+  type: "stock" | "khata" | "purchase" | "online";
   severity: "danger" | "warning" | "info";
   title: string;
   description: string;
@@ -19,7 +19,7 @@ export async function getNotifications(): Promise<AppNotification[]> {
   const bf = branchId ? { branchId } : {};
 
   try {
-    const [lowStock, khataAgg, unpaidPurchases, onlineOrders, openShift] = await Promise.all([
+    const [lowStock, khataAgg, unpaidPurchases, onlineOrders] = await Promise.all([
       prisma.product.findMany({
         where: { ...bf, isActive: true, stock: { lt: LOW_STOCK_THRESHOLD, not: 999999 } },
         select: { id: true, name: true, stock: true, unit: true },
@@ -35,7 +35,6 @@ export async function getNotifications(): Promise<AppNotification[]> {
       prisma.order.count({
         where: { ...bf, status: "RECEIVED", source: { in: ["SWIGGY", "ZOMATO"] } },
       }),
-      prisma.shift.findFirst({ where: { ...bf, status: "OPEN" }, select: { id: true } }),
     ]);
 
     const notes: AppNotification[] = [];
@@ -89,17 +88,7 @@ export async function getNotifications(): Promise<AppNotification[]> {
       });
     }
 
-    // No open shift reminder (only if there is some activity context)
-    if (!openShift) {
-      notes.push({
-        id: "shift-closed",
-        type: "shift",
-        severity: "info",
-        title: "No cash shift is open",
-        description: "Open a shift to track cash sales accurately.",
-        href: "/shifts",
-      });
-    }
+
 
     return notes;
   } catch (error) {

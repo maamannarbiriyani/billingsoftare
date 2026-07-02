@@ -138,7 +138,6 @@ model Branch {
   purchaseInvoices  PurchaseInvoice[]
   tables            Table[]
   orders            Order[]
-  shifts            Shift[]
   ingredients       Ingredient[]
   employees         Employee[]
 }
@@ -234,17 +233,6 @@ model OrderItem {
   notes      String?
 }
 
-model Shift {
-  id              Int       @id @default(autoincrement())
-  openedAt        DateTime  @default(now())
-  closedAt        DateTime?
-  openingBalance  Float     @default(0)
-  closingBalance  Float?
-  cashSales       Float     @default(0)
-  status          String    @default("OPEN") // "OPEN", "CLOSED"
-  branchId        Int?
-  branch          Branch?   @relation(fields: [branchId], references: [id])
-}
 
 model Ingredient {
   id          Int      @id @default(autoincrement())

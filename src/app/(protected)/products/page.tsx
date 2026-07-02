@@ -4,7 +4,7 @@ import { Edit, Package, Plus, Tag, Hash } from "lucide-react";
 import { Search } from "@/components/Search";
 import { Pagination } from "@/components/Pagination";
 import { DeleteProductButton } from "@/components/DeleteProductButton";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId } from "@/lib/auth";
 import { BulkImportButton } from "./BulkImportButton";
 import { Suspense } from "react";
 import { CategoryFilter } from "@/components/CategoryFilter";
@@ -15,6 +15,8 @@ export default async function ProductsPage({
   searchParams: Promise<{ query?: string; page?: string; category?: string }>;
 }) {
   await requireAdmin();
+  const branchId = await getActiveBranchId();
+  if (!branchId) return <div>No active branch selected.</div>;
 
   const resolvedSearchParams = await searchParams;
   const query = resolvedSearchParams?.query || "";
@@ -23,7 +25,7 @@ export default async function ProductsPage({
   const itemsPerPage = 10;
   const skip = (currentPage - 1) * itemsPerPage;
 
-  const whereClause: any = { AND: [{ isActive: true }] };
+  const whereClause: any = { AND: [{ isActive: true }, { branchId }] };
   if (query) {
     whereClause.AND.push({ OR: [{ name: { contains: query } }, { barcode: { contains: query } }] });
   }

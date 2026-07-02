@@ -6,6 +6,7 @@ import {
   Banknote, CreditCard, Smartphone, SplitSquareHorizontal, User,
   Calendar, Filter
 } from "lucide-react";
+import { getActiveBranchId, requireAdmin } from "@/lib/auth";
 
 const PAGE_SIZE = 20;
 
@@ -48,8 +49,12 @@ export default async function InvoicesPage({
   const to      = sp.to || "";
   const page    = Math.max(1, parseInt(sp.page || "1", 10));
 
+  await requireAdmin();
+  const branchId = await getActiveBranchId();
+  if (!branchId) return <div>No active branch selected.</div>;
+
   // Build where clause
-  const where: any = {};
+  const where: any = { branchId };
 
   if (query) {
     where.OR = [
