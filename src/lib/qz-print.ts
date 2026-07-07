@@ -258,8 +258,8 @@ export function buildBillEscPos(d: BillData): string {
     .replace(",", "");
   const grand = Math.round(d.total);
 
-  let o = INIT;
-  o += AL_C + BOLD_ON + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1 + BOLD_OFF;
+  let o = INIT + BOLD_ON;
+  o += AL_C + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1;
   if (d.phone) o += "Ph: " + d.phone + "\n";
   if (d.address) o += clip(d.address, WIDTH) + "\n";
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
@@ -277,7 +277,7 @@ export function buildBillEscPos(d: BillData): string {
   o += two("Sub Total:", d.subtotal.toFixed(2));
   if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + d.discountAmount.toFixed(2));
   if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + d.gstAmount.toFixed(2));
-  o += BOLD_ON + two("GRAND TOTAL:", grand.toFixed(2)) + BOLD_OFF;
+  o += two("GRAND TOTAL:", grand.toFixed(2));
   o += rule();
   o += "Payment: " + (d.paymentMethod || "Cash") + "\n";
   o += AL_C + "\nThank You! Visit Again!!\n";
@@ -289,11 +289,11 @@ export function buildKotEscPos(d: KotHtmlData): string {
   const time = new Date().toLocaleString("en-IN", {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
-  let o = INIT + AL_C;
-  o += BOLD_ON + SIZE_2 + "KOT\n" + SIZE_1 + BOLD_OFF;
+  let o = INIT + BOLD_ON + AL_C;
+  o += SIZE_2 + "KOT\n" + SIZE_1;
   o += "Kitchen Order Ticket\n";
   o += rule();
-  if (d.orderMode) o += BOLD_ON + d.orderMode.replace(/_/g, " ") + BOLD_OFF + "\n";
+  if (d.orderMode) o += d.orderMode.replace(/_/g, " ") + "\n";
   o += "Bill: " + d.invoiceNumber + "\n";
   if (d.tableName) o += "Table: " + d.tableName + "\n";
   if (d.customerName) o += "Customer: " + d.customerName + "\n";

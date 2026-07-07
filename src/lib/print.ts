@@ -22,19 +22,19 @@ function wrapReceipt(inner: string): string {
   html { background: #fff; }
   /* 80mm paper has a ~72mm printable area — keep content inside it to avoid
      the right edge (Value column) clipping on 3" printers like the RP326. */
-  body { width: 72mm; margin: 0 auto; background: #fff; color: #000; font-family: 'Courier New', monospace; padding: 2mm 1.5mm; font-size: 12px; line-height: 1.35; }
+  body { width: 72mm; margin: 0 auto; background: #fff; color: #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: bold; padding: 2mm 1.5mm; font-size: 13px; line-height: 1.35; }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: bold; }
   /* grayscale(1) ensures the logo prints well on a thermal printer without turning white backgrounds into a solid black box. */
   .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
-  .store { font-size: 15px; font-weight: 900; }
-  .muted { font-size: 11px; }
+  .store { font-size: 18px; font-weight: 900; }
+  .muted { font-size: 12px; }
   .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
   .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
   table { width: 100%; border-collapse: collapse; }
-  th { font-size: 10px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: normal; }
-  td { font-size: 12px; padding: 2px 0; vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
+  td { font-size: 13px; padding: 2px 0; vertical-align: top; }
   .totrow td { padding: 1px 0; }
   .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
   .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
