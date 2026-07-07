@@ -71,6 +71,13 @@ export async function createCustomer(name: string, phone?: string, balance: numb
   if (!branchId) return { error: "No active branch" };
 
   try {
+    if (phone?.trim()) {
+      const existing = await prisma.customer.findFirst({
+        where: { phone: phone.trim(), branchId }
+      });
+      if (existing) return { error: "A customer with this phone number already exists." };
+    }
+
     const newCustomer = await prisma.customer.create({
       data: {
         name: name.trim(),
@@ -92,6 +99,13 @@ export async function updateCustomer(id: number, name: string, phone?: string, b
   if (!branchId) return { error: "No active branch" };
 
   try {
+    if (phone?.trim()) {
+      const existing = await prisma.customer.findFirst({
+        where: { phone: phone.trim(), branchId, id: { not: id } }
+      });
+      if (existing) return { error: "Another customer is already using this phone number." };
+    }
+
     const updatedCustomer = await prisma.customer.update({
       where: { id, branchId },
       data: {

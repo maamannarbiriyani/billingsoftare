@@ -63,7 +63,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
       if (res.error) toast.error(res.error);
       else {
         toast.success("Customer added!");
-        setCustomers(prev => [...prev, { ...res.customer, balance: 0, _count: { invoices: 0 } }]);
+        setCustomers(prev => [...prev, { ...res.customer, _count: { invoices: 0 } }]);
         setShowAddForm(false);
       }
     }
