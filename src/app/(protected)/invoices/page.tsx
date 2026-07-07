@@ -42,7 +42,8 @@ export default async function InvoicesPage({
   }>;
 }) {
   const sp = await searchParams;
-  const query   = sp.q?.trim() || "";
+  const rawQ = Array.isArray(sp.q) ? sp.q[0] : sp.q;
+  const query = (typeof rawQ === "string" ? rawQ : "").trim();
   const status  = sp.status || "ALL";
   const method  = sp.method || "ALL";
   const from    = sp.from || "";
@@ -60,6 +61,9 @@ export default async function InvoicesPage({
     where.OR = [
       { invoiceNumber: { contains: query } },
       { customer: { name: { contains: query } } },
+      { customer: { phone: { contains: query } } },
+      { walkInName: { contains: query } },
+      { walkInPhone: { contains: query } },
       { cashierName: { contains: query } },
     ];
   }
