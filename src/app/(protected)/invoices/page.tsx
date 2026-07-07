@@ -73,16 +73,15 @@ export default async function InvoicesPage({
   if (method !== "ALL") {
     where.paymentMethod = method;
   }
-  if (from || to) {
-    where.createdAt = {};
-    if (from) {
-      const d = new Date(from); d.setHours(0, 0, 0, 0);
-      where.createdAt.gte = d;
-    }
-    if (to) {
-      const d = new Date(to); d.setHours(23, 59, 59, 999);
-      where.createdAt.lte = d;
-    }
+  if (from && !isNaN(new Date(from).getTime())) {
+    const d = new Date(from);
+    d.setHours(0, 0, 0, 0);
+    where.createdAt = { ...where.createdAt, gte: d };
+  }
+  if (to && !isNaN(new Date(to).getTime())) {
+    const d = new Date(to);
+    d.setHours(23, 59, 59, 999);
+    where.createdAt = { ...where.createdAt, lte: d };
   }
 
   const [invoices, total, stats] = await Promise.all([
