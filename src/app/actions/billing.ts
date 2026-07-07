@@ -124,30 +124,31 @@ export async function createInvoice(
 
       // 1. Process Customer Information
       if (customerData.name) {
-        // Try to find an existing customer by phone
-        if (customerData.phone) {
-          const existingCustomer = await tx.customer.findFirst({
-            where: { phone: customerData.phone, branchId },
-          });
-          if (existingCustomer) {
-            customerId = existingCustomer.id;
+        if (billingDetails.paymentMethod === "CREDIT") {
+          // STRICT KHATA LOGIC: Only link or create Customer records for CREDIT bills
+          
+          // Try to find an existing customer by phone
+          if (customerData.phone) {
+            const existingCustomer = await tx.customer.findFirst({
+              where: { phone: customerData.phone, branchId },
+            });
+            if (existingCustomer) {
+              customerId = existingCustomer.id;
+            }
           }
-        }
-        
-        // Fallback: try to find by exact name match if no phone was provided or matched
-        if (!customerId) {
-          const existingCustomerByName = await tx.customer.findFirst({
-            where: { name: customerData.name, branchId },
-          });
-          if (existingCustomerByName) {
-            customerId = existingCustomerByName.id;
+          
+          // Fallback: try to find by exact name match if no phone was provided or matched
+          if (!customerId) {
+            const existingCustomerByName = await tx.customer.findFirst({
+              where: { name: customerData.name, branchId },
+            });
+            if (existingCustomerByName) {
+              customerId = existingCustomerByName.id;
+            }
           }
-        }
-        
-        // If STILL no existing customer found...
-        if (!customerId) {
-          if (billingDetails.paymentMethod === "CREDIT") {
-            // For CREDIT, we MUST auto-create a Customer to track their Khata balance
+          
+          // If STILL no existing customer found, auto-create a new Khata customer
+          if (!customerId) {
             const newCustomer = await tx.customer.create({
               data: {
                 name: customerData.name,
@@ -156,11 +157,11 @@ export async function createInvoice(
               }
             });
             customerId = newCustomer.id;
-          } else {
-            // For Cash/UPI/Card walk-ins, just store their name/phone on the invoice
-            walkInName = customerData.name;
-            if (customerData.phone) walkInPhone = customerData.phone;
           }
+        } else {
+          // STRICT WALK-IN LOGIC: Cash/UPI/Card are completely separate from Khata customers
+          walkInName = customerData.name;
+          if (customerData.phone) walkInPhone = customerData.phone;
         }
       }
 
