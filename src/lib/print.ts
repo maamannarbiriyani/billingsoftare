@@ -193,6 +193,8 @@ export type KotHtmlData = {
   tableName?: string | null;
   customerName?: string | null;
   items: Array<{ name: string; qty: number }>;
+  storeName?: string;
+  logoUrl?: string;
 };
 
 export function buildKotHtml(d: KotHtmlData): string {
@@ -202,6 +204,8 @@ export function buildKotHtml(d: KotHtmlData): string {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
   return `
+    ${d.logoUrl ? `<img class="logo" src="${esc(d.logoUrl)}" alt="">` : ""}
+    ${d.storeName ? `<div class="center store" style="margin-bottom: 4px;">${esc(d.storeName)}</div>` : ""}
     <div class="center kot-h1">KOT</div>
     <div class="center muted">Kitchen Order Ticket</div>
     <hr class="hr">

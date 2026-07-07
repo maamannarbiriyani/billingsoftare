@@ -83,15 +83,7 @@ const S = {
 };
 
 // ─── Kitchen receipt — QZ Tray (ESC/POS) with browser-print fallback ──
-function printKitchenCopy(opts: {
-  invoiceNumber: string;
-  items: Array<{ name: string; qty: number }>;
-  tableName?: string;
-  customerName?: string;
-  orderMode: string;
-}) {
-  return printKot(opts);
-}
+// Removed printKitchenCopy as we use printKot directly
 
 function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToCart, cartItemsCount, isOverlay = false }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
@@ -421,12 +413,16 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         toast.error(res.error);
       } else {
         toast.success(activeOrderId ? "KOT Updated" : "KOT Sent to Kitchen");
-        printKot({
-          invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
-          tableName,
-          items: kotItems,
-          orderMode: "DINE_IN",
-        });
+        if (printKOT) {
+          printKot({
+            invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
+            tableName,
+            items: kotItems,
+            orderMode: "DINE_IN",
+            storeName: storeInfo?.storeName || "My Store",
+            logoUrl: "/billlogo.png",
+          });
+        }
         clearCart();
         await loadTablesAndOrders();
         setViewMode("TABLES");
@@ -474,12 +470,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
           // which QZ rejects as "Request blocked".
           // 1. Kitchen copy first (so it tears off at the kitchen printer)
           if (printKOT) {
-            await printKitchenCopy({
+            await printKot({
               invoiceNumber,
               items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
               tableName,
               customerName: customerName || undefined,
               orderMode: selectedOrderMode,
+              storeName: storeInfo?.storeName || "My Store",
+              logoUrl: "/billlogo.png",
             });
           }
           // 2. Customer bill — prints directly via hidden iframe (no page nav, no PDF prompt)
@@ -805,13 +803,16 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                           onClick={async () => {
                             await acceptOnlineOrder(order.id);
                             setOnlineOrders(p => p.filter(o => o.id !== order.id));
-                            toast.success("Accepted & KOT Sent");
-                            printKot({
-                              invoiceNumber: `${order.source} #${order.externalId || order.id}`,
-                              tableName: order.source,
-                              orderMode: order.source,
-                              items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
-                            });
+                            if (printKOT) {
+                              printKot({
+                                invoiceNumber: `${order.source} #${order.externalId || order.id}`,
+                                tableName: order.source,
+                                orderMode: order.source,
+                                items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
+                                storeName: storeInfo?.storeName || "My Store",
+                                logoUrl: "/billlogo.png",
+                              });
+                            }
                           }}
                           className="flex-[2] p-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                           style={{ color: S.emerald, background: S.emeraldLo }}
