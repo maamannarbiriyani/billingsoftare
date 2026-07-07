@@ -139,6 +139,10 @@ export async function deleteCustomer(id: number) {
       return { error: "Cannot delete this customer because they have existing bills. Delete their bills first." };
     }
 
+    if (customer.balance > 0) {
+      return { error: `Cannot delete this customer because they owe a balance of ₹${customer.balance.toFixed(2)}.` };
+    }
+
     await prisma.$transaction(async (tx) => {
       // Delete any payment history logs first to prevent foreign key constraints
       await tx.payment.deleteMany({ where: { customerId: id } });
