@@ -139,7 +139,13 @@ export async function deleteCustomer(id: number) {
       return { error: "Cannot delete this customer because they have existing bills. Delete their bills first." };
     }
 
-    await prisma.customer.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      // Delete any payment history logs first to prevent foreign key constraints
+      await tx.payment.deleteMany({ where: { customerId: id } });
+      // Then delete the customer
+      await tx.customer.delete({ where: { id } });
+    });
+    
     revalidatePath("/customers");
     return { success: true };
   } catch (error: any) {

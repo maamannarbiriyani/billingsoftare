@@ -72,7 +72,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
 
   async function handleDelete(e: React.MouseEvent, customerId: number, customerName: string) {
     e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete ${customerName}?\n\nNote: You cannot delete a customer who has existing bills.`)) return;
+    if (!confirm(`Are you sure you want to delete ${customerName}? This action cannot be undone.`)) return;
     setIsPending(true);
     const res = await deleteCustomer(customerId);
     if (res.error) toast.error(res.error);
