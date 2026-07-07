@@ -65,7 +65,7 @@ export async function logPayment(customerId: number, amount: number) {
   }
 }
 
-export async function createCustomer(name: string, phone?: string) {
+export async function createCustomer(name: string, phone?: string, balance: number = 0) {
   if (!name.trim()) return { error: "Customer name is required" };
   const branchId = await getActiveBranchId();
   if (!branchId) return { error: "No active branch" };
@@ -75,6 +75,7 @@ export async function createCustomer(name: string, phone?: string) {
       data: {
         name: name.trim(),
         phone: phone?.trim() || null,
+        balance,
         branchId,
       },
     });
@@ -85,7 +86,7 @@ export async function createCustomer(name: string, phone?: string) {
   }
 }
 
-export async function updateCustomer(id: number, name: string, phone?: string) {
+export async function updateCustomer(id: number, name: string, phone?: string, balance?: number) {
   if (!name.trim()) return { error: "Customer name is required" };
   const branchId = await getActiveBranchId();
   if (!branchId) return { error: "No active branch" };
@@ -96,6 +97,7 @@ export async function updateCustomer(id: number, name: string, phone?: string) {
       data: {
         name: name.trim(),
         phone: phone?.trim() || null,
+        ...(balance !== undefined ? { balance } : {}),
       },
     });
     revalidatePath("/customers");

@@ -13,7 +13,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: "", phone: "" });
+  const [formData, setFormData] = useState({ name: "", phone: "", balance: "" });
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -50,7 +50,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
     e.preventDefault();
     setIsPending(true);
     if (isEditing && selectedCustomer) {
-      const res = await updateCustomer(selectedCustomer.id, formData.name, formData.phone);
+      const res = await updateCustomer(selectedCustomer.id, formData.name, formData.phone, parseFloat(formData.balance) || 0);
       if (res.error) toast.error(res.error);
       else {
         toast.success("Customer updated!");
@@ -59,7 +59,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
         setIsEditing(false);
       }
     } else {
-      const res = await createCustomer(formData.name, formData.phone);
+      const res = await createCustomer(formData.name, formData.phone, parseFloat(formData.balance) || 0);
       if (res.error) toast.error(res.error);
       else {
         toast.success("Customer added!");
@@ -106,7 +106,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
           </div>
           <button 
             onClick={() => {
-              setFormData({ name: "", phone: "" });
+              setFormData({ name: "", phone: "", balance: "" });
               setIsEditing(false);
               setSelectedCustomer(null);
               setShowAddForm(true);
@@ -187,7 +187,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setFormData({ name: customer.name, phone: customer.phone || "" });
+                              setFormData({ name: customer.name, phone: customer.phone || "", balance: customer.balance ? customer.balance.toString() : "" });
                               setIsEditing(true);
                               setSelectedCustomer(customer);
                               setShowAddForm(true);
@@ -267,6 +267,20 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="input-field pl-9"
                       placeholder="9999999999"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="input-label">Credit Balance (Amount)</label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.balance}
+                      onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+                      className="input-field pl-9"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
