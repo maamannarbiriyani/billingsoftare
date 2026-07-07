@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { logPayment, createCustomer, updateCustomer } from "@/app/actions/customers";
-import { User, Phone, Banknote, Search, IndianRupee, X, CheckCircle, Users, Plus, Pencil } from "lucide-react";
+import { logPayment, createCustomer, updateCustomer, deleteCustomer } from "@/app/actions/customers";
+import { User, Phone, Banknote, Search, IndianRupee, X, CheckCircle, Users, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function CustomersClient({ initialCustomers }: { initialCustomers: any[] }) {
@@ -64,6 +64,23 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
       else {
         toast.success("Customer added!");
         setCustomers(prev => [...prev, { ...res.customer, balance: 0, _count: { invoices: 0 } }]);
+        setShowAddForm(false);
+      }
+    }
+    setIsPending(false);
+  }
+
+  async function handleDelete(e: React.MouseEvent, customerId: number, customerName: string) {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete ${customerName}?\n\nNote: You cannot delete a customer who has existing bills.`)) return;
+    setIsPending(true);
+    const res = await deleteCustomer(customerId);
+    if (res.error) toast.error(res.error);
+    else {
+      toast.success("Customer deleted!");
+      setCustomers(prev => prev.filter(c => c.id !== customerId));
+      if (selectedCustomer?.id === customerId) {
+        setSelectedCustomer(null);
         setShowAddForm(false);
       }
     }
@@ -178,6 +195,13 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
                             className="p-1.5 rounded hover:bg-slate-100 text-slate-500 transition-colors"
                           >
                             <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(e, customer.id, customer.name)}
+                            className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors"
+                            title="Delete Customer"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={(e) => {

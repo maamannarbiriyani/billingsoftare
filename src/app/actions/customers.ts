@@ -104,3 +104,30 @@ export async function updateCustomer(id: number, name: string, phone?: string) {
     return { error: "Failed to update customer" };
   }
 }
+
+export async function deleteCustomer(id: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: { _count: { select: { invoices: true } } },
+    });
+    
+    if (!customer || customer.branchId !== branchId) {
+      return { error: "Customer not found" };
+    }
+
+    if (customer._count.invoices > 0) {
+      return { error: "Cannot delete this customer because they have existing bills. Delete their bills first." };
+    }
+
+    await prisma.customer.delete({ where: { id } });
+    revalidatePath("/customers");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delete Customer Error:", error);
+    return { error: "Failed to delete customer" };
+  }
+}
