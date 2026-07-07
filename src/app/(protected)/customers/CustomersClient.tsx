@@ -323,24 +323,24 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: any[] 
               {/* Balance Display */}
               <div className={`flex items-center justify-between p-4 rounded-xl mb-5 ${
                 selectedCustomer.balance > 0
-                  ? "bg-orange-50 border border-orange-200"
-                  : "bg-emerald-50 border border-emerald-200"
-              }`}>
+                  ? "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/50"
+                  : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
+              } border`}>
                 <div>
                   <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
-                    selectedCustomer.balance > 0 ? "text-orange-700" : "text-emerald-700"
+                    selectedCustomer.balance > 0 ? "text-orange-700 dark:text-orange-400" : "text-emerald-700 dark:text-emerald-400"
                   }`}>
                     {selectedCustomer.balance > 0 ? "Amount Due" : "Account Status"}
                   </p>
                   <p className={`text-2xl font-black ${
-                    selectedCustomer.balance > 0 ? "text-orange-600" : "text-emerald-600"
+                    selectedCustomer.balance > 0 ? "text-orange-600 dark:text-orange-300" : "text-emerald-600 dark:text-emerald-300"
                   }`}>
                     {selectedCustomer.balance > 0 ? `₹${selectedCustomer.balance.toFixed(2)}` : "Cleared"}
                   </p>
                 </div>
                 {selectedCustomer.balance > 0
-                  ? <Banknote className="h-8 w-8 text-orange-300" />
-                  : <CheckCircle className="h-8 w-8 text-emerald-400" />
+                  ? <Banknote className="h-8 w-8 text-orange-300 dark:text-orange-500/50" />
+                  : <CheckCircle className="h-8 w-8 text-emerald-400 dark:text-emerald-500/50" />
                 }
               </div>
 

@@ -134,7 +134,17 @@ export async function createInvoice(
           }
         }
         
-        // If no existing customer found...
+        // Fallback: try to find by exact name match if no phone was provided or matched
+        if (!customerId) {
+          const existingCustomerByName = await tx.customer.findFirst({
+            where: { name: customerData.name, branchId },
+          });
+          if (existingCustomerByName) {
+            customerId = existingCustomerByName.id;
+          }
+        }
+        
+        // If STILL no existing customer found...
         if (!customerId) {
           if (billingDetails.paymentMethod === "CREDIT") {
             // For CREDIT, we MUST auto-create a Customer to track their Khata balance
