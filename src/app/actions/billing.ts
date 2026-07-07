@@ -116,14 +116,37 @@ export async function createInvoice(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // 0. Stock validation — prevent overselling
+      // 0. Stock validation and server-side price enforcement (Fix N+1 query)
+      const productIds = cart.map(i => i.productId);
+      const dbProducts = await tx.product.findMany({
+        where: { id: { in: productIds }, branchId },
+        select: { id: true, stock: true, name: true, price: true, costPrice: true }
+      });
+      const productMap = new Map(dbProducts.map(p => [p.id, p]));
+
+      let serverSubtotal = 0;
+      const verifiedCart = [];
+
       for (const item of cart) {
-        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, branchId: true } });
-        if (!product || product.branchId !== branchId) throw new Error(`Product not found: ${item.productId}`);
+        const product = productMap.get(item.productId);
+        if (!product) throw new Error(`Product not found: ${item.productId}`);
         if (product.stock !== 999999 && product.stock < item.qty) {
           throw new Error(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.qty}`);
         }
+        serverSubtotal += product.price * item.qty;
+        verifiedCart.push({
+          productId: item.productId,
+          qty: item.qty,
+          price: product.price,
+          costPrice: product.costPrice,
+        });
       }
+      
+      // Recalculate totals server-side to prevent frontend integrity bugs
+      const calculatedSubtotal = parseFloat(serverSubtotal.toFixed(2));
+      const calculatedGst = parseFloat(((calculatedSubtotal * billingDetails.gstRate) / 100).toFixed(2));
+      const calculatedDiscount = parseFloat(billingDetails.discountAmount.toFixed(2));
+      const calculatedTotal = parseFloat(Math.max(0, calculatedSubtotal + calculatedGst - calculatedDiscount).toFixed(2));
 
       let customerId: number | undefined;
       let walkInName: string | undefined;
@@ -226,16 +249,16 @@ export async function createInvoice(
           customerId,
           customerName: walkInName,
           customerPhone: walkInPhone,
-          subtotal: parseFloat(billingDetails.subtotal.toFixed(2)),
+          subtotal: calculatedSubtotal,
           gstRate: parseFloat(billingDetails.gstRate.toFixed(2)),
-          gstAmount: parseFloat(billingDetails.gstAmount.toFixed(2)),
-          discountAmount: parseFloat(billingDetails.discountAmount.toFixed(2)),
-          total: parseFloat(billingDetails.total.toFixed(2)),
+          gstAmount: calculatedGst,
+          discountAmount: calculatedDiscount,
+          total: calculatedTotal,
           cashierName,
           paymentMethod: billingDetails.paymentMethod,
           orderId: linkedOrderId,
           items: {
-            create: cart.map((item) => ({
+            create: verifiedCart.map((item) => ({
               productId: item.productId,
               qty: item.qty,
               price: item.price,
@@ -250,11 +273,11 @@ export async function createInvoice(
         if (!customerId) {
           throw new Error("Customer information is required for CREDIT payments.");
         }
-        await tx.customer.update({
-          where: { id: customerId },
+        await tx.customer.updateMany({
+          where: { id: customerId, branchId },
           data: {
             balance: {
-              increment: billingDetails.total,
+              increment: calculatedTotal,
             },
           },
         });

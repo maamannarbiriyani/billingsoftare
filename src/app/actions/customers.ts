@@ -45,13 +45,17 @@ export async function logPayment(customerId: number, amount: number) {
         },
       });
 
-      // Update customer balance
-      await tx.customer.update({
-        where: { id: customerId },
+      // Update customer balance securely
+      const updateRes = await tx.customer.updateMany({
+        where: { id: customerId, balance: { gte: amount } },
         data: {
           balance: { decrement: amount },
         },
       });
+
+      if (updateRes.count === 0) {
+        throw new Error("Concurrent transaction detected: Payment exceeds outstanding balance.");
+      }
 
       return true;
     });

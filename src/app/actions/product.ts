@@ -230,26 +230,54 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
           finalBarcode = `BAR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
         }
         
-        await tx.product.upsert({
-          where: { barcode: finalBarcode },
-          update: {
-            name: p.name,
-            price: p.price,
-            costPrice: p.costPrice || 0,
-            stock: { increment: p.stock }, // Add stock for existing items
-            category: p.category || null,
-          },
-          create: {
-            name: p.name,
-            barcode: finalBarcode,
-            price: p.price,
-            costPrice: p.costPrice || 0,
-            stock: p.stock,
-            category: p.category || null,
-            branchId,
-          },
-        });
-        importedCount++;
+        const existing = await tx.product.findUnique({ where: { barcode: finalBarcode } });
+        
+        if (existing) {
+          if (existing.branchId !== branchId) {
+            // Belongs to another branch - we cannot update it.
+            // Generate a unique barcode for this branch's copy.
+            finalBarcode = `BAR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            await tx.product.create({
+              data: {
+                name: p.name,
+                barcode: finalBarcode,
+                price: p.price,
+                costPrice: p.costPrice || 0,
+                stock: p.stock,
+                category: p.category || null,
+                branchId,
+              }
+            });
+            importedCount++;
+          } else {
+            // Belongs to this branch - safe to update
+            await tx.product.update({
+              where: { id: existing.id },
+              data: {
+                name: p.name,
+                price: p.price,
+                costPrice: p.costPrice || 0,
+                stock: { increment: p.stock },
+                category: p.category || null,
+              }
+            });
+            importedCount++;
+          }
+        } else {
+          // Does not exist - safe to create
+          await tx.product.create({
+            data: {
+              name: p.name,
+              barcode: finalBarcode,
+              price: p.price,
+              costPrice: p.costPrice || 0,
+              stock: p.stock,
+              category: p.category || null,
+              branchId,
+            }
+          });
+          importedCount++;
+        }
       }
     });
 
