@@ -62,8 +62,8 @@ export default async function InvoicesPage({
       { invoiceNumber: { contains: query } },
       { customer: { name: { contains: query } } },
       { customer: { phone: { contains: query } } },
-      { walkInName: { contains: query } },
-      { walkInPhone: { contains: query } },
+      { customerName: { contains: query } },
+      { customerPhone: { contains: query } },
       { cashierName: { contains: query } },
     ];
   }
