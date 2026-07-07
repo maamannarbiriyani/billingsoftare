@@ -57,8 +57,15 @@ export async function collectKhataPayment(customerId: number, amount: number) {
       const customer = await tx.customer.findUnique({ where: { id: customerId } });
       if (!customer || customer.branchId !== branchId) throw new Error("Customer not found");
       if (amount > customer.balance) throw new Error("Amount exceeds outstanding balance of ₹" + customer.balance.toFixed(2));
+      
       await tx.payment.create({ data: { amount, customerId, branchId } });
-      await tx.customer.update({ where: { id: customerId }, data: { balance: { decrement: amount } } });
+      const updateRes = await tx.customer.updateMany({ 
+        where: { id: customerId, balance: { gte: amount } }, 
+        data: { balance: { decrement: amount } } 
+      });
+      if (updateRes.count === 0) {
+        throw new Error("Concurrent transaction detected: Amount exceeds outstanding balance.");
+      }
       return { newBalance: parseFloat((customer.balance - amount).toFixed(2)) };
     });
     revalidatePath("/customers");
@@ -255,10 +262,16 @@ export async function createInvoice(
 
       // 5. Decrement Stock (skip unlimited-stock items)
       for (const item of cart) {
-        await tx.product.updateMany({
-          where: { id: item.productId, stock: { not: 999999 }, branchId },
-          data: { stock: { decrement: item.qty } },
-        });
+        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
+        if (product && product.stock !== 999999) {
+          const updateRes = await tx.product.updateMany({
+            where: { id: item.productId, stock: { gte: item.qty, not: 999999 }, branchId },
+            data: { stock: { decrement: item.qty } },
+          });
+          if (updateRes.count === 0) {
+            throw new Error(`Concurrent transaction prevented overselling. Insufficient stock for product ID: ${item.productId}`);
+          }
+        }
       }
 
       return invoice;

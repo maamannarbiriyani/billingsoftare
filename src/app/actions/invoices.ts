@@ -43,13 +43,20 @@ export async function processReturn(invoiceId: number, returnItems: ReturnItemIn
         const refundAmountForItem = itemRecord.price * returnItem.qtyToReturn;
         totalRefundAmount += refundAmountForItem;
 
-        // Update InvoiceItem
-        await tx.invoiceItem.update({
-          where: { id: itemRecord.id },
+        // Update InvoiceItem (prevent concurrent overselling of returns)
+        const updateRes = await tx.invoiceItem.updateMany({
+          where: { 
+            id: itemRecord.id,
+            returnedQty: { lte: itemRecord.qty - returnItem.qtyToReturn }
+          },
           data: {
             returnedQty: { increment: returnItem.qtyToReturn }
           }
         });
+
+        if (updateRes.count === 0) {
+          throw new Error(`Concurrent return detected: Cannot return ${returnItem.qtyToReturn} for item ${itemRecord.id}`);
+        }
 
         // Restock Product
         await tx.product.updateMany({
@@ -182,13 +189,15 @@ export async function modifyInvoice(
             where: { id: old.productId },
             select: { stock: true, name: true, branchId: true },
           });
-          if (prod && prod.stock !== 999999 && prod.stock < delta) {
-            throw new Error(`Not enough stock for "${prod?.name}". Available: ${prod?.stock}`);
+          if (prod && prod.stock !== 999999) {
+            const updateRes = await tx.product.updateMany({
+              where: { id: old.productId, stock: { gte: delta, not: 999999 }, branchId },
+              data: { stock: { decrement: delta } },
+            });
+            if (updateRes.count === 0) {
+              throw new Error(`Concurrent transaction prevented overselling. Insufficient stock for product ID: ${old.productId}`);
+            }
           }
-          await tx.product.updateMany({
-            where: { id: old.productId, stock: { not: 999999 }, branchId },
-            data: { stock: { decrement: delta } },
-          });
         } else if (delta < 0) {
           await tx.product.updateMany({
             where: { id: old.productId, stock: { not: 999999 }, branchId },
@@ -207,13 +216,15 @@ export async function modifyInvoice(
           where: { id: item.productId },
           select: { stock: true, name: true, branchId: true },
         });
-        if (prod && prod.stock !== 999999 && prod.stock < item.qty) {
-          throw new Error(`Not enough stock for "${prod?.name}". Available: ${prod?.stock}`);
+        if (prod && prod.stock !== 999999) {
+          const updateRes = await tx.product.updateMany({
+            where: { id: item.productId, stock: { gte: item.qty, not: 999999 }, branchId },
+            data: { stock: { decrement: item.qty } },
+          });
+          if (updateRes.count === 0) {
+            throw new Error(`Concurrent transaction prevented overselling. Insufficient stock for product ID: ${item.productId}`);
+          }
         }
-        await tx.product.updateMany({
-          where: { id: item.productId, stock: { not: 999999 }, branchId },
-          data: { stock: { decrement: item.qty } },
-        });
         await tx.invoiceItem.create({
           data: {
             invoiceId,
