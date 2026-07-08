@@ -279,6 +279,9 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
           importedCount++;
         }
       }
+    }, {
+      maxWait: 5000,
+      timeout: 60000,
     });
 
     revalidatePath("/products");
