@@ -48,7 +48,8 @@ export async function createProduct(formData: FormData) {
       const path = join(uploadDir, uniqueName);
       await writeFile(path, buffer);
       imageUrl = `/uploads/products/${uniqueName}`;
-    } catch {
+    } catch (e) {
+      console.error("Failed to upload image:", e);
       // Filesystem is read-only in production (Vercel) — skip image upload
     }
   }
@@ -112,7 +113,8 @@ export async function updateProduct(id: number, formData: FormData) {
       const path = join(uploadDir, uniqueName);
       await writeFile(path, buffer);
       imageUrl = `/uploads/products/${uniqueName}`;
-    } catch {
+    } catch (e) {
+      console.error("Failed to upload image:", e);
       // Filesystem is read-only in production (Vercel) — skip image upload
     }
   }

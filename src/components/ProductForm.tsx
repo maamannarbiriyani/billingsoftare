@@ -155,7 +155,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
           <p className="section-subtitle">Fields marked with * are required</p>
         </div>
 
-        <form action={handleSubmit} className="p-6">
+        <form action={handleSubmit} className="p-6" encType="multipart/form-data">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             {fields.map((field) => (
               <div key={field.id} className={field.colSpan}>
