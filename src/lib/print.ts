@@ -10,37 +10,39 @@
 // Otherwise the normal print dialog appears.
 // ─────────────────────────────────────────────────────────────
 
+const RECEIPT_STYLES = `
+  @page { margin: 0; size: 80mm auto; }
+  .receipt-wrapper * { margin: 0; padding: 0; box-sizing: border-box; }
+  .receipt-wrapper { background: #fff; width: 72mm; margin: 0 auto; color: #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: bold; padding: 2mm 1.5mm; font-size: 13px; line-height: 1.35; }
+  .receipt-wrapper .center { text-align: center; }
+  .receipt-wrapper .right { text-align: right; }
+  .receipt-wrapper .bold { font-weight: bold; }
+  .receipt-wrapper .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
+  .receipt-wrapper .store { font-size: 18px; font-weight: 900; }
+  .receipt-wrapper .muted { font-size: 12px; }
+  .receipt-wrapper .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+  .receipt-wrapper .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
+  .receipt-wrapper table { width: 100%; border-collapse: collapse; }
+  .receipt-wrapper th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
+  .receipt-wrapper td { font-size: 13px; padding: 2px 0; vertical-align: top; }
+  .receipt-wrapper .totrow td { padding: 1px 0; }
+  .receipt-wrapper .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+  .receipt-wrapper .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
+  .receipt-wrapper .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
+  .receipt-wrapper .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
+`;
+
 function wrapReceipt(inner: string): string {
   // <base> ensures relative asset URLs (e.g. /billlogo.png) resolve correctly
   // inside the document.write'd iframe in every browser.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
-<base href="${origin}/">
+  return \`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
+<base href="\${origin}/">
 <style>
-  @page { margin: 0; size: 80mm auto; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
   html { background: #fff; }
-  /* 80mm paper has a ~72mm printable area — keep content inside it to avoid
-     the right edge (Value column) clipping on 3" printers like the RP326. */
-  body { width: 72mm; margin: 0 auto; background: #fff; color: #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: bold; padding: 2mm 1.5mm; font-size: 13px; line-height: 1.35; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: bold; }
-  /* grayscale(1) ensures the logo prints well on a thermal printer without turning white backgrounds into a solid black box. */
-  .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
-  .store { font-size: 18px; font-weight: 900; }
-  .muted { font-size: 12px; }
-  .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
-  .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
-  td { font-size: 13px; padding: 2px 0; vertical-align: top; }
-  .totrow td { padding: 1px 0; }
-  .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
-  .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
-  .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
-  .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
-</style></head><body>${inner}</body></html>`;
+  body { margin: 0; }
+  \${RECEIPT_STYLES}
+</style></head><body><div class="receipt-wrapper">\${inner}</div></body></html>\`;
 }
 
 let printing: Promise<void> = Promise.resolve();
@@ -54,6 +56,58 @@ export function printReceipt(innerHtml: string): Promise<void> {
 
 function printOne(innerHtml: string): Promise<void> {
   return new Promise((resolve) => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Mobile browsers (esp Android Chrome) ignore iframe printing. 
+      // Inject directly into the top-level DOM.
+      const style = document.createElement("style");
+      style.textContent = \`
+        @media print {
+          body > *:not(#print-root-container) { display: none !important; }
+          #print-root-container { display: block !important; }
+        }
+        @media screen {
+          #print-root-container { display: none !important; }
+        }
+        \${RECEIPT_STYLES}
+      \`;
+      document.head.appendChild(style);
+
+      const div = document.createElement("div");
+      div.id = "print-root-container";
+      div.className = "receipt-wrapper";
+      div.innerHTML = innerHtml;
+      document.body.appendChild(div);
+
+      const triggerPrint = () => {
+        setTimeout(() => {
+          window.print();
+          // Cleanup after print dialog closes
+          setTimeout(() => {
+            try { document.head.removeChild(style); } catch {}
+            try { document.body.removeChild(div); } catch {}
+            resolve();
+          }, 1000);
+        }, 150);
+      };
+
+      const imgs = Array.from(div.querySelectorAll("img"));
+      if (imgs.length === 0) {
+        triggerPrint();
+      } else {
+        let remaining = imgs.length;
+        const done = () => { if (--remaining <= 0) triggerPrint(); };
+        imgs.forEach((img) => {
+          if (img.complete) done();
+          else { img.onload = done; img.onerror = done; }
+        });
+        setTimeout(triggerPrint, 1500); // safety fallback
+      }
+      return;
+    }
+
+    // --- Desktop: Use hidden iframe (prevents page from flashing or blocking UI) ---
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.style.position = "fixed";
