@@ -36,13 +36,13 @@ function wrapReceipt(inner: string): string {
   // <base> ensures relative asset URLs (e.g. /billlogo.png) resolve correctly
   // inside the document.write'd iframe in every browser.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return \`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
-<base href="\${origin}/">
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
+<base href="${origin}/">
 <style>
   html { background: #fff; }
   body { margin: 0; }
-  \${RECEIPT_STYLES}
-</style></head><body><div class="receipt-wrapper">\${inner}</div></body></html>\`;
+  ${RECEIPT_STYLES}
+</style></head><body><div class="receipt-wrapper">${inner}</div></body></html>`;
 }
 
 let printing: Promise<void> = Promise.resolve();
@@ -62,7 +62,7 @@ function printOne(innerHtml: string): Promise<void> {
       // Mobile browsers (esp Android Chrome) ignore iframe printing. 
       // Inject directly into the top-level DOM.
       const style = document.createElement("style");
-      style.textContent = \`
+      style.textContent = `
         @media print {
           body > *:not(#print-root-container) { display: none !important; }
           #print-root-container { display: block !important; }
@@ -70,8 +70,8 @@ function printOne(innerHtml: string): Promise<void> {
         @media screen {
           #print-root-container { display: none !important; }
         }
-        \${RECEIPT_STYLES}
-      \`;
+        ${RECEIPT_STYLES}
+      `;
       document.head.appendChild(style);
 
       const div = document.createElement("div");
