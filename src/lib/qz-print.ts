@@ -111,11 +111,21 @@ async function ensureConnected(): Promise<any> {
 
 /** True when we can reach QZ Tray right now (used by the settings screen). */
 export async function qzIsAvailable(): Promise<boolean> {
+  const r = await qzTestConnection();
+  return r.ok;
+}
+
+/** Like qzIsAvailable(), but also returns the actual failure reason so the
+ *  Settings screen can show it directly — without this, "unreachable" gave
+ *  no clue whether QZ wasn't running, a certificate was untrusted, a
+ *  firewall blocked it, etc., and getting that detail required opening the
+ *  browser console, which isn't always practical to walk someone through. */
+export async function qzTestConnection(): Promise<{ ok: boolean; error?: string }> {
   try {
     await ensureConnected();
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 

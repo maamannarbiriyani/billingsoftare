@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   getQzConfig,
   setQzConfig,
-  qzIsAvailable,
+  qzTestConnection,
   qzListPrinters,
   qzGetPrinterStatus,
   pickReceiptPrinter,
@@ -37,6 +37,7 @@ export function QzPrinterSettings() {
   const [testing, setTesting] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<ConnStatus>("unknown");
+  const [connError, setConnError] = useState<string | null>(null);
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
   const [checkingPrinter, setCheckingPrinter] = useState(false);
 
@@ -55,9 +56,10 @@ export function QzPrinterSettings() {
 
   async function checkConnection() {
     setStatus("checking");
-    const ok = await qzIsAvailable();
-    setStatus(ok ? "connected" : "unreachable");
-    return ok;
+    const r = await qzTestConnection();
+    setStatus(r.ok ? "connected" : "unreachable");
+    setConnError(r.ok ? null : r.error ?? null);
+    return r.ok;
   }
 
   function update(patch: Partial<QzConfig>) {
@@ -92,10 +94,13 @@ export function QzPrinterSettings() {
         }
       }
       if (selected) checkPrinterStatus(selected);
+      setConnError(null);
     } catch (e) {
       console.error(e);
       setStatus("unreachable");
-      if (!opts.silent) toast.error("Could not reach QZ Tray. Is it installed and running on this PC?");
+      const msg = e instanceof Error ? e.message : String(e);
+      setConnError(msg);
+      if (!opts.silent) toast.error("Could not reach QZ Tray: " + msg);
     } finally {
       setScanning(false);
     }
@@ -182,11 +187,18 @@ export function QzPrinterSettings() {
           </button>
         </div>
         {status === "unreachable" && (
-          <p className="text-xs text-rose-500 -mt-2">
-            QZ Tray must be installed and running (look for its icon in the Windows system tray). On
-            an HTTPS site the first connection may ask you to trust QZ&apos;s certificate — click
-            Allow / Trust.
-          </p>
+          <div className="text-xs text-rose-500 -mt-2 space-y-1">
+            <p>
+              QZ Tray must be installed and running (look for its icon in the Windows system tray). On
+              an HTTPS site the first connection may ask you to trust QZ&apos;s certificate — click
+              Allow / Trust.
+            </p>
+            {connError && (
+              <p className="font-mono bg-rose-500/10 rounded px-2 py-1 break-all">
+                Error detail: {connError}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Enable toggle */}
