@@ -257,7 +257,23 @@ function itemRow(name: string, price: string, qty: string, value: string) {
 // print.ts — so without this, the logo simply never printed at all.
 // This loads the PNG via Canvas, thresholds it to 1-bit monochrome, and
 // packs it into the raster image command the printer expects.
+//
+// Cached by URL: re-downloading the PNG and redoing the Canvas pixel loop
+// on every single print (as the first version did) added several seconds
+// per bill. The rasterized bytes never change between prints, so this
+// computes them once per session and reuses the cached result after that.
+const logoRasterCache = new Map<string, Promise<string>>();
+
 async function imageToEscPosRaster(url: string, dotsWidth = 384): Promise<string> {
+  const cached = logoRasterCache.get(url);
+  if (cached) return cached;
+  const promise = rasterizeImage(url, dotsWidth);
+  logoRasterCache.set(url, promise);
+  promise.catch(() => logoRasterCache.delete(url)); // don't cache failures
+  return promise;
+}
+
+async function rasterizeImage(url: string, dotsWidth: number): Promise<string> {
   const img = new Image();
   img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
@@ -325,7 +341,9 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
       console.error("Logo raster print failed — continuing without it", e);
     }
   }
-  o += AL_C + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1;
+  // SIZE_2 doubles character width, so only WIDTH/2 columns actually fit per
+  // line — the old hardcoded 20 truncated names that would've fit fine.
+  o += AL_C + SIZE_2 + clip(d.storeName, Math.floor(WIDTH / 2)) + "\n" + SIZE_1;
   if (d.phone) o += "Ph: " + d.phone + "\n";
   if (d.address) o += clip(d.address, WIDTH) + "\n";
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
