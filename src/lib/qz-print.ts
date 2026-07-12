@@ -17,10 +17,12 @@ import {
   printReceipt,
   buildBillHtml,
   buildKotHtml,
+  absUrl,
   type BillData,
   type KotHtmlData,
 } from "@/lib/print";
 import { toast } from "sonner";
+import { isNativeApp, printUsbRaw } from "@/lib/native-usb-print";
 
 // ── Per-terminal config (each billing machine has its own printer) ──
 const LS_ENABLED = "qz_enabled";
@@ -249,7 +251,63 @@ function itemRow(name: string, price: string, qty: string, value: string) {
   return padR(name, 22) + padL(price, 9) + padL(qty, 4) + padL(value, 13) + "\n";
 }
 
-export function buildBillEscPos(d: BillData): string {
+// ── Logo raster (ESC/POS "GS v 0" raster bit image) ────────────────
+// The raw ESC/POS text path (QZ Tray + the native USB plugin) has no
+// concept of an <img> tag — unlike the browser/HTML print path in
+// print.ts — so without this, the logo simply never printed at all.
+// This loads the PNG via Canvas, thresholds it to 1-bit monochrome, and
+// packs it into the raster image command the printer expects.
+async function imageToEscPosRaster(url: string, dotsWidth = 384): Promise<string> {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Logo image failed to load: " + url));
+    img.src = url;
+  });
+
+  const scale = dotsWidth / img.naturalWidth;
+  const dotsHeight = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = dotsWidth;
+  canvas.height = dotsHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  // Paint white first — the logo PNG has transparent/near-white areas that
+  // should stay unprinted, not turn into stray black dots.
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, dotsWidth, dotsHeight);
+  ctx.drawImage(img, 0, 0, dotsWidth, dotsHeight);
+
+  const { data } = ctx.getImageData(0, 0, dotsWidth, dotsHeight);
+  const bytesPerRow = Math.ceil(dotsWidth / 8);
+  const bitmap = new Uint8Array(bytesPerRow * dotsHeight);
+
+  for (let y = 0; y < dotsHeight; y++) {
+    for (let x = 0; x < dotsWidth; x++) {
+      const i = (y * dotsWidth + x) * 4;
+      const alpha = data[i + 3] / 255;
+      // Composite against white, then luminance-threshold to black/white —
+      // same idea as the grayscale+contrast filter used for the HTML path.
+      const lum = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) * alpha + 255 * (1 - alpha);
+      if (lum < 128) {
+        bitmap[y * bytesPerRow + (x >> 3)] |= 0x80 >> (x & 7);
+      }
+    }
+  }
+
+  const xL = bytesPerRow & 0xff;
+  const xH = (bytesPerRow >> 8) & 0xff;
+  const yL = dotsHeight & 0xff;
+  const yH = (dotsHeight >> 8) & 0xff;
+
+  let out = GS + "v" + "0" + String.fromCharCode(0, xL, xH, yL, yH);
+  for (let i = 0; i < bitmap.length; i++) out += String.fromCharCode(bitmap[i]);
+  return out;
+}
+
+export async function buildBillEscPos(d: BillData): Promise<string> {
   const date = (d.date || new Date())
     .toLocaleString("en-IN", {
       day: "2-digit", month: "2-digit", year: "numeric",
@@ -260,6 +318,13 @@ export function buildBillEscPos(d: BillData): string {
   const rupee = (n: number) => String(Math.round(n));
 
   let o = INIT + BOLD_ON;
+  if (d.logoUrl) {
+    try {
+      o += AL_C + (await imageToEscPosRaster(absUrl(d.logoUrl))) + "\n";
+    } catch (e) {
+      console.error("Logo raster print failed — continuing without it", e);
+    }
+  }
   o += AL_C + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1;
   if (d.phone) o += "Ph: " + d.phone + "\n";
   if (d.address) o += clip(d.address, WIDTH) + "\n";
@@ -356,13 +421,23 @@ export function rawbtTestPrint() {
 }
 
 // ── Smart print entry points ──────────────────────────────────────
-// Priority: QZ Tray (Windows/Mac/Linux desktop) → RawBT (Android) → browser.
+// Priority: native USB plugin (our own Android app shell) → QZ Tray
+// (Windows/Mac/Linux desktop) → RawBT (Android browser tab) → plain browser.
 export async function printBill(d: BillData): Promise<void> {
+  if (isNativeApp()) {
+    try {
+      await printUsbRaw(await buildBillEscPos(d));
+      return;
+    } catch (e) {
+      console.error("Native USB bill print failed — falling back", e);
+      toast.error("USB printer unreachable — check Settings");
+    }
+  }
   const cfg = getQzConfig();
   if (cfg.enabled) {
     try {
       const cash = (d.paymentMethod || "Cash").toLowerCase() === "cash";
-      await sendRaw(cfg.printer, buildBillEscPos(d), cfg.kickDrawer && cash);
+      await sendRaw(cfg.printer, await buildBillEscPos(d), cfg.kickDrawer && cash);
       return;
     } catch (e) {
       console.error("QZ bill print failed — falling back to browser print", e);
@@ -370,13 +445,21 @@ export async function printBill(d: BillData): Promise<void> {
     }
   }
   if (getRawBtEnabled()) {
-    sendRawBt(buildBillEscPos(d));
+    sendRawBt(await buildBillEscPos(d));
     return;
   }
   return printReceipt(buildBillHtml(d));
 }
 
 export async function printKot(d: KotHtmlData): Promise<void> {
+  if (isNativeApp()) {
+    try {
+      await printUsbRaw(buildKotEscPos(d));
+      return;
+    } catch (e) {
+      console.error("Native USB KOT print failed — falling back", e);
+    }
+  }
   const cfg = getQzConfig();
   if (cfg.enabled) {
     try {

@@ -154,7 +154,7 @@ const esc = (s: unknown) =>
 // root-relative path like "/billlogo.png" doesn't resolve, silently failing
 // to load and printing a broken-image glyph instead. Resolving to an
 // absolute URL up front avoids that ambiguity everywhere.
-const absUrl = (url: string) =>
+export const absUrl = (url: string) =>
   typeof window !== "undefined" ? new URL(url, window.location.origin).href : url;
 
 // ── Customer bill (80mm) ──────────────────────────────────────

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 import { QzPrinterSettings } from "@/components/QzPrinterSettings";
 import { RawBtPrinterSettings } from "@/components/RawBtPrinterSettings";
+import { NativeUsbPrinterSettings } from "@/components/NativeUsbPrinterSettings";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
@@ -108,6 +109,9 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           <ShopSettingsForm initialData={initialSetting} />
         </div>
       </section>
+
+      {/* Thermal Printer (native USB — only visible inside the Android app shell) */}
+      <NativeUsbPrinterSettings />
 
       {/* Thermal Printer (QZ Tray) */}
       <QzPrinterSettings />
