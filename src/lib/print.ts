@@ -187,8 +187,8 @@ export function buildBillHtml(d: BillData): string {
 
   const rows = d.items.map((it) => `
     <tr>
-      <td style="width:44%" class="">${esc(it.name)}</td>
-      <td style="width:20%" class="right">${rupee(it.price)}</td>
+      <td style="width:42%" class="">${esc(it.name)}</td>
+      <td style="width:18%; padding-right:6px" class="right">${rupee(it.price)}</td>
       <td style="width:10%" class="center">${it.qty}</td>
       <td style="width:26%" class="right">${rupee(it.price * it.qty)}</td>
     </tr>`).join("");
@@ -208,8 +208,8 @@ export function buildBillHtml(d: BillData): string {
     <hr class="hr-solid">
     <table>
       <thead><tr>
-        <th style="width:44%">Item</th>
-        <th style="width:20%" class="right">Price</th>
+        <th style="width:42%">Item</th>
+        <th style="width:18%; padding-right:6px" class="right">Price</th>
         <th style="width:10%" class="center">Qty</th>
         <th style="width:26%" class="right">Value</th>
       </tr></thead>
