@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     title: "Maamannar POS",
   },
   icons: {
-    icon: "/logo.jpeg",
-    apple: "/logo.jpeg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
