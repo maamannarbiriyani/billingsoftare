@@ -480,7 +480,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               logoUrl: "/billlogo.png",
             });
           }
-          // 2. Customer bill — prints directly via hidden iframe (no page nav, no PDF prompt)
+          // 2. Customer bill — prints directly, no page nav, no PDF prompt
           await printBillReceipt({
             storeName: storeInfo?.storeName || "My Store",
             phone: storeInfo?.phone,

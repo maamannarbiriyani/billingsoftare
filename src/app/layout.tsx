@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PwaRegister } from "@/components/PwaRegister";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -12,6 +13,20 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Maamannar Hotel POS",
   description: "Enterprise level hotel billing and inventory management",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Maamannar POS",
+  },
+  icons: {
+    icon: "/logo.jpeg",
+    apple: "/logo.jpeg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e40af",
 };
 
 export default function RootLayout({
@@ -29,6 +44,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <ToastProvider />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

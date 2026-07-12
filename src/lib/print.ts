@@ -3,44 +3,92 @@
 // ─────────────────────────────────────────────────────────────
 // Thermal-printer friendly receipt printing.
 //
-// Prints via a hidden <iframe> (NOT window.open) so popup blockers
-// never interfere. When the browser is launched in Chrome
-// "kiosk printing" mode (--kiosk-printing), window.print() goes
-// straight to the default printer with NO dialog and NO PDF prompt.
-// Otherwise the normal print dialog appears.
+// Prints by injecting the receipt into the current page (hidden), then
+// calling window.print() on the TOP-LEVEL window with print-only CSS that
+// hides everything else. This used to print from a hidden <iframe> instead,
+// which works on desktop Chrome but is silently a no-op on Android Chrome —
+// iframe.contentWindow.print() does not reliably invoke anything there.
+// Printing the top-level window avoids that platform gap, and avoids
+// popup blockers too (no new window/tab is ever opened).
+//
+// When the browser is launched in Chrome "kiosk printing" mode
+// (--kiosk-printing), window.print() goes straight to the default printer
+// with NO dialog and NO PDF prompt. Otherwise the normal print dialog (or,
+// on Android, the OS print sheet) appears.
 // ─────────────────────────────────────────────────────────────
 
-function wrapReceipt(inner: string): string {
-  // <base> ensures relative asset URLs (e.g. /billlogo.png) resolve correctly
-  // inside the document.write'd iframe in every browser.
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
-<base href="${origin}/">
-<style>
-  @page { margin: 0; size: 80mm auto; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { background: #fff; }
-  /* 80mm paper has a ~72mm printable area — keep content inside it to avoid
-     the right edge (Value column) clipping on 3" printers like the RP326. */
-  body { width: 72mm; margin: 0 auto; background: #fff; color: #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: bold; padding: 2mm 1.5mm; font-size: 13px; line-height: 1.35; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: bold; }
-  /* grayscale(1) ensures the logo prints well on a thermal printer without turning white backgrounds into a solid black box. */
-  .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1); }
-  .store { font-size: 18px; font-weight: 900; }
-  .muted { font-size: 12px; }
-  .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
-  .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
-  td { font-size: 13px; padding: 2px 0; vertical-align: top; }
-  .totrow td { padding: 1px 0; }
-  .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
-  .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
-  .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
-  .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
-</style></head><body>${inner}</body></html>`;
+const ROOT_ID = "__receipt_print_root";
+const STYLE_ID = "__receipt_print_style";
+
+function ensurePrintDom(): HTMLElement {
+  let root = document.getElementById(ROOT_ID);
+  if (!root) {
+    root = document.createElement("div");
+    root.id = ROOT_ID;
+    document.body.appendChild(root);
+  }
+  if (!document.getElementById(STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = `
+      #${ROOT_ID} { display: none; }
+      @media print {
+        /* html * (not just body *) so this also hides elements some browser
+           extensions inject as direct siblings of <body> (outside it, under
+           <html>) — those aren't reached by a body-only selector and can
+           otherwise bleed stray marks into the printed page. */
+        html * { visibility: hidden !important; }
+        #${ROOT_ID}, #${ROOT_ID} * { visibility: visible !important; }
+        #${ROOT_ID} {
+          display: block !important;
+          position: absolute; left: 0; top: 0;
+          /* box-sizing: border-box is essential here — without it, this width is added
+             ON TOP OF the padding below (72mm + 3mm padding = 75mm actual), which is
+             wider than the printable area and clips the right edge no matter how the
+             columns inside are sized. With border-box, 70mm is the true total width,
+             comfortably inside the ~72mm printable area of 80mm paper. */
+          box-sizing: border-box;
+          width: 70mm; margin: 0 auto; background: #fff; color: #000;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          /* normal weight by default — .bold/.store/th/etc opt into heavier weight for
+             emphasis (totals, headers). Previously the whole receipt was bold, which
+             printed noticeably heavier/darker than the reference QPOS receipt. */
+          font-weight: 400; font-size: 13px; line-height: 1.35;
+          /* our monospace stack has visibly wider gaps between characters than the
+             QPOS reference receipt's native printer font — tighten it to match. */
+          letter-spacing: -0.4px;
+          /* extra right padding (3.5mm vs 1.5mm elsewhere) — the Value column
+             kept clipping at the physical right edge even after the box-sizing
+             fix, so this reserves more headroom specifically on that side. */
+          padding: 2mm 3.5mm 2mm 1.5mm;
+        }
+        @page { margin: 0; size: 80mm auto; }
+      }
+      #${ROOT_ID} * { margin: 0; padding: 0; box-sizing: border-box; }
+      #${ROOT_ID} .center { text-align: center; }
+      #${ROOT_ID} .right { text-align: right; }
+      #${ROOT_ID} .bold { font-weight: bold; }
+      /* grayscale(1) converts the red logo to mid-gray; contrast() alone (no brightness())
+         pushes that mid-gray toward black while leaving the white background at white —
+         brightness() was removed because it darkens every pixel uniformly, including the
+         white background, which printed as a visible gray box behind the logo. */
+      #${ROOT_ID} .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
+      #${ROOT_ID} .store { font-size: 18px; font-weight: 900; }
+      #${ROOT_ID} .muted { font-size: 12px; }
+      #${ROOT_ID} .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+      #${ROOT_ID} .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
+      #${ROOT_ID} table { width: 100%; border-collapse: collapse; }
+      #${ROOT_ID} th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
+      #${ROOT_ID} td { font-size: 13px; padding: 2px 0; vertical-align: top; }
+      #${ROOT_ID} .totrow td { padding: 1px 0; }
+      #${ROOT_ID} .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+      #${ROOT_ID} .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
+      #${ROOT_ID} .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
+      #${ROOT_ID} .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
+    `;
+    document.head.appendChild(style);
+  }
+  return root;
 }
 
 let printing: Promise<void> = Promise.resolve();
@@ -54,46 +102,35 @@ export function printReceipt(innerHtml: string): Promise<void> {
 
 function printOne(innerHtml: string): Promise<void> {
   return new Promise((resolve) => {
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("aria-hidden", "true");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    document.body.appendChild(iframe);
+    const root = ensurePrintDom();
+    root.innerHTML = innerHtml;
 
     let finished = false;
     const cleanup = () => {
       if (finished) return;
       finished = true;
+      window.removeEventListener("afterprint", cleanup);
       setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch { /* already gone */ }
+        root.innerHTML = "";
         resolve();
-      }, 600);
+      }, 300);
     };
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) { cleanup(); return; }
-
-    doc.open();
-    doc.write(wrapReceipt(innerHtml));
-    doc.close();
 
     let triggered = false;
     const triggerPrint = () => {
       if (triggered) return;
       triggered = true;
+      window.addEventListener("afterprint", cleanup, { once: true });
       try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
+        window.print();
       } catch { /* ignore */ }
-      cleanup();
+      // afterprint isn't fired reliably on every Android/WebView build —
+      // this safety timeout guarantees the queue always moves on.
+      setTimeout(cleanup, 2000);
     };
 
     // Wait for any images (logo) to load before printing.
-    const imgs = Array.from(doc.images || []);
+    const imgs = Array.from(root.querySelectorAll("img"));
     if (imgs.length === 0) {
       setTimeout(triggerPrint, 150);
     } else {
@@ -112,6 +149,13 @@ function printOne(innerHtml: string): Promise<void> {
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+// Some Android print pipelines rasterize the page through a context where a
+// root-relative path like "/billlogo.png" doesn't resolve, silently failing
+// to load and printing a broken-image glyph instead. Resolving to an
+// absolute URL up front avoids that ambiguity everywhere.
+const absUrl = (url: string) =>
+  typeof window !== "undefined" ? new URL(url, window.location.origin).href : url;
 
 // ── Customer bill (80mm) ──────────────────────────────────────
 export type BillData = {
@@ -139,17 +183,18 @@ export function buildBillHtml(d: BillData): string {
   }).replace(",", "");
 
   const grand = Math.round(d.total);
+  const rupee = (n: number) => String(Math.round(n));
 
   const rows = d.items.map((it) => `
     <tr>
-      <td style="width:30mm" class="">${esc(it.name)}</td>
-      <td style="width:13mm" class="right">${it.price.toFixed(2)}</td>
-      <td style="width:7mm" class="center">${it.qty}</td>
-      <td style="width:17mm" class="right">${(it.price * it.qty).toFixed(2)}</td>
+      <td style="width:44%" class="">${esc(it.name)}</td>
+      <td style="width:20%" class="right">${rupee(it.price)}</td>
+      <td style="width:10%" class="center">${it.qty}</td>
+      <td style="width:26%" class="right">${rupee(it.price * it.qty)}</td>
     </tr>`).join("");
 
   return `
-    ${d.logoUrl ? `<img class="logo" src="${esc(d.logoUrl)}" alt="">` : ""}
+    ${d.logoUrl ? `<img class="logo" src="${esc(absUrl(d.logoUrl))}" alt="">` : ""}
     <div class="center">
       <div class="store">${esc(d.storeName)}</div>
       ${d.phone ? `<div class="muted">Ph: ${esc(d.phone)}</div>` : ""}
@@ -163,23 +208,23 @@ export function buildBillHtml(d: BillData): string {
     <hr class="hr-solid">
     <table>
       <thead><tr>
-        <th style="width:30mm">Item</th>
-        <th style="width:13mm" class="right">Price</th>
-        <th style="width:7mm" class="center">Qty</th>
-        <th style="width:17mm" class="right">Value</th>
+        <th style="width:44%">Item</th>
+        <th style="width:20%" class="right">Price</th>
+        <th style="width:10%" class="center">Qty</th>
+        <th style="width:26%" class="right">Value</th>
       </tr></thead>
     </table>
     <hr class="hr">
     <table><tbody>${rows}</tbody></table>
     <hr class="hr-solid">
     <table>
-      <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:22mm">${d.subtotal.toFixed(2)}</td></tr>
-      ${d.discountAmount && d.discountAmount > 0 ? `<tr class="totrow"><td class="right">Discount:</td><td class="right" style="width:22mm">-${d.discountAmount.toFixed(2)}</td></tr>` : ""}
-      ${d.gstAmount && d.gstAmount > 0 ? `<tr class="totrow"><td class="right">GST:</td><td class="right" style="width:22mm">+${d.gstAmount.toFixed(2)}</td></tr>` : ""}
-      <tr class="totrow"><td class="right bold">Grand Total:</td><td class="right bold" style="width:22mm">${grand.toFixed(2)}</td></tr>
+      <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:30%">${rupee(d.subtotal)}</td></tr>
+      ${d.discountAmount && d.discountAmount > 0 ? `<tr class="totrow"><td class="right">Discount:</td><td class="right" style="width:30%">-${rupee(d.discountAmount)}</td></tr>` : ""}
+      ${d.gstAmount && d.gstAmount > 0 ? `<tr class="totrow"><td class="right">GST:</td><td class="right" style="width:30%">+${rupee(d.gstAmount)}</td></tr>` : ""}
+      <tr class="totrow"><td class="right bold">Grand Total:</td><td class="right bold" style="width:30%">${grand}</td></tr>
     </table>
     <hr class="hr">
-    <div>Tender: ${grand.toFixed(2)}</div>
+    <div>Tender: ${grand}</div>
     <div>Payment Mode: ${esc(d.paymentMethod || "Cash")}</div>
     <hr class="hr-solid">
     <div class="center" style="padding:6px 0 10px">Thank You! Visit Again!!</div>
@@ -204,7 +249,7 @@ export function buildKotHtml(d: KotHtmlData): string {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
   return `
-    ${d.logoUrl ? `<img class="logo" src="${esc(d.logoUrl)}" alt="">` : ""}
+    ${d.logoUrl ? `<img class="logo" src="${esc(absUrl(d.logoUrl))}" alt="">` : ""}
     ${d.storeName ? `<div class="center store" style="margin-bottom: 4px;">${esc(d.storeName)}</div>` : ""}
     <div class="center kot-h1">KOT</div>
     <div class="center muted">Kitchen Order Ticket</div>

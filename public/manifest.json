@@ -1,0 +1,16 @@
+{
+  "name": "Maamannar Hotel POS",
+  "short_name": "Maamannar POS",
+  "description": "Enterprise level hotel billing and inventory management",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e40af",
+  "icons": [
+    { "src": "/logo.jpeg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/logo.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/logo.jpeg", "sizes": "1600x1600", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

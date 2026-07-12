@@ -257,6 +257,7 @@ export function buildBillEscPos(d: BillData): string {
     })
     .replace(",", "");
   const grand = Math.round(d.total);
+  const rupee = (n: number) => String(Math.round(n));
 
   let o = INIT + BOLD_ON;
   o += AL_C + SIZE_2 + clip(d.storeName, 20) + "\n" + SIZE_1;
@@ -271,13 +272,13 @@ export function buildBillEscPos(d: BillData): string {
   o += itemRow("Item", "Price", "Qty", "Value");
   o += rule();
   d.items.forEach((it) => {
-    o += itemRow(it.name, it.price.toFixed(2), String(it.qty), (it.price * it.qty).toFixed(2));
+    o += itemRow(it.name, rupee(it.price), String(it.qty), rupee(it.price * it.qty));
   });
   o += rule("=");
-  o += two("Sub Total:", d.subtotal.toFixed(2));
-  if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + d.discountAmount.toFixed(2));
-  if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + d.gstAmount.toFixed(2));
-  o += two("GRAND TOTAL:", grand.toFixed(2));
+  o += two("Sub Total:", rupee(d.subtotal));
+  if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + rupee(d.discountAmount));
+  if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + rupee(d.gstAmount));
+  o += two("GRAND TOTAL:", String(grand));
   o += rule();
   o += "Payment: " + (d.paymentMethod || "Cash") + "\n";
   o += AL_C + "\nThank You! Visit Again!!\n";
@@ -310,7 +311,52 @@ export function buildKotEscPos(d: KotHtmlData): string {
   return o;
 }
 
-// ── Smart print entry points (QZ if enabled + reachable, else HTML) ──
+// ── RawBT (Android USB/Bluetooth/Wi-Fi ESC/POS printing) ──────────
+// RawBT (Play Store: ru.a402d.rawbtprinter) owns the actual connection to
+// the printer on Android — this just hands it raw ESC/POS bytes via its
+// "rawbt:" intent scheme. Fire-and-forget: Android gives no callback if the
+// app isn't installed, so unlike QZ there's no live connection check.
+const LS_RAWBT_ENABLED = "rawbt_enabled";
+
+export function getRawBtEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(LS_RAWBT_ENABLED) === "1";
+}
+
+export function setRawBtEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_RAWBT_ENABLED, enabled ? "1" : "0");
+}
+
+function sendRawBt(escpos: string) {
+  let b64: string;
+  try {
+    b64 = btoa(escpos);
+  } catch {
+    // escpos has chars outside Latin1 (e.g. non-ASCII item names) — btoa()
+    // rejects those directly, so fall back to a UTF-8-safe encoding.
+    b64 = btoa(unescape(encodeURIComponent(escpos)));
+  }
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = "rawbt:base64," + b64;
+  document.body.appendChild(iframe);
+  setTimeout(() => {
+    try { document.body.removeChild(iframe); } catch { /* already gone */ }
+  }, 1000);
+}
+
+/** Fire a small ESC/POS test slip via RawBT (settings screen). */
+export function rawbtTestPrint() {
+  const receipt =
+    INIT + AL_C + BOLD_ON + SIZE_2 + "TEST OK\n" + SIZE_1 + BOLD_OFF +
+    "RawBT + ESC/POS\n" + new Date().toLocaleString("en-IN") + "\n" +
+    rule() + "If you can read this, printing works.\n" + CUT;
+  sendRawBt(receipt);
+}
+
+// ── Smart print entry points ──────────────────────────────────────
+// Priority: QZ Tray (Windows/Mac/Linux desktop) → RawBT (Android) → browser.
 export async function printBill(d: BillData): Promise<void> {
   const cfg = getQzConfig();
   if (cfg.enabled) {
@@ -322,6 +368,10 @@ export async function printBill(d: BillData): Promise<void> {
       console.error("QZ bill print failed — falling back to browser print", e);
       toast.error("Printer (QZ Tray) unreachable — printed via browser instead");
     }
+  }
+  if (getRawBtEnabled()) {
+    sendRawBt(buildBillEscPos(d));
+    return;
   }
   return printReceipt(buildBillHtml(d));
 }
@@ -335,6 +385,10 @@ export async function printKot(d: KotHtmlData): Promise<void> {
     } catch (e) {
       console.error("QZ KOT print failed — falling back to browser print", e);
     }
+  }
+  if (getRawBtEnabled()) {
+    sendRawBt(buildKotEscPos(d));
+    return;
   }
   return printReceipt(buildKotHtml(d));
 }

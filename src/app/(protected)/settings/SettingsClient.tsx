@@ -6,6 +6,7 @@ import { upsertOwnerAccount } from "@/app/actions/owner-account";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 import { QzPrinterSettings } from "@/components/QzPrinterSettings";
+import { RawBtPrinterSettings } from "@/components/RawBtPrinterSettings";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
@@ -110,6 +111,9 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
 
       {/* Thermal Printer (QZ Tray) */}
       <QzPrinterSettings />
+
+      {/* Thermal Printer (RawBT / Android) */}
+      <RawBtPrinterSettings />
 
       {/* Backup & Restore Section */}
       <section className="card overflow-hidden">
