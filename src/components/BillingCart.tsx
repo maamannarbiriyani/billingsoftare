@@ -42,6 +42,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
+  verticalListSortingStrategy,
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -53,6 +54,7 @@ type StoreInfo = {
   address?: string | null;
   gstNumber?: string | null;
   gstPercent?: number | null;
+  categoryOrder?: string | null;
 };
 
 // ─── Design tokens ────────────────────────────────────────────────
@@ -190,6 +192,48 @@ function SortableProductItem({ product, inCart, isOutOfStock, isLowStock, addToC
         </div>
       )}
     </div>
+  );
+}
+
+function SortableCategoryItem({ cat, count, isActive, onSelect }: { cat: string; count: number; isActive: boolean; onSelect: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <button
+      ref={setNodeRef}
+      style={{
+        ...style,
+        ...(isActive
+          ? { background: S.violetLo, borderLeft: `2px solid ${S.violet}` }
+          : { borderLeft: "2px solid transparent", color: S.muted }),
+      }}
+      className="w-full flex items-center justify-between px-2.5 py-2.5 rounded-lg transition-colors text-left cursor-grab active:cursor-grabbing"
+      onClick={onSelect}
+      {...attributes}
+      {...listeners}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <Tag className="h-3 w-3 flex-shrink-0" style={{ color: isActive ? S.violet : S.dim }} />
+        <span className="font-bold text-xs truncate" style={{ color: isActive ? "#e0d0ff" : S.muted }}>
+          {cat}
+        </span>
+      </div>
+      <span
+        className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-1"
+        style={
+          isActive
+            ? { background: "rgba(59,130,246,0.3)", color: "#bfdbfe" }
+            : { background: S.subtleHi, color: S.dim }
+        }
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -333,10 +377,46 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
     });
   }, [allProducts, query, selectedCategory]);
 
+  const [categoryOrder, setCategoryOrder] = useState<string[]>(() => {
+    if (!storeInfo?.categoryOrder) return [];
+    try {
+      const parsed = JSON.parse(storeInfo.categoryOrder);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
   const categories = useMemo(() => {
-    const cats = new Set(allProducts.map((p) => p.category).filter(Boolean));
-    return ["All", ...Array.from(cats)];
-  }, [allProducts]);
+    const discovered = Array.from(new Set(allProducts.map((p) => p.category).filter(Boolean))) as string[];
+    // Categories with a saved position come first (in that order); anything
+    // new (not yet dragged into place) is appended at the end.
+    const known = categoryOrder.filter((c) => discovered.includes(c));
+    const rest = discovered.filter((c) => !known.includes(c));
+    return ["All", ...known, ...rest];
+  }, [allProducts, categoryOrder]);
+
+  function handleCategoryDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    if (active.id === "All" || over.id === "All") return;
+
+    const draggable = categories.filter((c) => c !== "All");
+    const oldIndex = draggable.indexOf(active.id as string);
+    const newIndex = draggable.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(draggable, oldIndex, newIndex);
+    setCategoryOrder(reordered);
+    fetch("/api/settings/category-order", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: reordered }),
+    }).catch((err) => {
+      console.error("Failed to persist category order", err);
+      toast.error("Failed to save category order");
+    });
+  }
 
   const addToCart = (product: any) => {
     setCart((prev) => {
@@ -634,44 +714,48 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               </div>
             </div>
 
-            {/* Category list */}
+            {/* Category list — "All" is a synthetic pinned entry (not a
+                real category), so it's rendered separately and stays first. */}
             <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 scrollbar-thin">
-              {categories.map((cat) => {
-                const count = cat === "All" ? allProducts.length : allProducts.filter(p => p.category === cat).length;
-                const isActive = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => { setSelectedCategory(cat); setViewMode("PRODUCTS"); }}
-                    className="w-full flex items-center justify-between px-2.5 py-2.5 rounded-lg transition-all text-left"
-                    style={
-                      isActive
-                        ? { background: S.violetLo, borderLeft: `2px solid ${S.violet}` }
-                        : { borderLeft: "2px solid transparent", color: S.muted }
-                    }
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Tag className="h-3 w-3 flex-shrink-0" style={{ color: isActive ? S.violet : S.dim }} />
-                      <span
-                        className="font-bold text-xs truncate"
-                        style={{ color: isActive ? "#e0d0ff" : S.muted }}
-                      >
-                        {cat}
-                      </span>
-                    </div>
-                    <span
-                      className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-1"
-                      style={
-                        isActive
-                          ? { background: "rgba(59,130,246,0.3)", color: "#bfdbfe" }
-                          : { background: S.subtleHi, color: S.dim }
-                      }
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+              <button
+                onClick={() => { setSelectedCategory("All"); setViewMode("PRODUCTS"); }}
+                className="w-full flex items-center justify-between px-2.5 py-2.5 rounded-lg transition-all text-left"
+                style={
+                  selectedCategory === "All"
+                    ? { background: S.violetLo, borderLeft: `2px solid ${S.violet}` }
+                    : { borderLeft: "2px solid transparent", color: S.muted }
+                }
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Tag className="h-3 w-3 flex-shrink-0" style={{ color: selectedCategory === "All" ? S.violet : S.dim }} />
+                  <span className="font-bold text-xs truncate" style={{ color: selectedCategory === "All" ? "#e0d0ff" : S.muted }}>
+                    All
+                  </span>
+                </div>
+                <span
+                  className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-1"
+                  style={
+                    selectedCategory === "All"
+                      ? { background: "rgba(59,130,246,0.3)", color: "#bfdbfe" }
+                      : { background: S.subtleHi, color: S.dim }
+                  }
+                >
+                  {allProducts.length}
+                </span>
+              </button>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                <SortableContext items={categories.filter(c => c !== "All")} strategy={verticalListSortingStrategy}>
+                  {categories.filter(c => c !== "All").map((cat) => (
+                    <SortableCategoryItem
+                      key={cat}
+                      cat={cat}
+                      count={allProducts.filter(p => p.category === cat).length}
+                      isActive={selectedCategory === cat}
+                      onSelect={() => { setSelectedCategory(cat); setViewMode("PRODUCTS"); }}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           </div>
 

@@ -113,6 +113,7 @@ model Setting {
   gstPercent    Float     @default(0) // Default GST % applied in billing
   address       String?
   printerName   String?
+  categoryOrder String?   // JSON array of category names — custom sidebar order in Billing
   licenseKey    String?
   licenseExpiry DateTime?
   updatedAt     DateTime  @updatedAt
