@@ -131,7 +131,7 @@ export default async function OwnerExpensesPage({
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{exp.category}</span>
                     <span className="text-xs text-slate-400">
-                      {exp.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      {exp.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                     </span>
                   </div>
                 </div>

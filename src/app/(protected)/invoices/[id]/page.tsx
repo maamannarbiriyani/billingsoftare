@@ -102,7 +102,7 @@ export default async function InvoiceReceiptPage({
             <div className="text-left px-1 pb-1">
               <p className="text-[12px]">{invoice.createdAt.toLocaleString("en-IN", {
                     day: "2-digit", month: "2-digit", year: "numeric",
-                    hour: "2-digit", minute: "2-digit", hour12: false
+                    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
                   }).replace(",", "")}</p>
               <p className="text-[12px]">Bill No:{invoice.invoiceNumber}</p>
               {(invoice.customer?.name || invoice.customerName) && (

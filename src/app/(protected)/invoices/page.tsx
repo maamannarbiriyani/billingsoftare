@@ -305,10 +305,10 @@ export default async function InvoicesPage({
                       {/* Date */}
                       <td>
                         <p className="text-sm text-foreground font-medium">
-                          {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
                         </p>
                       </td>
 

@@ -209,7 +209,7 @@ export default async function DashboardPage({
       cursor.setDate(cursor.getDate() + 1);
     }
     invoices.forEach((inv) => {
-      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Kolkata" });
       const bucket = trendMap.get(key);
       if (!bucket) return;
       bucket.revenue += inv.total;

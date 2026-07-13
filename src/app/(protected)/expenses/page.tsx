@@ -78,7 +78,7 @@ export default async function ExpensesPage() {
                     <td>
                       <div className="flex items-center gap-2 text-muted-foreground font-medium">
                         <Calendar className="h-4 w-4 text-muted-foreground/80" />
-                        {expense.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {expense.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Kolkata" })}
                       </div>
                     </td>
                     <td>

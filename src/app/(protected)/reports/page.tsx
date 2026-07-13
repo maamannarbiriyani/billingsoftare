@@ -210,9 +210,9 @@ export default async function ReportsPage({
                       <div className="min-w-0">
                         <p className="font-mono font-extrabold text-foreground text-base truncate">{inv.invoiceNumber}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                           {" · "}
-                          {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                          {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
                         </p>
                       </div>
                       <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${st.cls}`}>
@@ -447,7 +447,7 @@ export default async function ReportsPage({
                   <div>
                     <p className="text-xs text-muted-foreground">Date</p>
                     <p className="font-bold text-foreground">
-                      {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })}
                     </p>
                   </div>
                   <div>
@@ -590,7 +590,7 @@ export default async function ReportsPage({
               <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-extrabold text-foreground">
-                    {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
+                    {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                   </h3>
                   <span className="text-xs font-semibold text-muted-foreground">{d.bills} bills</span>
                 </div>
@@ -659,7 +659,7 @@ export default async function ReportsPage({
                 <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-extrabold text-foreground">
-                      {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                      {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })}
                     </h3>
                     <span className="text-xs font-semibold text-muted-foreground">{m.bills} bills</span>
                   </div>

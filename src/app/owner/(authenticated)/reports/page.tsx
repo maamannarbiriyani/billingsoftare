@@ -55,7 +55,7 @@ export default async function OwnerReportsPage({
       chartMap[key] = { label: key, revenue: 0, profit: 0 };
     }
     invoices.forEach(inv => {
-      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "Asia/Kolkata" });
       if (chartMap[key]) {
         chartMap[key].revenue += inv.total;
         let cog = 0;
@@ -64,7 +64,7 @@ export default async function OwnerReportsPage({
       }
     });
     expensesRaw.forEach(exp => {
-      const key = exp.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      const key = exp.date.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "Asia/Kolkata" });
       if (chartMap[key]) chartMap[key].profit -= exp.amount;
     });
   } else {
@@ -72,11 +72,11 @@ export default async function OwnerReportsPage({
       const d = new Date(now);
       d.setDate(now.getDate() - i);
       d.setHours(0, 0, 0, 0);
-      const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
       chartMap[key] = { label: key, revenue: 0, profit: 0 };
     }
     invoices.forEach(inv => {
-      const key = inv.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      const key = inv.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
       if (chartMap[key]) {
         chartMap[key].revenue += inv.total;
         let cog = 0;
@@ -85,7 +85,7 @@ export default async function OwnerReportsPage({
       }
     });
     expensesRaw.forEach(exp => {
-      const key = exp.date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      const key = exp.date.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
       if (chartMap[key]) chartMap[key].profit -= exp.amount;
     });
   }

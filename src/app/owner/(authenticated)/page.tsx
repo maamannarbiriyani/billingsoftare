@@ -67,11 +67,11 @@ export default async function OwnerDashboardPage() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(startOfDay);
     d.setDate(startOfDay.getDate() - i);
-    const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
     dayMap[key] = 0;
   }
   weekData.forEach(inv => {
-    const key = inv.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    const key = inv.createdAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
     if (dayMap[key] !== undefined) dayMap[key] += inv.total;
   });
   const sparkData = Object.entries(dayMap);
@@ -170,7 +170,7 @@ export default async function OwnerDashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-800">#{inv.invoiceNumber}</p>
                   <p className="text-xs text-slate-400">
-                    {inv.createdAt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {inv.createdAt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
                     {" · "}{inv.paymentMethod}
                   </p>
                 </div>
