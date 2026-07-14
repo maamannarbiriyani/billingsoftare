@@ -8,6 +8,29 @@ import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import { getActiveBranchId } from "@/lib/auth";
 
+// Category is free text typed by the cashier every time a product is
+// created/edited, with no autocomplete against existing categories — a
+// stray trailing space or different letter case (e.g. "Fried rice " or
+// "fried Rice") looks identical in the UI but is a different string, so it
+// silently created a brand-new sidebar category instead of joining the
+// existing one. This trims the input and, if an existing category matches
+// case-insensitively, reuses its exact stored spelling so products always
+// merge into the one the cashier already sees on screen.
+async function resolveCategory(branchId: number, raw: string | null): Promise<string | null> {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+
+  const existing = await prisma.product.findMany({
+    where: { branchId, category: { not: null } },
+    select: { category: true },
+    distinct: ["category"],
+  });
+  const match = existing.find(
+    (p) => p.category?.toLowerCase() === trimmed.toLowerCase()
+  );
+  return match?.category ?? trimmed;
+}
+
 export async function createProduct(formData: FormData) {
   const name = formData.get("name") as string;
   let barcode = formData.get("barcode") as string;
@@ -15,7 +38,7 @@ export async function createProduct(formData: FormData) {
   const costPrice = parseFloat(formData.get("costPrice") as string) || 0;
   const gstRate = parseFloat(formData.get("gstRate") as string) || 0;
   const stock = parseInt(formData.get("stock") as string, 10);
-  const category = (formData.get("category") as string) || null;
+  const rawCategory = (formData.get("category") as string) || null;
   const unit = (formData.get("unit") as string) || "pcs";
   const hsnCode = (formData.get("hsnCode") as string) || null;
   const imageFile = formData.get("image") as File | null;
@@ -26,6 +49,8 @@ export async function createProduct(formData: FormData) {
 
   const branchId = await getActiveBranchId();
   if (!branchId) return { error: "No active branch" };
+
+  const category = await resolveCategory(branchId, rawCategory);
 
   if (!barcode) {
     let candidate = "";
@@ -88,7 +113,7 @@ export async function updateProduct(id: number, formData: FormData) {
   const costPrice = parseFloat(formData.get("costPrice") as string) || 0;
   const gstRate = parseFloat(formData.get("gstRate") as string) || 0;
   const stock = parseInt(formData.get("stock") as string, 10);
-  const category = (formData.get("category") as string) || null;
+  const rawCategory = (formData.get("category") as string) || null;
   const unit = (formData.get("unit") as string) || "pcs";
   const hsnCode = (formData.get("hsnCode") as string) || null;
   const imageFile = formData.get("image") as File | null;
@@ -101,6 +126,8 @@ export async function updateProduct(id: number, formData: FormData) {
 
   const branchId = await getActiveBranchId();
   if (!branchId) return { error: "No active branch" };
+
+  const category = await resolveCategory(branchId, rawCategory);
 
   let imageUrl = undefined;
   if (imageFile && imageFile.size > 0) {
@@ -219,13 +246,36 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
 
   try {
     let importedCount = 0;
-    
+
+    // Same case-insensitive category matching as the single-product form
+    // (see resolveCategory) — otherwise a CSV with "fried rice" merges into
+    // a new duplicate category instead of joining an existing "Fried rice".
+    const existingCategories = await prisma.product.findMany({
+      where: { branchId, category: { not: null } },
+      select: { category: true },
+      distinct: ["category"],
+    });
+    const categoryByLower = new Map<string, string>();
+    for (const p of existingCategories) {
+      if (p.category) categoryByLower.set(p.category.toLowerCase(), p.category);
+    }
+    function resolveBulkCategory(raw: string | null | undefined): string | null {
+      const trimmed = raw?.trim();
+      if (!trimmed) return null;
+      const lower = trimmed.toLowerCase();
+      const existing = categoryByLower.get(lower);
+      if (existing) return existing;
+      categoryByLower.set(lower, trimmed);
+      return trimmed;
+    }
+
     // We do this in a transaction, using upsert to avoid duplicate barcode errors
     await prisma.$transaction(async (tx) => {
       for (const p of products) {
         // Basic validation
         if (!p.name || isNaN(p.price) || isNaN(p.stock)) continue;
-        
+
+        const category = resolveBulkCategory(p.category);
         let finalBarcode = p.barcode?.trim() || "";
         if (!finalBarcode) {
           // Unique barcode: timestamp + random suffix guarantees uniqueness within a batch
@@ -246,7 +296,7 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
                 price: p.price,
                 costPrice: p.costPrice || 0,
                 stock: p.stock,
-                category: p.category || null,
+                category,
                 branchId,
               }
             });
@@ -260,7 +310,7 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
                 price: p.price,
                 costPrice: p.costPrice || 0,
                 stock: { increment: p.stock },
-                category: p.category || null,
+                category,
               }
             });
             importedCount++;
@@ -274,7 +324,7 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
               price: p.price,
               costPrice: p.costPrice || 0,
               stock: p.stock,
-              category: p.category || null,
+              category,
               branchId,
             }
           });
