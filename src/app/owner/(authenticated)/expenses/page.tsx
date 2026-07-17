@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/owner-auth";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
+import { getISTDateRange, toIST } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,24 +15,10 @@ export default async function OwnerExpensesPage({
   const params = await searchParams;
   const range = params.range || "month";
 
-  const now = new Date();
-  let startDate: Date;
-  switch (range) {
-    case "today":
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
-    case "week":
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-      break;
-    case "all":
-      startDate = new Date(2000, 0, 1);
-      break;
-    default: // month
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
+  const { startDate, endDate } = getISTDateRange(range);
 
   const expenses = await prisma.expense.findMany({
-    where: { date: { gte: startDate } },
+    where: { date: { gte: startDate, lte: endDate } },
     orderBy: { date: "desc" },
   });
 
@@ -131,7 +118,11 @@ export default async function OwnerExpensesPage({
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{exp.category}</span>
                     <span className="text-xs text-slate-400">
+<<<<<<< Updated upstream
                       {exp.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
+=======
+                      {toIST(exp.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}
+>>>>>>> Stashed changes
                     </span>
                   </div>
                 </div>

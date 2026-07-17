@@ -4,6 +4,7 @@ import { ReportNav } from "./ReportNav";
 import { reportLabel } from "./reportTypes";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { getISTDateRange, toIST, fromIST } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -82,40 +83,18 @@ export default async function ReportsPage({
   // Day Wise reads better over a span of days, so default it to the month.
   const defaultRange = type === "daywise" ? "month" : "today";
   const range = params.range || defaultRange;
-  const now = new Date();
   const title = reportLabel(type);
 
-  let startDate: Date;
-  let endDate: Date;
-  let periodLabel: string;
-
-  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-    const [y, m] = monthParam.split("-").map(Number);
-    startDate = new Date(y, m - 1, 1, 0, 0, 0);
-    endDate = new Date(y, m, 0, 23, 59, 59, 999);
-    periodLabel = startDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-  } else if (range === "yesterday") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    endDate = new Date(startDate.getTime() + 86400000 - 1);
-    periodLabel = "Yesterday";
-  } else if (range === "week") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    periodLabel = "Last 7 Days";
-  } else if (range === "month") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    periodLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-  } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 86400000 - 1);
-    periodLabel = "Today";
-  }
+  let { startDate, endDate, periodLabel } = getISTDateRange(range, monthParam);
 
   // Monthly report always spans the trailing 12 months.
   if (type === "monthly") {
-    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
+    // For trailing 12 months, we want to start from 11 months ago in IST
+    const nowIst = toIST(new Date());
+    const startIst = new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth() - 11, 1, 0, 0, 0));
+    const endIst = new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    startDate = fromIST(startIst);
+    endDate = fromIST(endIst);
     periodLabel = "Last 12 Months";
   }
 
@@ -210,9 +189,15 @@ export default async function ReportsPage({
                       <div className="min-w-0">
                         <p className="font-mono font-extrabold text-foreground text-base truncate">{inv.invoiceNumber}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
+<<<<<<< Updated upstream
                           {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                           {" · "}
                           {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
+=======
+                          {toIST(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}
+                          {" · "}
+                          {toIST(inv.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "UTC" })}
+>>>>>>> Stashed changes
                         </p>
                       </div>
                       <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${st.cls}`}>
@@ -406,8 +391,8 @@ export default async function ReportsPage({
       const sold = it.qty - it.returnedQty;
       if (sold <= 0) return;
       const cat = it.product.category || "Uncategorized";
-      const d = it.invoice.createdAt;
-      const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const d = toIST(it.invoice.createdAt);
+      const dateKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
       const key = `${cat}__${dateKey}`;
       const existing = catDateMap.get(key);
       if (existing) {
@@ -416,7 +401,7 @@ export default async function ReportsPage({
       } else {
         catDateMap.set(key, {
           category: cat,
-          date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+          date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())),
           qty: sold,
           revenue: sold * it.price,
         });
@@ -447,7 +432,11 @@ export default async function ReportsPage({
                   <div>
                     <p className="text-xs text-muted-foreground">Date</p>
                     <p className="font-bold text-foreground">
+<<<<<<< Updated upstream
                       {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })}
+=======
+                      {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
+>>>>>>> Stashed changes
                     </p>
                   </div>
                   <div>
@@ -559,11 +548,11 @@ export default async function ReportsPage({
 
     const dayMap = new Map<string, { date: Date; bills: number; sales: number; gst: number; discount: number }>();
     invoices.forEach((inv) => {
-      const d = inv.createdAt;
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const d = toIST(inv.createdAt);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
       let row = dayMap.get(key);
       if (!row) {
-        row = { date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), bills: 0, sales: 0, gst: 0, discount: 0 };
+        row = { date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())), bills: 0, sales: 0, gst: 0, discount: 0 };
         dayMap.set(key, row);
       }
       row.bills++;
@@ -590,7 +579,11 @@ export default async function ReportsPage({
               <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-extrabold text-foreground">
+<<<<<<< Updated upstream
                     {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
+=======
+                    {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}
+>>>>>>> Stashed changes
                   </h3>
                   <span className="text-xs font-semibold text-muted-foreground">{d.bills} bills</span>
                 </div>
@@ -625,11 +618,11 @@ export default async function ReportsPage({
 
     const monthMap = new Map<string, { date: Date; bills: number; sales: number; gst: number; discount: number }>();
     invoices.forEach((inv) => {
-      const d = inv.createdAt;
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const d = toIST(inv.createdAt);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
       let row = monthMap.get(key);
       if (!row) {
-        row = { date: new Date(d.getFullYear(), d.getMonth(), 1), bills: 0, sales: 0, gst: 0, discount: 0 };
+        row = { date: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)), bills: 0, sales: 0, gst: 0, discount: 0 };
         monthMap.set(key, row);
       }
       row.bills++;
@@ -659,7 +652,11 @@ export default async function ReportsPage({
                 <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-extrabold text-foreground">
+<<<<<<< Updated upstream
                       {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })}
+=======
+                      {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}
+>>>>>>> Stashed changes
                     </h3>
                     <span className="text-xs font-semibold text-muted-foreground">{m.bills} bills</span>
                   </div>
@@ -686,7 +683,7 @@ export default async function ReportsPage({
 
     const hourMap: { count: number; revenue: number }[] = Array.from({ length: 24 }, () => ({ count: 0, revenue: 0 }));
     invoices.forEach((inv) => {
-      const h = inv.createdAt.getHours();
+      const h = toIST(inv.createdAt).getUTCHours();
       hourMap[h].count++;
       hourMap[h].revenue += inv.total;
     });

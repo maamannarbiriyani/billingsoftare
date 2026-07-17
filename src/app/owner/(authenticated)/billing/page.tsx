@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/owner-auth";
 import Link from "next/link";
 import { Receipt, Search, Filter } from "lucide-react";
+import { getISTDateRange, toIST } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,25 +17,7 @@ export default async function OwnerBillingPage({
   const method = params.method || "";
   const q = params.q || "";
 
-  const now = new Date();
-  let startDate: Date;
-
-  switch (range) {
-    case "yesterday":
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      break;
-    case "week":
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-      break;
-    case "month":
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case "all":
-      startDate = new Date(2000, 0, 1);
-      break;
-    default: // today
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
+  const { startDate } = getISTDateRange(range, null);
 
   const where: any = { createdAt: { gte: startDate } };
   if (method) where.paymentMethod = method;
@@ -168,10 +151,17 @@ export default async function OwnerBillingPage({
                     </td>
                     <td className="px-5 py-3.5">
                       <p className="text-xs text-slate-800">
+<<<<<<< Updated upstream
                         {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" })}
                       </p>
                       <p className="text-xs text-slate-400">
                         {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
+=======
+                        {toIST(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" })}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {toIST(inv.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}
+>>>>>>> Stashed changes
                       </p>
                     </td>
                     <td className="px-5 py-3.5 hidden sm:table-cell">

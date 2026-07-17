@@ -25,6 +25,7 @@ import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
 import { RecentActivityFeed } from "@/components/dashboard/RecentActivityFeed";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { DashboardControls } from "./DashboardControls";
+import { getISTDateRange, toIST } from "@/lib/dateUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -53,46 +54,9 @@ export default async function DashboardPage({
   const range = params.range || "month";
   const sort = params.sort || "qty";
   const view = params.view || "top"; // "top" | "low"
-  const now = new Date();
 
   // ── Resolve the selected period ───────────────────────────────
-  let startDate: Date;
-  let endDate: Date;
-  let periodLabel: string;
-  let granularity: "hour" | "day";
-
-  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-    const [y, m] = monthParam.split("-").map(Number);
-    startDate = new Date(y, m - 1, 1, 0, 0, 0);
-    endDate = new Date(y, m, 0, 23, 59, 59, 999);
-    periodLabel = startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    granularity = "day";
-  } else if (range === "today") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 86400000 - 1);
-    periodLabel = "Today";
-    granularity = "hour";
-  } else if (range === "yesterday") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    endDate = new Date(startDate.getTime() + 86400000 - 1);
-    periodLabel = "Yesterday";
-    granularity = "hour";
-  } else if (range === "week") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    periodLabel = "Last 7 Days";
-    granularity = "day";
-  } else if (range === "30d") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    periodLabel = "Last 30 Days";
-    granularity = "day";
-  } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    periodLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    granularity = "day";
-  }
+  const { startDate, endDate, periodLabel, granularity } = getISTDateRange(range, monthParam);
 
   const branchId = await getActiveBranchId();
   const bf = branchId ? { branchId } : {};
@@ -194,7 +158,9 @@ export default async function DashboardPage({
   if (granularity === "hour") {
     for (let h = 0; h < 24; h++) trendMap.set(hourLabel(h), { revenue: 0, profit: 0 });
     invoices.forEach((inv) => {
-      const key = hourLabel(inv.createdAt.getHours());
+      // Convert UTC timestamp to IST to extract the actual IST hour
+      const istDate = toIST(inv.createdAt);
+      const key = hourLabel(istDate.getUTCHours());
       const bucket = trendMap.get(key)!;
       bucket.revenue += inv.total;
       let cogs = 0;
@@ -202,14 +168,20 @@ export default async function DashboardPage({
       bucket.profit += inv.subtotal - inv.discountAmount - cogs;
     });
   } else {
-    const cursor = new Date(startDate);
-    while (cursor <= endDate) {
-      const key = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    // Fill all days between start and end date (in IST)
+    const istStart = toIST(startDate);
+    const istEnd = toIST(endDate);
+    for (let d = new Date(istStart.getTime()); d <= istEnd; d.setUTCDate(d.getUTCDate() + 1)) {
+      const key = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
       trendMap.set(key, { revenue: 0, profit: 0 });
-      cursor.setDate(cursor.getDate() + 1);
     }
     invoices.forEach((inv) => {
+<<<<<<< Updated upstream
       const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Kolkata" });
+=======
+      const d = toIST(inv.createdAt);
+      const key = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+>>>>>>> Stashed changes
       const bucket = trendMap.get(key);
       if (!bucket) return;
       bucket.revenue += inv.total;
@@ -281,7 +253,8 @@ export default async function DashboardPage({
     revenue: 0,
   }));
   invoices.forEach((inv) => {
-    const h = inv.createdAt.getHours();
+    const istDate = toIST(inv.createdAt);
+    const h = istDate.getUTCHours();
     hourMap[h].count++;
     hourMap[h].revenue += inv.total;
   });

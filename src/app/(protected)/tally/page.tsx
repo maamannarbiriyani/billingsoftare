@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getTallyData } from "@/app/actions/tally";
 import { DateRangeSelector } from "../reports/DateRangeSelector";
 import { BookOpen, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { getISTDateRange } from "@/lib/dateUtils";
 
 export default async function TallyPage({
   searchParams,
@@ -12,26 +13,7 @@ export default async function TallyPage({
 
   const params = await searchParams;
   const range = params.range || "today";
-  const now = new Date();
-  let startDate: Date;
-  let endDate: Date;
-
-  if (range === "today") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
-  } else if (range === "yesterday") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
-  } else if (range === "week") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  } else if (range === "month") {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000 - 1);
-  }
+  const { startDate, endDate } = getISTDateRange(range, null);
 
   const tally = await getTallyData(startDate, endDate);
   const isProfitable = tally.netProfit >= 0;
