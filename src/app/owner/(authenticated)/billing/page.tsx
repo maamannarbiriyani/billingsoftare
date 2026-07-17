@@ -151,17 +151,10 @@ export default async function OwnerBillingPage({
                     </td>
                     <td className="px-5 py-3.5">
                       <p className="text-xs text-slate-800">
-<<<<<<< Updated upstream
-                        {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" })}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
-=======
                         {toIST(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" })}
                       </p>
                       <p className="text-xs text-slate-400">
                         {toIST(inv.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}
->>>>>>> Stashed changes
                       </p>
                     </td>
                     <td className="px-5 py-3.5 hidden sm:table-cell">

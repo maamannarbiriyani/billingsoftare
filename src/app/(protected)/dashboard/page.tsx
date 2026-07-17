@@ -176,12 +176,8 @@ export default async function DashboardPage({
       trendMap.set(key, { revenue: 0, profit: 0 });
     }
     invoices.forEach((inv) => {
-<<<<<<< Updated upstream
-      const key = inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Kolkata" });
-=======
       const d = toIST(inv.createdAt);
       const key = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
->>>>>>> Stashed changes
       const bucket = trendMap.get(key);
       if (!bucket) return;
       bucket.revenue += inv.total;

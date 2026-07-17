@@ -189,15 +189,9 @@ export default async function ReportsPage({
                       <div className="min-w-0">
                         <p className="font-mono font-extrabold text-foreground text-base truncate">{inv.invoiceNumber}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-<<<<<<< Updated upstream
-                          {inv.createdAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
-                          {" · "}
-                          {inv.createdAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
-=======
                           {toIST(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}
                           {" · "}
                           {toIST(inv.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "UTC" })}
->>>>>>> Stashed changes
                         </p>
                       </div>
                       <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${st.cls}`}>
@@ -432,11 +426,7 @@ export default async function ReportsPage({
                   <div>
                     <p className="text-xs text-muted-foreground">Date</p>
                     <p className="font-bold text-foreground">
-<<<<<<< Updated upstream
-                      {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })}
-=======
                       {row.date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
->>>>>>> Stashed changes
                     </p>
                   </div>
                   <div>
@@ -579,11 +569,7 @@ export default async function ReportsPage({
               <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-extrabold text-foreground">
-<<<<<<< Updated upstream
-                    {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
-=======
                     {d.date.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}
->>>>>>> Stashed changes
                   </h3>
                   <span className="text-xs font-semibold text-muted-foreground">{d.bills} bills</span>
                 </div>
@@ -652,11 +638,7 @@ export default async function ReportsPage({
                 <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-extrabold text-foreground">
-<<<<<<< Updated upstream
-                      {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })}
-=======
                       {m.date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}
->>>>>>> Stashed changes
                     </h3>
                     <span className="text-xs font-semibold text-muted-foreground">{m.bills} bills</span>
                   </div>
