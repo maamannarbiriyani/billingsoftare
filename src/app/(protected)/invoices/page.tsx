@@ -42,13 +42,18 @@ export default async function InvoicesPage({
   }>;
 }) {
   const sp = await searchParams;
-  const rawQ = Array.isArray(sp.q) ? sp.q[0] : sp.q;
-  const query = (typeof rawQ === "string" ? rawQ : "").trim();
-  const status  = sp.status || "ALL";
-  const method  = sp.method || "ALL";
-  const from    = sp.from || "";
-  const to      = sp.to || "";
-  const page    = Math.max(1, parseInt(sp.page || "1", 10));
+  
+  function getLast(val: string | string[] | undefined): string | undefined {
+    if (Array.isArray(val)) return val[val.length - 1];
+    return val;
+  }
+
+  const query = (getLast(sp.q) || "").trim();
+  const status  = getLast(sp.status) || "ALL";
+  const method  = getLast(sp.method) || "ALL";
+  const from    = getLast(sp.from) || "";
+  const to      = getLast(sp.to) || "";
+  const page    = Math.max(1, parseInt(getLast(sp.page) || "1", 10));
 
   await requireAdmin();
   const branchId = await getActiveBranchId();
@@ -185,8 +190,18 @@ export default async function InvoicesPage({
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <input type="date" name="to" defaultValue={to} className="input-field pl-9 w-40" title="To date" />
             </div>
+            <button type="submit" className="btn btn-primary ml-1 h-[38px]">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Search</span>
+            </button>
           </div>
         </div>
+
+        {/* Hidden fields first, so status/method buttons can override them if clicked.
+            We don't need hidden fields for q, from, to because they are visible inputs. */}
+        <input type="hidden" name="status" value={status} />
+        <input type="hidden" name="method" value={method} />
+        <input type="hidden" name="page" value="1" />
 
         {/* Status + method + submit row */}
         <div className="flex flex-wrap gap-2 items-center">
@@ -227,12 +242,6 @@ export default async function InvoicesPage({
               {m === "ALL" ? "All Methods" : m}
             </button>
           ))}
-
-          {/* Hidden fields to preserve other filter values */}
-          <input type="hidden" name="q" value={query} />
-          <input type="hidden" name="from" value={from} />
-          <input type="hidden" name="to" value={to} />
-          <input type="hidden" name="page" value="1" />
 
           {(query || status !== "ALL" || method !== "ALL" || from || to) && (
             <Link

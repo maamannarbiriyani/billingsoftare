@@ -28,7 +28,7 @@ export function fromIST(date: Date): Date {
  * Calculates start and end Date bounds for various reporting ranges (today, week, month)
  * perfectly aligned to IST midnight (00:00:00).
  */
-export function getISTDateRange(range: string, monthParam?: string | null) {
+export function getISTDateRange(range: string, monthParam?: string | null, fromParam?: string | null, toParam?: string | null) {
   const now = getISTNow();
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
@@ -39,7 +39,22 @@ export function getISTDateRange(range: string, monthParam?: string | null) {
   let periodLabel: string;
   let granularity: "hour" | "day" = "day";
 
-  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+  if (fromParam && toParam) {
+    const [fY, fM, fD] = fromParam.split("-").map(Number);
+    const [tY, tM, tD] = toParam.split("-").map(Number);
+    startIst = new Date(Date.UTC(fY, fM - 1, fD, 0, 0, 0));
+    endIst = new Date(Date.UTC(tY, tM - 1, tD, 23, 59, 59, 999));
+    
+    // Label using the IST equivalent
+    const labelStart = fromIST(startIst).toLocaleDateString("en-IN", { month: "short", day: "numeric", timeZone: "Asia/Kolkata" });
+    const labelEnd = fromIST(endIst).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Kolkata" });
+    periodLabel = `${labelStart} - ${labelEnd}`;
+    
+    if (fromParam === toParam) {
+      granularity = "hour";
+      periodLabel = fromIST(startIst).toLocaleDateString("en-IN", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Kolkata" });
+    }
+  } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
     const [y, m] = monthParam.split("-").map(Number);
     startIst = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
     endIst = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));

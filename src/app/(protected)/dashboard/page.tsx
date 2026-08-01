@@ -45,18 +45,20 @@ function hourLabel(hr: number) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; month?: string; sort?: string; view?: string }>;
+  searchParams: Promise<{ range?: string; month?: string; sort?: string; view?: string; from?: string; to?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
   const monthParam = params.month;
+  const fromParam = params.from;
+  const toParam = params.to;
   const range = params.range || "month";
   const sort = params.sort || "qty";
   const view = params.view || "top"; // "top" | "low"
 
   // ── Resolve the selected period ───────────────────────────────
-  const { startDate, endDate, periodLabel, granularity } = getISTDateRange(range, monthParam);
+  const { startDate, endDate, periodLabel, granularity } = getISTDateRange(range, monthParam, fromParam, toParam);
 
   const branchId = await getActiveBranchId();
   const bf = branchId ? { branchId } : {};
@@ -86,6 +88,7 @@ export default async function DashboardPage({
             customerPhone: true,
             createdAt: true,
             paymentMethod: true,
+            order: { select: { source: true } },
             items: { select: { qty: true, returnedQty: true, costPrice: true } },
           },
         }),
@@ -243,6 +246,22 @@ export default async function DashboardPage({
     .sort((a, b) => b.revenue - a.revenue);
   const pieData = categories.map((c) => ({ name: c.name, value: c.qty }));
 
+  // ── Order Mode breakdown ────────────────────────────────────────
+  const orderModeMap = new Map<string, { count: number; revenue: number }>();
+  invoices.forEach((inv) => {
+    const mode = inv.order?.source || "DINE_IN";
+    const existing = orderModeMap.get(mode);
+    if (existing) {
+      existing.count += 1;
+      existing.revenue += inv.total;
+    } else {
+      orderModeMap.set(mode, { count: 1, revenue: inv.total });
+    }
+  });
+  const orderModes = Array.from(orderModeMap.entries())
+    .map(([mode, d]) => ({ mode, ...d }))
+    .sort((a, b) => b.revenue - a.revenue);
+
   // ── Peak hours ────────────────────────────────────────────────
   const hourMap: { count: number; revenue: number }[] = Array.from({ length: 24 }, () => ({
     count: 0,
@@ -324,7 +343,7 @@ export default async function DashboardPage({
     { label: "By Revenue", value: "revenue" },
     { label: "By Profit", value: "profit" },
   ];
-  const sortBase = monthParam ? `month=${monthParam}` : `range=${range}`;
+  const sortBase = (fromParam && toParam) ? `from=${fromParam}&to=${toParam}` : monthParam ? `month=${monthParam}` : `range=${range}`;
 
   return (
     <div className="animate-fade-in space-y-8 pb-12">
@@ -615,8 +634,8 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* Revenue leakage + sales vs taxes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Revenue leakage + sales vs taxes + order modes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
           <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-1">
             <AlertOctagon className="h-4 w-4 text-rose-500" />
@@ -738,6 +757,38 @@ export default async function DashboardPage({
               </div>
             </div>
           )}
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-1">
+            <Package className="h-4 w-4 text-emerald-500" />
+            Order Types
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Revenue breakdown by order mode.
+          </p>
+          <div className="space-y-3">
+            {orderModes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No data for this period</p>
+            ) : (
+              orderModes.map((om) => (
+                <div
+                  key={om.mode}
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border"
+                >
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">
+                      {om.mode.replace(/_/g, " ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{om.count} orders</p>
+                  </div>
+                  <span className="font-extrabold text-base text-emerald-600">
+                    ₹{fmtINR(om.revenue)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
