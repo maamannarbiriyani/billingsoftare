@@ -717,21 +717,68 @@
 }
 
 /* ── Print Styles ──────────────────────────────────────── */
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
 @media print {
-  @page {
-    margin: 0;
-    size: 80mm auto;
-  }
+  html,
   body {
-    margin: 0;
-    padding: 0;
-    background-color: white !important;
-    font-size: 12px;
+    width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
   }
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+
+  /* Receipt selectors */
+  #__receipt_print_root,
+  #receipt,
+  .receipt,
+  .receipt-container,
+  .receipt-wrapper,
+  .print-container,
+  .print-preview {
+    width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
   }
+
+  /* Remove dark backgrounds inherited from the POS theme */
+  #__receipt_print_root *,
+  #receipt *,
+  .receipt *,
+  .receipt-container *,
+  .receipt-wrapper * {
+    background-color: transparent !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep the receipt itself white */
+  #__receipt_print_root,
+  #receipt,
+  .receipt {
+    background-color: #ffffff !important;
+  }
+
+  /* Hide buttons, menus and modal backgrounds */
+  .sidebar,
+  .navbar,
+  .header,
+  .print-button,
+  .modal-backdrop,
+  .no-print,
   .print\:hidden {
     display: none !important;
   }
