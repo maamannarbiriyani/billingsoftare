@@ -55,6 +55,41 @@ There is **one** supported way to make a browser print silently:
 
 ---
 
+## 🐞 Bill sometimes prints tiny / needs a reprint to look right
+
+**Cause:** `Start-POS-Printer.bat` uses Chrome's `--kiosk-printing` mode,
+which prints with **no dialog at all** — it silently reuses whatever paper
+size, margins, and scale Chrome *last used* for that printer (Chrome calls
+these "sticky" print settings). It does **not** re-read the printer driver's
+default paper size on every print. If that stored choice is ever wrong —
+most commonly Chrome falling back to **A4/Letter** instead of the 80mm
+receipt size for one particular job — the receipt content (sized for 80mm)
+gets shrunk to fit that much bigger page, so it prints out tiny. The next
+print can come out fine again if Chrome's guess happens to match that time,
+which is why it looks random and "just reprinting" often fixes it.
+
+**Fix — calibrate once:**
+1. Close any running kiosk POS window.
+2. Double-click **`Calibrate-Printer.bat`** (edit its `POS_URL` to match
+   `Start-POS-Printer.bat` first, if you haven't already). This opens the
+   *same* Chrome profile the kiosk launcher uses, but with the normal print
+   dialog enabled.
+3. Print any bill (or press Ctrl+P). In the dialog, click **"More
+   settings"** and explicitly set:
+   - **Paper size:** the 80mm / receipt size — not A4, not Letter
+   - **Margins:** None
+   - **Scale:** 100 (Default)
+4. Click **Print**. This locks those exact settings into Chrome's sticky
+   preferences for that printer.
+5. Close the window and go back to using `Start-POS-Printer.bat` as normal —
+   silent prints will now consistently reuse the correct size.
+
+Re-run `Calibrate-Printer.bat` any time the printer is reinstalled, its
+driver is updated, or Windows' default printer changes — any of those can
+reset which paper size Chrome falls back to.
+
+---
+
 ## Two printers (bill on counter, KOT in kitchen)?
 
 Windows only has one *default* printer, so kiosk mode sends everything there.

@@ -14,7 +14,7 @@ REM   2. Edit the POS_URL line below to your real site address.
 REM   3. Double-click this file to open the POS and print silently.
 REM ============================================================
 
-SET "POS_URL=https://your-site.vercel.app/billing"
+SET "POS_URL=https://www.maamannarbiriyani.com/billing"
 
 REM --- Find Chrome ---
 SET "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
