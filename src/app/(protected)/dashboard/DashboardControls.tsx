@@ -16,7 +16,7 @@ export function DashboardControls() {
   const router = useRouter();
   const sp = useSearchParams();
   const monthParam = sp.get("month");
-  const range = sp.get("range") || "month";
+  const range = sp.get("range") || "today";
   const sort = sp.get("sort") || "qty";
   const view = sp.get("view") || "top";
 

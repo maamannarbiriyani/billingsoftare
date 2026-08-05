@@ -53,7 +53,7 @@ export default async function DashboardPage({
   const monthParam = params.month;
   const fromParam = params.from;
   const toParam = params.to;
-  const range = params.range || "month";
+  const range = params.range || "today";
   const sort = params.sort || "qty";
   const view = params.view || "top"; // "top" | "low"
 
@@ -72,7 +72,10 @@ export default async function DashboardPage({
         // Items from non-refunded invoices (product / category stats)
         prisma.invoiceItem.findMany({
           where: { invoice: { ...bf, ...dateFilter, status: { not: "REFUNDED" } } },
-          include: { product: { select: { name: true, category: true } } },
+          include: {
+            product: { select: { name: true, category: true } },
+            invoice: { select: { order: { select: { source: true } } } },
+          },
         }),
         // Non-refunded invoices (P&L, customers, peak hours, trend)
         prisma.invoice.findMany({
@@ -261,6 +264,30 @@ export default async function DashboardPage({
   const orderModes = Array.from(orderModeMap.entries())
     .map(([mode, d]) => ({ mode, ...d }))
     .sort((a, b) => b.revenue - a.revenue);
+
+  // ── Product-wise sales, split by order type (Dine In / Takeaway / etc.) ──
+  const productsByModeMap = new Map<string, Map<number, { name: string; qty: number; revenue: number }>>();
+  invoiceItems.forEach((it) => {
+    const sold = it.qty - it.returnedQty;
+    if (sold <= 0) return;
+    const mode = it.invoice.order?.source || "DINE_IN";
+    if (!productsByModeMap.has(mode)) productsByModeMap.set(mode, new Map());
+    const modeMap = productsByModeMap.get(mode)!;
+    const existing = modeMap.get(it.productId);
+    const rev = sold * it.price;
+    if (existing) {
+      existing.qty += sold;
+      existing.revenue += rev;
+    } else {
+      modeMap.set(it.productId, { name: it.product.name, qty: sold, revenue: rev });
+    }
+  });
+  const productsByMode = orderModes.map((om) => ({
+    mode: om.mode,
+    revenue: om.revenue,
+    products: Array.from(productsByModeMap.get(om.mode)?.values() || [])
+      .sort((a, b) => b.qty - a.qty),
+  }));
 
   // ── Peak hours ────────────────────────────────────────────────
   const hourMap: { count: number; revenue: number }[] = Array.from({ length: 24 }, () => ({
@@ -791,6 +818,59 @@ export default async function DashboardPage({
           </div>
         </div>
       </div>
+
+      {/* Product-wise sales, split by order type */}
+      {productsByMode.length > 0 && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-emerald-500" />
+              Product Sales by Order Type
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              What&apos;s selling within each order type — Dine In, Takeaway, Swiggy, Zomato, etc.
+            </p>
+          </div>
+          <div className={`grid grid-cols-1 ${productsByMode.length > 1 ? "lg:grid-cols-2" : ""} divide-y lg:divide-y-0 lg:divide-x divide-border`}>
+            {productsByMode.map((pm) => (
+              <div key={pm.mode} className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-foreground text-sm">
+                    {pm.mode.replace(/_/g, " ")}
+                  </h3>
+                  <span className="font-extrabold text-emerald-600 text-sm">₹{fmtINR(pm.revenue)}</span>
+                </div>
+                {pm.products.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No products sold</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-[360px] overflow-y-auto rounded-xl border border-border">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-muted sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">Product</th>
+                          <th className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase text-right">Qty</th>
+                          <th className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase text-right">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {pm.products.map((p) => (
+                          <tr key={p.name} className="hover:bg-muted/50 transition-colors">
+                            <td className="px-3 py-2 font-semibold text-foreground text-sm">{p.name}</td>
+                            <td className="px-3 py-2 text-right text-sm text-foreground">{p.qty}</td>
+                            <td className="px-3 py-2 text-right text-sm font-semibold text-foreground">
+                              ₹{fmtINR(p.revenue)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ───────────── PRODUCTS band ───────────── */}
       <SectionHeader
