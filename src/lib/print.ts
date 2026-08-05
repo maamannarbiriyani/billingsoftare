@@ -43,12 +43,19 @@ function ensurePrintDom(): HTMLElement {
           display: block !important;
           position: absolute; left: 0; top: 0;
           /* box-sizing: border-box is essential here — without it, this width is added
-             ON TOP OF the padding below (72mm + 3mm padding = 75mm actual), which is
-             wider than the printable area and clips the right edge no matter how the
-             columns inside are sized. With border-box, 70mm is the true total width,
-             comfortably inside the ~72mm printable area of 80mm paper. */
+             ON TOP OF the padding below, which is wider than the printable area and
+             clips the right edge no matter how the columns inside are sized. */
           box-sizing: border-box;
-          width: 70mm; margin: 0 auto; background: #fff; color: #000;
+          /* Was 70mm, right up against this printer's driver-reported ~72mm printable
+             width — with zero margin for error that "72mm" figure turned out to be
+             optimistic: real thermal printer drivers commonly enforce their own
+             hardware margins/offsets on top of what they report, and once the
+             separate auto-height/scaling bug (which was accidentally masking this by
+             shrinking everything to fit) got fixed, the Price/Qty/Value columns were
+             landing off the physical page and not printing at all. 58mm leaves a much
+             larger safety margin so the whole receipt reliably lands on the paper
+             regardless of a given driver's real usable width. */
+          width: 58mm; margin: 0 auto; background: #fff; color: #000;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
           /* normal weight by default — .bold/.store/th/etc opt into heavier weight for
              emphasis (totals, headers). Previously the whole receipt was bold, which
@@ -57,10 +64,7 @@ function ensurePrintDom(): HTMLElement {
           /* our monospace stack has visibly wider gaps between characters than the
              QPOS reference receipt's native printer font — tighten it to match. */
           letter-spacing: -0.4px;
-          /* extra right padding (3.5mm vs 1.5mm elsewhere) — the Value column
-             kept clipping at the physical right edge even after the box-sizing
-             fix, so this reserves more headroom specifically on that side. */
-          padding: 2mm 3.5mm 2mm 1.5mm;
+          padding: 2mm;
         }
         @page { margin: 0; size: 80mm auto; }
       }
@@ -72,7 +76,7 @@ function ensurePrintDom(): HTMLElement {
          pushes that mid-gray toward black while leaving the white background at white —
          brightness() was removed because it darkens every pixel uniformly, including the
          white background, which printed as a visible gray box behind the logo. */
-      #${ROOT_ID} .logo { display:block; margin: 2px auto 4px; max-width: 60mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
+      #${ROOT_ID} .logo { display:block; margin: 2px auto 4px; max-width: 50mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
       #${ROOT_ID} .store { font-size: 18px; font-weight: 900; }
       #${ROOT_ID} .muted { font-size: 12px; }
       #${ROOT_ID} .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
