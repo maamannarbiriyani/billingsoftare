@@ -17,6 +17,7 @@ import {
   CartItem,
 } from "@/app/actions/billing";
 import { getTables, getRunningOrders, parkOrder, closeOrder, createTable, updateTable, deleteTable } from "@/app/actions/tables";
+import { undoRecentInvoice } from "@/app/actions/invoices";
 import {
   getPendingOnlineOrders,
   acceptOnlineOrder,
@@ -535,6 +536,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
       } else if (result.success && result.invoiceId) {
         if (activeOrderId) await closeOrder(activeOrderId);
         const invoiceNumber = result.invoiceNumber || `#${result.invoiceId}`;
+        const invoiceId = result.invoiceId;
         const tableName = tables.find(t => t.id === activeTableId)?.name;
         // Snapshot totals BEFORE clearing the cart
         const billSubtotal = cartSnapshot.reduce((a, i) => a + i.price * i.qty, 0);
@@ -543,6 +545,27 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         clearCart();
         setCheckoutModalOpen(false);
         await loadTablesAndOrders();
+
+        // Quick-undo — shown immediately (before/regardless of printing) so
+        // if the customer cancels while the bill is printing, the cashier
+        // can void it on the spot without needing an admin password. Only
+        // works for ~90s after checkout (enforced server-side); after that,
+        // use the password-protected Delete on the invoice page instead.
+        toast.success(`Bill ${invoiceNumber} saved`, {
+          duration: 60000,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              const undoResult = await undoRecentInvoice(invoiceId);
+              if (undoResult.error) {
+                toast.error(undoResult.error);
+              } else {
+                toast.success(`Bill ${invoiceNumber} cancelled`);
+                await loadTablesAndOrders();
+              }
+            },
+          },
+        });
 
         if (printBill) {
           // Print one after another (not in parallel) — firing both at once
@@ -576,9 +599,6 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
             discountAmount,
             total: billTotal,
           });
-          toast.success(`Bill ${invoiceNumber} printed`);
-        } else {
-          toast.success("Invoice created!");
         }
       }
     });

@@ -298,6 +298,73 @@ export async function modifyInvoice(
   }
 }
 
+// ── Quick "Undo" right after checkout ───────────────────────────────
+// No admin password — but only works within a short grace window right
+// after the invoice was created, so it can't be used as a back door to
+// silently void an old/unrelated invoice. Past the window, staff have to
+// use the password-protected Delete on the invoice page instead.
+const UNDO_WINDOW_MS = 90 * 1000; // 90 seconds
+
+export async function undoRecentInvoice(invoiceId: number) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  try {
+    const session = await getSession();
+    if (!session?.id) return { error: "Not authenticated" };
+
+    await prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findUnique({
+        where: { id: invoiceId },
+        include: { items: true },
+      });
+      if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found");
+      if (Date.now() - invoice.createdAt.getTime() > UNDO_WINDOW_MS) {
+        throw new Error("Too late to undo — use Delete (admin password) on the invoice page instead.");
+      }
+
+      // Restore stock for all non-returned quantities
+      for (const item of invoice.items) {
+        const toRestore = item.qty - item.returnedQty;
+        if (toRestore > 0) {
+          await tx.product.updateMany({
+            where: { id: item.productId, stock: { not: 999999 }, branchId },
+            data: { stock: { increment: toRestore } },
+          });
+        }
+      }
+
+      // Reverse customer credit balance
+      if (invoice.paymentMethod === "CREDIT" && invoice.customerId && invoice.total > 0) {
+        await tx.customer.updateMany({
+          where: { id: invoice.customerId, branchId },
+          data: { balance: { decrement: invoice.total } },
+        });
+      }
+
+      // Cancel linked order if exists
+      if (invoice.orderId) {
+        await tx.order.update({
+          where: { id: invoice.orderId },
+          data: { status: "CANCELLED" },
+        }).catch(() => {}); // ignore if order doesn't exist
+      }
+
+      await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+      await tx.invoice.delete({ where: { id: invoiceId } });
+    });
+
+    revalidatePath("/invoices");
+    revalidatePath("/reports");
+    revalidatePath("/products");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Undo Invoice Error:", error);
+    return { error: error.message || "Failed to undo invoice" };
+  }
+}
+
 // ── Delete invoice with admin password auth ────────────────────────
 export async function deleteInvoiceWithAuth(invoiceId: number, password: string) {
   const branchId = await getActiveBranchId();
