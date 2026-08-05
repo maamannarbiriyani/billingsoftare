@@ -67,7 +67,24 @@ export default async function InvoiceReceiptPage({
           <EditInvoiceModal invoice={invoice} />
           <ReturnModal invoice={invoice} />
           <KitchenCopyButton invoice={invoice} />
-          <PrintButton />
+          <PrintButton
+            bill={{
+              storeName,
+              phone,
+              address,
+              gstNumber,
+              logoUrl: "/billlogo.png",
+              invoiceNumber: invoice.invoiceNumber,
+              date: invoice.createdAt,
+              customerName: invoice.customer?.name || invoice.customerName,
+              paymentMethod: invoice.paymentMethod,
+              items: invoice.items.map((it) => ({ name: it.product.name, price: it.price, qty: it.qty })),
+              subtotal: invoice.subtotal ?? invoice.total,
+              gstAmount: invoice.gstAmount,
+              discountAmount: invoice.discountAmount,
+              total: invoice.total,
+            }}
+          />
           <DeleteInvoiceButton invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} />
         </div>
       </div>
