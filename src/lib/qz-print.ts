@@ -22,7 +22,7 @@ import {
   type KotHtmlData,
 } from "@/lib/print";
 import { toast } from "sonner";
-import { isNativeApp, printUsbRaw } from "@/lib/native-usb-print";
+import { isNativeApp, isSunmiAvailable, printSunmiRaw, printUsbRaw } from "@/lib/native-usb-print";
 
 // ── Per-terminal config (each billing machine has its own printer) ──
 const LS_ENABLED = "qz_enabled";
@@ -229,6 +229,7 @@ const GS = "\x1D";
 const INIT = ESC + "@";
 const BOLD_ON = ESC + "E" + "\x01";
 const BOLD_OFF = ESC + "E" + "\x00";
+const DOUBLE_STRIKE_ON = ESC + "G" + "\x01";
 const AL_L = ESC + "a" + "\x00";
 const AL_C = ESC + "a" + "\x01";
 const SIZE_1 = GS + "!" + "\x00"; // normal
@@ -236,6 +237,48 @@ const SIZE_2 = GS + "!" + "\x11"; // double width + height
 const CUT = "\n\n\n" + GS + "V" + "\x00"; // feed + full cut
 
 const WIDTH = 48; // Font A, 80mm
+
+// ── Receipt boldness (ESC/POS thermal path) ─────────────────────
+// Applies to every ESC/POS consumer that shares these builders — QZ Tray,
+// the Sunmi built-in printer, native USB, and RawBT — since they all print
+// whatever buildBillEscPos()/buildKotEscPos() return. Unlike the browser/CSS
+// path, thermal printers only expose a couple of discrete emphasis levels
+// (emphasized/"bold" mode, and double-strike stacked on top for heavier
+// ink), not a smooth weight range.
+const LS_ESCPOS_BOLDNESS = "escpos_boldness";
+export type EscposBoldness = "normal" | "bold" | "extra-bold";
+export const ESCPOS_BOLDNESS_OPTIONS: { value: EscposBoldness; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "bold", label: "Bold" },
+  { value: "extra-bold", label: "Extra Bold (double-strike)" },
+];
+// "bold" matches this file's original hardcoded behavior — every receipt
+// printed emphasized throughout — so an un-configured terminal prints
+// exactly as it always did.
+const DEFAULT_ESCPOS_BOLDNESS: EscposBoldness = "bold";
+
+export function getEscposBoldness(): EscposBoldness {
+  if (typeof window === "undefined") return DEFAULT_ESCPOS_BOLDNESS;
+  const v = localStorage.getItem(LS_ESCPOS_BOLDNESS);
+  return v === "normal" || v === "bold" || v === "extra-bold" ? v : DEFAULT_ESCPOS_BOLDNESS;
+}
+
+export function setEscposBoldness(v: EscposBoldness) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_ESCPOS_BOLDNESS, v);
+}
+
+function emphasisPrefix(): string {
+  switch (getEscposBoldness()) {
+    case "normal":
+      return "";
+    case "extra-bold":
+      return BOLD_ON + DOUBLE_STRIKE_ON;
+    case "bold":
+    default:
+      return BOLD_ON;
+  }
+}
 
 function rule(ch = "-") {
   return ch.repeat(WIDTH) + "\n";
@@ -251,9 +294,91 @@ function padL(s: string, w: number) {
   s = clip(s, w);
   return " ".repeat(w - s.length) + s;
 }
-function two(l: string, r: string) {
-  const gap = Math.max(1, WIDTH - l.length - r.length);
+function two(l: string, r: string, width = WIDTH) {
+  const gap = Math.max(1, width - l.length - r.length);
   return l + " ".repeat(gap) + r + "\n";
+}
+
+// ── Receipt element sizes (ESC/POS thermal path) ────────────────
+// Independent from the boldness setting above — these control the actual
+// printed character SIZE (via "GS !") for three specific parts of the
+// receipt, so each terminal can size them to taste. Not a free-form pixel
+// value like the browser/CSS path below: ESC/POS only offers whole-number
+// width/height multipliers (1x-8x), so this exposes a few labeled presets.
+function sizeCmd(heightMult: number, widthMult: number): string {
+  const h = Math.max(1, Math.min(8, heightMult)) - 1;
+  const w = Math.max(1, Math.min(8, widthMult)) - 1;
+  return GS + "!" + String.fromCharCode((w << 4) | h);
+}
+
+export type SizeLevel = "normal" | "large" | "xlarge";
+export const SIZE_LEVEL_OPTIONS: { value: SizeLevel; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "large", label: "Large" },
+  { value: "xlarge", label: "Extra Large" },
+];
+
+// Brand name: a single centered line, so it's safe to grow both width and
+// height — at the largest size a long name just wraps to a second line
+// rather than corrupting anything else. "large" (2x2) matches this file's
+// original hardcoded SIZE_2 default, so an un-configured terminal is
+// unaffected.
+const BRAND_SIZE: Record<SizeLevel, { h: number; w: number }> = {
+  normal: { h: 1, w: 1 },
+  large: { h: 2, w: 2 },
+  xlarge: { h: 3, w: 3 },
+};
+// Body content (dates, item rows, etc.): height-only scaling. Widening
+// would shrink the effective character budget and break the item table's
+// fixed 48-column layout (name/price/qty/value); taller-only keeps that
+// math valid at every level and just uses more paper.
+const BODY_SIZE: Record<SizeLevel, { h: number; w: number }> = {
+  normal: { h: 1, w: 1 },
+  large: { h: 2, w: 1 },
+  xlarge: { h: 3, w: 1 },
+};
+// Grand total: a two-column "label ... amount" line, so width is capped at
+// 2x (24 effective columns) — enough for "GRAND TOTAL:" plus a large amount
+// without overflowing onto a second line.
+const GRAND_SIZE: Record<SizeLevel, { h: number; w: number }> = {
+  normal: { h: 1, w: 1 },
+  large: { h: 2, w: 1 },
+  xlarge: { h: 2, w: 2 },
+};
+
+function isSizeLevel(v: string | null): v is SizeLevel {
+  return v === "normal" || v === "large" || v === "xlarge";
+}
+
+const LS_BRAND_SIZE = "escpos_brand_size";
+const LS_BODY_SIZE = "escpos_body_size";
+const LS_GRAND_SIZE = "escpos_grand_size";
+
+export function getBrandSizeLevel(): SizeLevel {
+  if (typeof window === "undefined") return "large";
+  const v = localStorage.getItem(LS_BRAND_SIZE);
+  return isSizeLevel(v) ? v : "large"; // matches the original hardcoded default
+}
+export function setBrandSizeLevel(v: SizeLevel) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_BRAND_SIZE, v);
+}
+
+export function getBodySizeLevel(): SizeLevel {
+  if (typeof window === "undefined") return "normal";
+  const v = localStorage.getItem(LS_BODY_SIZE);
+  return isSizeLevel(v) ? v : "normal";
+}
+export function setBodySizeLevel(v: SizeLevel) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_BODY_SIZE, v);
+}
+
+export function getGrandSizeLevel(): SizeLevel {
+  if (typeof window === "undefined") return "normal";
+  const v = localStorage.getItem(LS_GRAND_SIZE);
+  return isSizeLevel(v) ? v : "normal";
+}
+export function setGrandSizeLevel(v: SizeLevel) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_GRAND_SIZE, v);
 }
 
 // Item columns: Name(22) Price(9,R) Qty(4,R) Value(13,R) = 48
@@ -343,7 +468,17 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   const grand = Math.round(d.total);
   const rupee = (n: number) => String(Math.round(n));
 
-  let o = INIT + BOLD_ON;
+  const brand = BRAND_SIZE[getBrandSizeLevel()];
+  const body = BODY_SIZE[getBodySizeLevel()];
+  const grandSz = GRAND_SIZE[getGrandSizeLevel()];
+  const brandCmd = sizeCmd(brand.h, brand.w);
+  const bodyCmd = sizeCmd(body.h, body.w);
+  const grandCmd = sizeCmd(grandSz.h, grandSz.w);
+  // A widthMult > 1 command doubles/triples character width, so only
+  // WIDTH/widthMult columns actually fit per line at that size.
+  const grandWidth = Math.floor(WIDTH / grandSz.w);
+
+  let o = INIT + emphasisPrefix();
   if (d.logoUrl) {
     try {
       o += AL_C + (await imageToEscPosRaster(absUrl(d.logoUrl))) + "\n";
@@ -351,9 +486,7 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
       console.error("Logo raster print failed — continuing without it", e);
     }
   }
-  // SIZE_2 doubles character width, so only WIDTH/2 columns actually fit per
-  // line — the old hardcoded 20 truncated names that would've fit fine.
-  o += AL_C + SIZE_2 + clip(d.storeName, Math.floor(WIDTH / 2)) + "\n" + SIZE_1;
+  o += AL_C + brandCmd + clip(d.storeName, Math.floor(WIDTH / brand.w)) + "\n" + bodyCmd;
   if (d.phone) o += "Ph: " + d.phone + "\n";
   if (d.address) o += clip(d.address, WIDTH) + "\n";
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
@@ -371,7 +504,7 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   o += two("Sub Total:", rupee(d.subtotal));
   if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + rupee(d.discountAmount));
   if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + rupee(d.gstAmount));
-  o += two("GRAND TOTAL:", String(grand));
+  o += grandCmd + two("GRAND TOTAL:", String(grand), grandWidth) + bodyCmd;
   o += rule();
   o += "Payment: " + (d.paymentMethod || "Cash") + "\n";
   o += AL_C + "\nThank You! Visit Again!!\n";
@@ -383,8 +516,10 @@ export function buildKotEscPos(d: KotHtmlData): string {
   const time = new Date().toLocaleString("en-IN", {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
-  let o = INIT + BOLD_ON + AL_C;
-  o += SIZE_2 + "KOT\n" + SIZE_1;
+  const body = BODY_SIZE[getBodySizeLevel()];
+  const bodyCmd = sizeCmd(body.h, body.w);
+  let o = INIT + emphasisPrefix() + AL_C;
+  o += SIZE_2 + "KOT\n" + bodyCmd;
   o += "Kitchen Order Ticket\n";
   o += rule();
   if (d.orderMode) o += d.orderMode.replace(/_/g, " ") + "\n";
@@ -442,17 +577,27 @@ function sendRawBt(escpos: string) {
 /** Fire a small ESC/POS test slip via RawBT (settings screen). */
 export function rawbtTestPrint() {
   const receipt =
-    INIT + AL_C + BOLD_ON + SIZE_2 + "TEST OK\n" + SIZE_1 + BOLD_OFF +
+    INIT + AL_C + emphasisPrefix() + SIZE_2 + "TEST OK\n" + SIZE_1 + BOLD_OFF +
     "RawBT + ESC/POS\n" + new Date().toLocaleString("en-IN") + "\n" +
     rule() + "If you can read this, printing works.\n" + CUT;
   sendRawBt(receipt);
 }
 
 // ── Smart print entry points ──────────────────────────────────────
-// Priority: native USB plugin (our own Android app shell) → QZ Tray
-// (Windows/Mac/Linux desktop) → RawBT (Android browser tab) → plain browser.
+// Priority: Sunmi built-in printer → native USB plugin (both our own
+// Android app shell) → QZ Tray (Windows/Mac/Linux desktop) → RawBT (Android
+// browser tab) → plain browser.
 export async function printBill(d: BillData): Promise<void> {
   if (isNativeApp()) {
+    if (await isSunmiAvailable()) {
+      try {
+        await printSunmiRaw(await buildBillEscPos(d));
+        return;
+      } catch (e) {
+        console.error("Sunmi bill print failed — falling back", e);
+        toast.error("Built-in printer unreachable — check Settings");
+      }
+    }
     try {
       await printUsbRaw(await buildBillEscPos(d));
       return;
@@ -481,6 +626,14 @@ export async function printBill(d: BillData): Promise<void> {
 
 export async function printKot(d: KotHtmlData): Promise<void> {
   if (isNativeApp()) {
+    if (await isSunmiAvailable()) {
+      try {
+        await printSunmiRaw(buildKotEscPos(d));
+        return;
+      } catch (e) {
+        console.error("Sunmi KOT print failed — falling back", e);
+      }
+    }
     try {
       await printUsbRaw(buildKotEscPos(d));
       return;
@@ -509,7 +662,7 @@ export async function qzTestPrint(printerName: string, kickDrawer: boolean) {
   const receipt =
     INIT +
     AL_C +
-    BOLD_ON +
+    emphasisPrefix() +
     SIZE_2 +
     "TEST OK\n" +
     SIZE_1 +

@@ -8,6 +8,8 @@ import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 import { QzPrinterSettings } from "@/components/QzPrinterSettings";
 import { RawBtPrinterSettings } from "@/components/RawBtPrinterSettings";
 import { NativeUsbPrinterSettings } from "@/components/NativeUsbPrinterSettings";
+import { SunmiPrinterSettings } from "@/components/SunmiPrinterSettings";
+import { ReceiptFontSettings } from "@/components/ReceiptFontSettings";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
@@ -109,6 +111,12 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           <ShopSettingsForm initialData={initialSetting} />
         </div>
       </section>
+
+      {/* Receipt font weight / boldness — applies across every print path */}
+      <ReceiptFontSettings />
+
+      {/* Thermal Printer (Sunmi built-in — only visible inside the Android app shell, tried first) */}
+      <SunmiPrinterSettings />
 
       {/* Thermal Printer (native USB — only visible inside the Android app shell) */}
       <NativeUsbPrinterSettings />

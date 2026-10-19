@@ -1,13 +1,19 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────
-// Bridge to the native UsbPrinterPlugin (android/app/src/main/java/com/
-// maamannar/billing/UsbPrinterPlugin.kt). Talks directly to a USB ESC/POS
-// thermal printer via Android's USB Host API — bypassing Android's print
-// framework entirely, which has no USB support (confirmed on-device: only
-// network/Wi-Fi printers). This only works inside the native app shell
-// (Capacitor); it's a no-op in a normal mobile/desktop browser tab, where
-// the RawBT or QZ Tray paths in qz-print.ts are used instead.
+// Bridges to the native plugins in android/app/src/main/java/com/maamannar/
+// billing/ — only present inside the compiled Capacitor app shell (the
+// Android Studio project under /android); a no-op in a normal mobile/desktop
+// browser tab, where the RawBT or QZ Tray paths in qz-print.ts are used
+// instead.
+//
+//   - SunmiPrinterPlugin.java — Sunmi's built-in thermal printer, via their
+//     official SDK (the woyou AIDL service, wrapped so it works across
+//     Sunmi firmware versions). Only connects on an actual Sunmi terminal.
+//   - UsbPrinterPlugin.java — any external USB ESC/POS thermal printer, via
+//     Android's USB Host API — bypassing Android's print framework
+//     entirely, which has no USB support (confirmed on-device: only
+//     network/Wi-Fi printers).
 // ─────────────────────────────────────────────────────────────
 
 import { registerPlugin, Capacitor } from "@capacitor/core";
@@ -83,4 +89,32 @@ export async function printUsbRaw(escpos: string): Promise<void> {
     if (!ok) throw new Error("USB permission was not granted for the printer.");
   }
   await UsbPrinter.print({ deviceId, dataBase64: toBase64(escpos) });
+}
+
+// ── Sunmi built-in printer (SunmiPrinterPlugin.java) ───────────────────
+interface SunmiPrinterPluginApi {
+  isAvailable(): Promise<{ available: boolean }>;
+  print(opts: { dataBase64: string }): Promise<{ success: boolean }>;
+}
+
+const SunmiPrinter = registerPlugin<SunmiPrinterPluginApi>("SunmiPrinter");
+
+let sunmiAvailableCache: Promise<boolean> | null = null;
+
+/** True only on an actual Sunmi terminal with a working built-in printer. Cached for the session. */
+export function isSunmiAvailable(): Promise<boolean> {
+  if (!isNativeApp()) return Promise.resolve(false);
+  if (!sunmiAvailableCache) {
+    sunmiAvailableCache = SunmiPrinter.isAvailable()
+      .then((r) => r.available)
+      .catch(() => false);
+  }
+  return sunmiAvailableCache;
+}
+
+/** Send raw ESC/POS text straight to the Sunmi built-in printer. Throws if unavailable. */
+export async function printSunmiRaw(escpos: string): Promise<void> {
+  const available = await isSunmiAvailable();
+  if (!available) throw new Error("Sunmi built-in printer not detected on this device.");
+  await SunmiPrinter.print({ dataBase64: toBase64(escpos) });
 }

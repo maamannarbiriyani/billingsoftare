@@ -20,6 +20,78 @@
 const ROOT_ID = "__receipt_print_root";
 const STYLE_ID = "__receipt_print_style";
 
+// ── Receipt font weight (browser/HTML print path) ──────────────
+// Configurable from Settings so each terminal can pick whichever weight
+// actually looks best on its printer/paper — thermal print quality varies
+// enough by printer/driver that one fixed weight doesn't suit everyone.
+const LS_FONT_WEIGHT = "receipt_font_weight";
+export const FONT_WEIGHT_OPTIONS = [
+  { value: 400, label: "Normal" },
+  { value: 500, label: "Medium" },
+  { value: 600, label: "Semi-Bold" },
+  { value: 700, label: "Bold" },
+  { value: 800, label: "Extra Bold" },
+] as const;
+const DEFAULT_FONT_WEIGHT = 400;
+
+export function getReceiptFontWeight(): number {
+  if (typeof window === "undefined") return DEFAULT_FONT_WEIGHT;
+  const v = Number(localStorage.getItem(LS_FONT_WEIGHT));
+  return FONT_WEIGHT_OPTIONS.some((o) => o.value === v) ? v : DEFAULT_FONT_WEIGHT;
+}
+
+export function setReceiptFontWeight(weight: number) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_FONT_WEIGHT, String(weight));
+}
+
+// ── Receipt element font sizes (browser/HTML print path) ────────
+// Independent per-element controls, since "font size" means different
+// things for the store name, the general body text, and the grand total —
+// unlike font-weight above, these are pixel sizes, so the range is
+// continuous rather than a couple of discrete ESC/POS steps.
+type SizeOption = { value: number; label: string };
+
+export const BRAND_FONT_SIZE_OPTIONS: SizeOption[] = [
+  { value: 16, label: "Normal" },
+  { value: 18, label: "Large" }, // matches the original hardcoded default
+  { value: 22, label: "Extra Large" },
+];
+export const BODY_FONT_SIZE_OPTIONS: SizeOption[] = [
+  { value: 12, label: "Small" },
+  { value: 13, label: "Normal" }, // matches the original hardcoded default
+  { value: 15, label: "Large" },
+];
+export const GRAND_FONT_SIZE_OPTIONS: SizeOption[] = [
+  { value: 13, label: "Normal" }, // matches the original (no dedicated size existed — same as body)
+  { value: 16, label: "Large" },
+  { value: 20, label: "Extra Large" },
+];
+
+const LS_BRAND_FS = "receipt_brand_font_size";
+const LS_BODY_FS = "receipt_body_font_size";
+const LS_GRAND_FS = "receipt_grand_font_size";
+
+function readPx(key: string, options: SizeOption[], fallback: number): number {
+  if (typeof window === "undefined") return fallback;
+  const v = Number(localStorage.getItem(key));
+  return options.some((o) => o.value === v) ? v : fallback;
+}
+
+export const getReceiptBrandFontSize = () => readPx(LS_BRAND_FS, BRAND_FONT_SIZE_OPTIONS, 18);
+export const getReceiptBodyFontSize = () => readPx(LS_BODY_FS, BODY_FONT_SIZE_OPTIONS, 13);
+export const getReceiptGrandFontSize = () => readPx(LS_GRAND_FS, GRAND_FONT_SIZE_OPTIONS, 13);
+
+export function setReceiptBrandFontSize(px: number) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_BRAND_FS, String(px));
+}
+export function setReceiptBodyFontSize(px: number) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_BODY_FS, String(px));
+}
+export function setReceiptGrandFontSize(px: number) {
+  if (typeof window !== "undefined") localStorage.setItem(LS_GRAND_FS, String(px));
+}
+
 function ensurePrintDom(): HTMLElement {
   let root = document.getElementById(ROOT_ID);
   if (!root) {
@@ -57,10 +129,12 @@ function ensurePrintDom(): HTMLElement {
              regardless of a given driver's real usable width. */
           width: 58mm; margin: 0 auto; background: #fff; color: #000;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-          /* normal weight by default — .bold/.store/th/etc opt into heavier weight for
-             emphasis (totals, headers). Previously the whole receipt was bold, which
-             printed noticeably heavier/darker than the reference QPOS receipt. */
-          font-weight: 400; font-size: 13px; line-height: 1.35;
+          /* Normal by default — .bold/.store/th/etc opt into heavier weight for emphasis
+             (totals, headers) regardless of this. Read from a CSS var (set fresh in
+             printOne() below, from the Settings-configurable getReceiptFontWeight())
+             rather than hardcoded, so a terminal can pick whichever weight looks best
+             on its own printer/paper without waiting for a page reload. */
+          font-weight: var(--receipt-fw, 400); font-size: var(--receipt-body-fs, 13px); line-height: 1.35;
           /* our monospace stack has visibly wider gaps between characters than the
              QPOS reference receipt's native printer font — tighten it to match. */
           letter-spacing: -0.4px;
@@ -77,14 +151,15 @@ function ensurePrintDom(): HTMLElement {
          brightness() was removed because it darkens every pixel uniformly, including the
          white background, which printed as a visible gray box behind the logo. */
       #${ROOT_ID} .logo { display:block; margin: 2px auto 4px; max-width: 50mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
-      #${ROOT_ID} .store { font-size: 18px; font-weight: 900; }
+      #${ROOT_ID} .store { font-size: var(--receipt-brand-fs, 18px); font-weight: 900; }
       #${ROOT_ID} .muted { font-size: 12px; }
       #${ROOT_ID} .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
       #${ROOT_ID} .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
       #${ROOT_ID} table { width: 100%; border-collapse: collapse; }
       #${ROOT_ID} th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
-      #${ROOT_ID} td { font-size: 13px; padding: 2px 0; vertical-align: top; }
+      #${ROOT_ID} td { font-size: var(--receipt-body-fs, 13px); padding: 2px 0; vertical-align: top; }
       #${ROOT_ID} .totrow td { padding: 1px 0; }
+      #${ROOT_ID} .grand-total { font-size: var(--receipt-grand-fs, 13px); }
       #${ROOT_ID} .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
       #${ROOT_ID} .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
       #${ROOT_ID} .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
@@ -107,6 +182,10 @@ export function printReceipt(innerHtml: string): Promise<void> {
 function printOne(innerHtml: string): Promise<void> {
   return new Promise((resolve) => {
     const root = ensurePrintDom();
+    root.style.setProperty("--receipt-fw", String(getReceiptFontWeight()));
+    root.style.setProperty("--receipt-brand-fs", getReceiptBrandFontSize() + "px");
+    root.style.setProperty("--receipt-body-fs", getReceiptBodyFontSize() + "px");
+    root.style.setProperty("--receipt-grand-fs", getReceiptGrandFontSize() + "px");
     root.innerHTML = innerHtml;
 
     let finished = false;
@@ -225,7 +304,7 @@ export function buildBillHtml(d: BillData): string {
       <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:30%">${rupee(d.subtotal)}</td></tr>
       ${d.discountAmount && d.discountAmount > 0 ? `<tr class="totrow"><td class="right">Discount:</td><td class="right" style="width:30%">-${rupee(d.discountAmount)}</td></tr>` : ""}
       ${d.gstAmount && d.gstAmount > 0 ? `<tr class="totrow"><td class="right">GST:</td><td class="right" style="width:30%">+${rupee(d.gstAmount)}</td></tr>` : ""}
-      <tr class="totrow"><td class="right bold">Grand Total:</td><td class="right bold" style="width:30%">${grand}</td></tr>
+      <tr class="totrow"><td class="right bold grand-total">Grand Total:</td><td class="right bold grand-total" style="width:30%">${grand}</td></tr>
     </table>
     <hr class="hr">
     <div>Tender: ${grand}</div>

@@ -96,3 +96,49 @@ Windows only has one *default* printer, so kiosk mode sends everything there.
 For separate counter + kitchen printers you need a small local print agent
 (e.g. a Node/QZ-Tray helper that talks ESC/POS to each printer by name).
 Ask to enable the **print-agent** option if you need this.
+
+---
+
+## 📱 Sunmi / Android terminals (built-in printer)
+
+A browser tab (even Chrome on the Sunmi device itself) **cannot** reach a
+Sunmi terminal's built-in printer — Android's normal print dialog doesn't
+expose it, and there's no silent-print flag like desktop Chrome's
+`--kiosk-printing`. This project ships a thin native app shell (Capacitor)
+under `/android` for exactly this: same web app, same UI, with two extra
+native print paths bridged in:
+
+| Printer | Native plugin | Used when |
+|---|---|---|
+| Sunmi built-in | `SunmiPrinterPlugin.java` | Always tried first inside the app |
+| External USB (e.g. RP326 into a Sunmi USB-A port) | `UsbPrinterPlugin.java` | If no built-in printer is detected |
+
+No changes to the billing UI, checkout flow, or backend were needed — both
+plugins just receive the same ESC/POS bytes the QZ Tray / RawBT paths
+already build (`buildBillEscPos` / `buildKotEscPos` in `src/lib/qz-print.ts`).
+
+### One-time build & install
+
+1. Edit `capacitor.config.ts` — set `POS_URL` to your real site (same value
+   as `Start-POS-Printer.bat`'s `POS_URL`).
+2. `npm install`
+3. `npx cap sync android`
+4. Open the `android/` folder in Android Studio (or run
+   `cd android && ./gradlew assembleDebug` from a terminal with the Android
+   SDK installed) and build/install the APK onto the Sunmi device.
+5. Open the app, go to **Settings**, and check the **Thermal Printer (Sunmi
+   built-in)** card shows "Built-in printer detected", then tap **Print Test
+   Slip**.
+6. If instead an external USB printer is plugged in, use the **Thermal
+   Printer (USB, built-in)** card below it — scan, select the device, grant
+   the USB permission prompt, then test print.
+
+Printing is then fully silent and one-tap from checkout — no printer picker,
+no PDF prompt, on either path.
+
+**Build fails with an SSL/PKIX error fetching `com.sunmi:printerlibrary`
+from Maven Central?** That's the JDK's bundled trust store rejecting a cert
+your Windows install already trusts (common behind antivirus HTTPS
+scanning or a corporate proxy) — not a project problem. Work around it by
+building with the OS trust store instead:
+`./gradlew assembleDebug -Djavax.net.ssl.trustStoreType=Windows-ROOT`
