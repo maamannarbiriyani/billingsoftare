@@ -24,11 +24,27 @@ import {
   qzGetPrinterStatus,
   pickReceiptPrinter,
   qzTestPrint,
+  getQzSecurityMode,
   type QzConfig,
   type PrinterStatus,
+  type QzSecurityMode,
 } from "@/lib/qz-print";
 
 type ConnStatus = "unknown" | "checking" | "connected" | "unreachable";
+
+// Turns a raw QZ error into one line telling staff what to do about it.
+function explainQzError(msg: string | null): string {
+  const m = (msg || "").toLowerCase();
+  if (m.includes("blocked"))
+    return "This website is blocked in QZ Tray. Right-click the QZ icon → Advanced → Site Manager → Blocked tab → remove this site → restart QZ Tray.";
+  if (m.includes("timeout"))
+    return "QZ Tray is not running, or a QZ popup is waiting for an answer. Check the QZ icon in the Windows system tray.";
+  if (m.includes("failed to sign"))
+    return "The server could not sign the print request. Log in again; if it continues, ask the admin to check QZ_PRIVATE_KEY.";
+  if (m.includes("unable to establish") || m.includes("websocket"))
+    return "Cannot reach QZ Tray. Install QZ Tray and make sure its icon is in the system tray.";
+  return "QZ Tray must be installed and running (look for its icon in the Windows system tray).";
+}
 
 export function QzPrinterSettings() {
   const [cfg, setCfg] = useState<QzConfig>({ enabled: false, printer: "", kickDrawer: false });
@@ -40,6 +56,7 @@ export function QzPrinterSettings() {
   const [connError, setConnError] = useState<string | null>(null);
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
   const [checkingPrinter, setCheckingPrinter] = useState(false);
+  const [securityMode, setSecurityMode] = useState<QzSecurityMode>("unknown");
 
   useEffect(() => {
     const c = getQzConfig();
@@ -59,6 +76,7 @@ export function QzPrinterSettings() {
     const r = await qzTestConnection();
     setStatus(r.ok ? "connected" : "unreachable");
     setConnError(r.ok ? null : r.error ?? null);
+    setSecurityMode(getQzSecurityMode());
     return r.ok;
   }
 
@@ -77,6 +95,7 @@ export function QzPrinterSettings() {
       const list = await qzListPrinters();
       setPrinters(list);
       setStatus("connected");
+      setSecurityMode(getQzSecurityMode());
       const selected = currentPrinter ?? cfg.printer;
       if (list.length === 0) {
         if (!opts.silent) toast.error("QZ Tray connected, but no printers found");
@@ -169,7 +188,11 @@ export function QzPrinterSettings() {
             )}
             <span className="text-sm font-semibold text-foreground">
               {status === "connected"
-                ? "QZ Tray connected"
+                ? securityMode === "signed"
+                  ? "QZ Tray connected (signed)"
+                  : securityMode === "unsigned"
+                  ? "QZ Tray connected (unsigned)"
+                  : "QZ Tray connected"
                 : status === "unreachable"
                 ? "QZ Tray not reachable"
                 : status === "checking"
@@ -186,13 +209,15 @@ export function QzPrinterSettings() {
             Test Connection
           </button>
         </div>
+        {securityMode === "unsigned" && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 -mt-2">
+            Unsigned mode: QZ Tray will ask permission on every print. Ask the admin to set QZ_CERT
+            and QZ_PRIVATE_KEY on the server.
+          </p>
+        )}
         {status === "unreachable" && (
           <div className="text-xs text-rose-500 -mt-2 space-y-1">
-            <p>
-              QZ Tray must be installed and running (look for its icon in the Windows system tray). On
-              an HTTPS site the first connection may ask you to trust QZ&apos;s certificate — click
-              Allow / Trust.
-            </p>
+            <p>{explainQzError(connError)}</p>
             {connError && (
               <p className="font-mono bg-rose-500/10 rounded px-2 py-1 break-all">
                 Error detail: {connError}
@@ -245,7 +270,7 @@ export function QzPrinterSettings() {
               }}
               className="input-field flex-1"
             >
-              <option value="">System default printer</option>
+              <option value="">— Select a receipt printer —</option>
               {printers.map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -287,7 +312,7 @@ export function QzPrinterSettings() {
                   : printerStatus?.online === true
                   ? "Printer Ready"
                   : printerStatus?.online === false
-                  ? `Printer Offline — ${printerStatus.detail}`
+                  ? `Printer Offline — ${printerStatus.detail}. Check power, USB cable and Windows → Printers & scanners.`
                   : "Status unknown"}
               </span>
               <button
@@ -341,16 +366,19 @@ export function QzPrinterSettings() {
               Download <ExternalLink className="h-3 w-3" />
             </a>
           </p>
-          <p>2. Turn on the toggle above, click “Find Printers”, and pick your RP326.</p>
-          <p>3. Click “Print Test Slip”. The first print shows a QZ “Allow” prompt — tick “Remember”.</p>
-          <p className="font-semibold text-foreground pt-1">
-            Seeing “Request blocked” or asked to Allow every time?
-          </p>
           <p>
-            QZ Tray remembered a stale decision for this site. Right-click the QZ icon in the system
-            tray → <strong>Advanced</strong> → <strong>Site Manager</strong>, remove the entry for
-            this website, then click “Print Test Slip” again and tick “Remember this decision” on the
-            new prompt.
+            2. Trust our certificate: right-click the QZ icon → <strong>Advanced</strong> →{" "}
+            <strong>Site Manager</strong> → <strong>+</strong> → choose{" "}
+            <code>digital-certificate.txt</code> (get it from the admin) → restart QZ Tray.
+          </p>
+          <p>3. Click “Test Connection” — it should say “connected (signed)” with no popup.</p>
+          <p>4. Turn on the toggle above, click “Find Printers”, and pick your receipt printer by name.</p>
+          <p>5. Click “Print Test Slip”.</p>
+          <p className="font-semibold text-foreground pt-1">Still asked to Allow, or “blocked”?</p>
+          <p>
+            Do not click Block. Right-click the QZ icon → <strong>Advanced</strong> →{" "}
+            <strong>Site Manager</strong>: remove this site from the <strong>Blocked</strong> tab,
+            check step 2 was done, then restart QZ Tray.
           </p>
         </div>
       </div>

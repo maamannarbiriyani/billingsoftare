@@ -23,6 +23,7 @@ out
 # misc
 .DS_Store
 *.pem
+digital-certificate.txt
 
 # debug
 npm-debug.log*

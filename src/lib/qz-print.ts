@@ -56,27 +56,44 @@ async function loadQz(): Promise<any> {
   return qzPromise;
 }
 
-let securityReady = false;
+// "signed"   = server has a certificate; QZ prints silently once the PC trusts it.
+// "unsigned" = no certificate configured; QZ asks "Allow" on every connect/print.
+// "unknown"  = not checked yet, or the cert fetch failed (retried next connect).
+export type QzSecurityMode = "signed" | "unsigned" | "unknown";
+let securityMode: QzSecurityMode = "unknown";
+
+export function getQzSecurityMode(): QzSecurityMode {
+  return securityMode;
+}
+
 async function setupSecurity(qz: any) {
-  if (securityReady) return;
-  securityReady = true;
-  // Signed mode (silent, no prompt) if a certificate is configured on the
-  // server; otherwise QZ runs unsigned and shows a one-time "Allow" prompt.
+  if (securityMode !== "unknown") return;
+  let cert: string;
   try {
-    const cert = await fetch("/api/qz/cert").then((r) => (r.ok ? r.text() : "")).catch(() => "");
-    if (cert && cert.trim()) {
-      qz.security.setCertificatePromise((resolve: any) => resolve(cert));
-      qz.security.setSignatureAlgorithm?.("SHA512");
-      qz.security.setSignaturePromise((toSign: string) => (resolve: any, reject: any) => {
-        fetch("/api/qz/sign?request=" + encodeURIComponent(toSign))
-          .then((r) => r.text())
-          .then(resolve)
-          .catch(reject);
-      });
-    }
+    const r = await fetch("/api/qz/cert", { cache: "no-store" });
+    if (!r.ok) return; // leave "unknown" so the next connect retries
+    cert = (await r.text()).trim();
   } catch {
-    /* unsigned mode */
+    return; // network blip — retry on next connect
   }
+  if (!cert) {
+    securityMode = "unsigned";
+    return;
+  }
+  qz.security.setCertificatePromise((resolve: any) => resolve(cert));
+  qz.security.setSignatureAlgorithm("SHA512");
+  qz.security.setSignaturePromise((toSign: string) => (resolve: any, reject: any) => {
+    fetch("/api/qz/sign", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: toSign,
+      credentials: "same-origin",
+    })
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`QZ sign ${r.status}`))))
+      .then(resolve)
+      .catch(reject);
+  });
+  securityMode = "signed";
 }
 
 // Single-flight connect: if a bill and a KOT try to print at the same
@@ -86,6 +103,9 @@ async function setupSecurity(qz: any) {
 // "Allow" — which is also why it kept re-prompting. Reusing one in-flight
 // connect promise fixes both.
 let connectingPromise: Promise<any> | null = null;
+// The first connect may wait on a human answering a QZ trust prompt, so give
+// it longer; later reconnects should fail fast when QZ isn't running.
+let hasConnected = false;
 
 async function ensureConnected(): Promise<any> {
   const qz = await loadQz();
@@ -98,8 +118,11 @@ async function ensureConnected(): Promise<any> {
       // Race the connect against a timeout so a missing QZ Tray fails fast.
       await Promise.race([
         qz.websocket.connect(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("QZ connect timeout")), 4000)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("QZ connect timeout")), hasConnected ? 4000 : 10000),
+        ),
       ]);
+      hasConnected = true;
       return qz;
     } finally {
       connectingPromise = null;
@@ -139,7 +162,7 @@ export async function qzListPrinters(): Promise<string[]> {
 // Names thermal/receipt printers commonly show up as in Windows — used to
 // auto-select the RP326 (or another receipt printer) out of a printer list
 // that also contains things like "Microsoft Print to PDF" or "OneNote".
-const THERMAL_HINTS = /rp\s?326|pos[-\s]?(58|80)|thermal|receipt|80\s?mm|58\s?mm/i;
+const THERMAL_HINTS = /rp\s?(326|58|80)|pos[-\s]?(58|80)|thermal|receipt|80\s?mm|58\s?mm/i;
 
 /** Best-guess receipt printer from a list of installed printer names. */
 export function pickReceiptPrinter(list: string[]): string | undefined {

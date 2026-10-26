@@ -392,7 +392,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
     const discovered = Array.from(new Set(allProducts.map((p) => p.category).filter(Boolean))) as string[];
     // Categories with a saved position come first (in that order); anything
     // new (not yet dragged into place) is appended at the end.
-    const known = categoryOrder.filter((c) => discovered.includes(c));
+    // Set: a saved order can contain the same name twice (duplicate React keys)
+    const known = Array.from(new Set(categoryOrder)).filter((c) => discovered.includes(c));
     const rest = discovered.filter((c) => !known.includes(c));
     return ["All", ...known, ...rest];
   }, [allProducts, categoryOrder]);
