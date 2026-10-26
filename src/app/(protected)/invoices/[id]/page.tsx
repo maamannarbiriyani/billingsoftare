@@ -28,6 +28,7 @@ export default async function InvoiceReceiptPage({
       where: { id: invoiceId },
       include: {
         customer: true,
+        order: { select: { source: true } },
         items: {
           include: {
             product: true,
@@ -47,6 +48,7 @@ export default async function InvoiceReceiptPage({
   const gstNumber = setting?.gstNumber;
   const address = setting?.address;
 
+  const orderMode = invoice.order?.source || null;
   const gst = invoice.gstAmount ?? 0;
   const cgst = parseFloat((gst / 2).toFixed(2));
   const sgst = parseFloat((gst - cgst).toFixed(2));
@@ -75,6 +77,8 @@ export default async function InvoiceReceiptPage({
               gstNumber,
               logoUrl: "/billlogo.png",
               invoiceNumber: invoice.invoiceNumber,
+              dailyNo: invoice.dailyNo,
+              orderMode,
               date: invoice.createdAt,
               customerName: invoice.customer?.name || invoice.customerName,
               paymentMethod: invoice.paymentMethod,
@@ -117,11 +121,17 @@ export default async function InvoiceReceiptPage({
 
             {/* ── Meta ── */}
             <div className="text-left px-1 pb-1">
+              {(invoice.dailyNo || orderMode) && (
+                <div className="flex justify-between items-baseline font-bold">
+                  <span className="text-[18px]">{invoice.dailyNo ? `BILL NO: ${invoice.dailyNo}` : ""}</span>
+                  <span className="text-[13px]">{orderMode ? orderMode.replace(/_/g, " ") : ""}</span>
+                </div>
+              )}
               <p className="text-[12px]">{invoice.createdAt.toLocaleString("en-IN", {
                     day: "2-digit", month: "2-digit", year: "numeric",
                     hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
                   }).replace(",", "")}</p>
-              <p className="text-[12px]">Bill No:{invoice.invoiceNumber}</p>
+              <p className="text-[12px]">{invoice.dailyNo ? "Ref" : "Bill No"}:{invoice.invoiceNumber}</p>
               {(invoice.customer?.name || invoice.customerName) && (
                 <p className="text-[12px] font-bold mt-1">
                   Customer: {invoice.customer?.name || invoice.customerName}

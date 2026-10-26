@@ -514,8 +514,14 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   if (d.address) o += clip(d.address, WIDTH) + "\n";
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
   o += AL_L + rule("=");
+  if (d.dailyNo || d.orderMode) {
+    // Double size so the cashier/customer can read the daily number at a glance
+    const left = d.dailyNo ? "BILL NO: " + d.dailyNo : "";
+    const right = d.orderMode ? d.orderMode.replace(/_/g, " ") : "";
+    o += sizeCmd(2, 2) + two(left, right, WIDTH / 2) + bodyCmd;
+  }
   o += date + "\n";
-  o += "Bill No: " + d.invoiceNumber + "\n";
+  o += (d.dailyNo ? "Ref: " : "Bill No: ") + d.invoiceNumber + "\n";
   if (d.customerName) o += "Customer: " + d.customerName + "\n";
   o += rule("=");
   o += itemRow("Item", "Price", "Qty", "Value");

@@ -539,6 +539,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
       } else if (result.success && result.invoiceId) {
         if (activeOrderId) await closeOrder(activeOrderId);
         const invoiceNumber = result.invoiceNumber || `#${result.invoiceId}`;
+        const billLabel = result.dailyNo ? `No. ${result.dailyNo}` : invoiceNumber;
         const invoiceId = result.invoiceId;
         const tableName = tables.find(t => t.id === activeTableId)?.name;
         // Snapshot totals BEFORE clearing the cart
@@ -554,7 +555,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         // can void it on the spot without needing an admin password. The
         // toast stays up 60s, inside the server's 90s undo window — after
         // that, use the password-protected Delete on the invoice page.
-        toast.success(`Bill ${invoiceNumber} saved`, {
+        toast.success(`Bill ${billLabel} saved`, {
           duration: 60000,
           action: {
             label: "Undo",
@@ -563,7 +564,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               if (undoResult.error) {
                 toast.error(undoResult.error);
               } else {
-                toast.success(`Bill ${invoiceNumber} cancelled`);
+                toast.success(`Bill ${billLabel} cancelled`);
                 await loadTablesAndOrders();
               }
             },
@@ -593,6 +594,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
           gstNumber: storeInfo?.gstNumber,
           logoUrl: "/billlogo.png",
           invoiceNumber,
+          dailyNo: result.dailyNo,
+          orderMode: selectedOrderMode,
           customerName: customerName || undefined,
           paymentMethod,
           items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),

@@ -248,6 +248,10 @@ export type BillData = {
   gstNumber?: string | null;
   logoUrl?: string;
   invoiceNumber: string;
+  /** Per-branch bill number that restarts at 1 each day (null on old bills) */
+  dailyNo?: number | null;
+  /** DINE_IN / TAKEAWAY / SWIGGY / ZOMATO */
+  orderMode?: string | null;
   date?: Date;
   customerName?: string | null;
   paymentMethod?: string | null;
@@ -285,8 +289,12 @@ export function buildBillHtml(d: BillData): string {
       ${d.gstNumber ? `<div class="muted">GSTIN: ${esc(d.gstNumber)}</div>` : ""}
     </div>
     <hr class="hr-solid">
+    ${d.dailyNo || d.orderMode ? `<table><tr>
+      <td class="bold" style="font-size:1.6em">${d.dailyNo ? `BILL NO: ${d.dailyNo}` : ""}</td>
+      <td class="right bold" style="font-size:1.2em">${d.orderMode ? esc(d.orderMode.replace(/_/g, " ")) : ""}</td>
+    </tr></table>` : ""}
     <div>${dateStr}</div>
-    <div>Bill No: ${esc(d.invoiceNumber)}</div>
+    <div>${d.dailyNo ? "Ref" : "Bill No"}: ${esc(d.invoiceNumber)}</div>
     ${d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
     <hr class="hr-solid">
     <table>

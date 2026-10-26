@@ -71,6 +71,8 @@ export default async function InvoicesPage({
       { customerPhone: { contains: query } },
       { cashierName: { contains: query } },
     ];
+    // A plain number (e.g. "12") also finds that daily bill number
+    if (/^\d{1,5}$/.test(query)) where.OR.push({ dailyNo: parseInt(query, 10) });
   }
   if (status !== "ALL") {
     where.status = status;
@@ -98,6 +100,7 @@ export default async function InvoicesPage({
       select: {
         id: true,
         invoiceNumber: true,
+        dailyNo: true,
         total: true,
         subtotal: true,
         gstAmount: true,
@@ -293,7 +296,14 @@ export default async function InvoicesPage({
                           href={`/invoices/${inv.id}`}
                           className="font-mono text-sm font-bold text-violet-600 dark:text-violet-400 hover:underline"
                         >
-                          {inv.invoiceNumber}
+                          {inv.dailyNo ? (
+                            <>
+                              <span className="text-base">Bill {inv.dailyNo}</span>
+                              <span className="block text-[11px] font-normal text-muted-foreground">{inv.invoiceNumber}</span>
+                            </>
+                          ) : (
+                            inv.invoiceNumber
+                          )}
                         </Link>
                       </td>
 

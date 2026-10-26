@@ -91,6 +91,12 @@ model Invoice {
   items         InvoiceItem[]
   branchId      Int?
   branch        Branch?       @relation(fields: [branchId], references: [id])
+
+  // Per-branch bill number that restarts at 1 every day (India time)
+  billDate      String?       // "YYYY-MM-DD" in Asia/Kolkata
+  dailyNo       Int?
+
+  @@unique([branchId, billDate, dailyNo])
 }
 
 model InvoiceItem {

@@ -209,6 +209,16 @@ export async function createInvoice(
       const lastSeq = lastInvoice ? parseInt(lastInvoice.invoiceNumber.slice(prefix.length), 10) : 0;
       const invoiceNumber = `${prefix}${String(lastSeq + 1).padStart(4, "0")}`;
 
+      // 2b. Daily bill number for this branch — restarts at 1 every midnight
+      // India time. Two terminals racing for the same number hit the
+      // (branchId, billDate, dailyNo) unique index → P2002 → retried below.
+      const billDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+      const lastDaily = await tx.invoice.aggregate({
+        where: { branchId, billDate },
+        _max: { dailyNo: true },
+      });
+      const dailyNo = (lastDaily._max.dailyNo ?? 0) + 1;
+
       // 3. Create or Update Order if needed
       let linkedOrderId = billingDetails.orderId;
       if (linkedOrderId) {
@@ -246,6 +256,8 @@ export async function createInvoice(
         data: {
           branchId,
           invoiceNumber,
+          billDate,
+          dailyNo,
           customerId,
           customerName: walkInName,
           customerPhone: walkInPhone,
@@ -305,9 +317,9 @@ export async function createInvoice(
     revalidatePath("/billing");
     revalidatePath("/reports");
 
-    return { success: true, invoiceId: result.id, invoiceNumber: result.invoiceNumber };
+    return { success: true, invoiceId: result.id, invoiceNumber: result.invoiceNumber, dailyNo: result.dailyNo };
   } catch (error) {
-    // Invoice-number collision (concurrent checkout): retry with a fresh number.
+    // Invoice-number or daily-number collision (concurrent checkout): retry with fresh numbers.
     if ((error as { code?: string })?.code === "P2002" && attempt < MAX_ATTEMPTS) {
       continue;
     }
