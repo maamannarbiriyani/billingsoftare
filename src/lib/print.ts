@@ -291,7 +291,7 @@ export function buildBillHtml(d: BillData): string {
     <hr class="hr-solid">
     ${d.dailyNo ? `<table><tr>
       <td>${dateStr}</td>
-      <td class="right bold" style="font-size:calc(1em + 2pt)">Bill No: ${d.dailyNo}</td>
+      <td class="right bold" style="font-size:1.6em">Bill No: ${d.dailyNo}</td>
     </tr></table>
     <div>Ref: ${esc(d.invoiceNumber)}</div>` : `<div>${dateStr}</div>
     <div>Bill No: ${esc(d.invoiceNumber)}</div>`}

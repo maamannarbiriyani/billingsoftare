@@ -531,12 +531,11 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
   o += AL_L + rule("=");
   if (d.dailyNo) {
-    // Date left, Bill No right in extra-bold. Thermal fonts only scale in
-    // whole steps and double height alone looks stretched, so emphasis is
-    // done with bold + double-strike at body size instead.
+    // Date left, Bill No right in double width + height (proportional —
+    // double height alone looks stretched). Each big char takes 2 columns.
     const billNo = "Bill No: " + d.dailyNo;
-    const gap = Math.max(1, WIDTH - date.length - billNo.length);
-    o += date + " ".repeat(gap) + BOLD_ON + DOUBLE_STRIKE_ON + billNo + "\n" + DOUBLE_STRIKE_OFF + BOLD_OFF + emphasisPrefix();
+    const gap = Math.max(1, WIDTH - date.length - billNo.length * 2);
+    o += date + " ".repeat(gap) + sizeCmd(2, 2) + BOLD_ON + billNo + "\n" + BOLD_OFF + emphasisPrefix() + bodyCmd;
     o += "Ref: " + d.invoiceNumber + "\n";
   } else {
     o += date + "\n";

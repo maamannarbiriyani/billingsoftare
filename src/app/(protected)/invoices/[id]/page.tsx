@@ -126,7 +126,7 @@ export default async function InvoiceReceiptPage({
                     day: "2-digit", month: "2-digit", year: "numeric",
                     hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
                   }).replace(",", "")}</span>
-                {invoice.dailyNo && <span className="text-[15px] font-bold">Bill No: {invoice.dailyNo}</span>}
+                {invoice.dailyNo && <span className="text-[19px] font-bold">Bill No: {invoice.dailyNo}</span>}
               </p>
               <p className="text-[12px]">{invoice.dailyNo ? "Ref" : "Bill No"}:{invoice.invoiceNumber}</p>
               {(invoice.customer?.name || invoice.customerName) && (
