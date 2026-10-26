@@ -261,6 +261,7 @@ const INIT = ESC + "@";
 const BOLD_ON = ESC + "E" + "\x01";
 const BOLD_OFF = ESC + "E" + "\x00";
 const DOUBLE_STRIKE_ON = ESC + "G" + "\x01";
+const DOUBLE_STRIKE_OFF = ESC + "G" + "\x00";
 const AL_L = ESC + "a" + "\x00";
 const AL_C = ESC + "a" + "\x01";
 const SIZE_1 = GS + "!" + "\x00"; // normal
@@ -530,11 +531,12 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
   o += AL_L + rule("=");
   if (d.dailyNo) {
-    // Date left, Bill No right in double height (thermal fonts only scale in
-    // whole steps — this is the nearest step above body size).
+    // Date left, Bill No right in extra-bold. Thermal fonts only scale in
+    // whole steps and double height alone looks stretched, so emphasis is
+    // done with bold + double-strike at body size instead.
     const billNo = "Bill No: " + d.dailyNo;
     const gap = Math.max(1, WIDTH - date.length - billNo.length);
-    o += date + " ".repeat(gap) + sizeCmd(body.h + 1, body.w) + billNo + bodyCmd + "\n";
+    o += date + " ".repeat(gap) + BOLD_ON + DOUBLE_STRIKE_ON + billNo + "\n" + DOUBLE_STRIKE_OFF + BOLD_OFF + emphasisPrefix();
     o += "Ref: " + d.invoiceNumber + "\n";
   } else {
     o += date + "\n";
