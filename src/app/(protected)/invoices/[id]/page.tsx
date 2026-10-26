@@ -121,16 +121,11 @@ export default async function InvoiceReceiptPage({
 
             {/* ── Meta ── */}
             <div className="text-left px-1 pb-1">
-              {(invoice.dailyNo || orderMode) && (
-                <div className="flex justify-between items-baseline font-bold">
-                  <span className="text-[18px]">{invoice.dailyNo ? `BILL NO: ${invoice.dailyNo}` : ""}</span>
-                  <span className="text-[13px]">{orderMode ? orderMode.replace(/_/g, " ") : ""}</span>
-                </div>
-              )}
               <p className="text-[12px]">{invoice.createdAt.toLocaleString("en-IN", {
                     day: "2-digit", month: "2-digit", year: "numeric",
                     hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
                   }).replace(",", "")}</p>
+              {invoice.dailyNo && <p className="text-[12px]">Bill No: {invoice.dailyNo}</p>}
               <p className="text-[12px]">{invoice.dailyNo ? "Ref" : "Bill No"}:{invoice.invoiceNumber}</p>
               {(invoice.customer?.name || invoice.customerName) && (
                 <p className="text-[12px] font-bold mt-1">
@@ -185,7 +180,10 @@ export default async function InvoiceReceiptPage({
             <div className="text-left px-1 text-[12px] space-y-0 pb-1">
               <p>Tender: {roundedTotal.toFixed(2)}</p>
               <p>Change: 0.00</p>
-              <p>Payment Mode: {invoice.paymentMethod || "Cash"}</p>
+              <p className="flex justify-between">
+                <span>Payment Mode: {invoice.paymentMethod || "Cash"}</span>
+                <span>{orderMode ? orderMode.replace(/_/g, " ") : ""}</span>
+              </p>
             </div>
 
             <div className="border-b border-black mt-1 mb-2"></div>

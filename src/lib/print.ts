@@ -289,11 +289,8 @@ export function buildBillHtml(d: BillData): string {
       ${d.gstNumber ? `<div class="muted">GSTIN: ${esc(d.gstNumber)}</div>` : ""}
     </div>
     <hr class="hr-solid">
-    ${d.dailyNo || d.orderMode ? `<table><tr>
-      <td class="bold" style="font-size:1.6em">${d.dailyNo ? `BILL NO: ${d.dailyNo}` : ""}</td>
-      <td class="right bold" style="font-size:1.2em">${d.orderMode ? esc(d.orderMode.replace(/_/g, " ")) : ""}</td>
-    </tr></table>` : ""}
     <div>${dateStr}</div>
+    ${d.dailyNo ? `<div>Bill No: ${d.dailyNo}</div>` : ""}
     <div>${d.dailyNo ? "Ref" : "Bill No"}: ${esc(d.invoiceNumber)}</div>
     ${d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
     <hr class="hr-solid">
@@ -316,7 +313,10 @@ export function buildBillHtml(d: BillData): string {
     </table>
     <hr class="hr">
     <div>Tender: ${grand}</div>
-    <div>Payment Mode: ${esc(d.paymentMethod || "Cash")}</div>
+    <table><tr>
+      <td>Payment Mode: ${esc(d.paymentMethod || "Cash")}</td>
+      <td class="right">${d.orderMode ? esc(d.orderMode.replace(/_/g, " ")) : ""}</td>
+    </tr></table>
     <hr class="hr-solid">
     <div class="center" style="padding:6px 0 10px">Thank You! Visit Again!!</div>
   `;
