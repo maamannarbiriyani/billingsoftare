@@ -479,13 +479,20 @@ async function rasterizeImage(url: string, dotsWidth: number): Promise<string> {
     }
   }
 
+  // Send the image as 24-row bands, one GS v 0 command each. Budget
+  // printers (e.g. Caysn KPC307) can't take a ~10 KB image in one command:
+  // they print part of it, then treat the leftover bytes as text, which
+  // repeats the logo and garbles/loses the rest of the bill.
+  const BAND = 24;
   const xL = bytesPerRow & 0xff;
   const xH = (bytesPerRow >> 8) & 0xff;
-  const yL = dotsHeight & 0xff;
-  const yH = (dotsHeight >> 8) & 0xff;
-
-  let out = GS + "v" + "0" + String.fromCharCode(0, xL, xH, yL, yH);
-  for (let i = 0; i < bitmap.length; i++) out += String.fromCharCode(bitmap[i]);
+  let out = "";
+  for (let y0 = 0; y0 < dotsHeight; y0 += BAND) {
+    const rows = Math.min(BAND, dotsHeight - y0);
+    out += GS + "v" + "0" + String.fromCharCode(0, xL, xH, rows & 0xff, (rows >> 8) & 0xff);
+    const end = (y0 + rows) * bytesPerRow;
+    for (let i = y0 * bytesPerRow; i < end; i++) out += String.fromCharCode(bitmap[i]);
+  }
   return out;
 }
 
