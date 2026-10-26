@@ -529,9 +529,17 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   if (d.address) o += clip(d.address, WIDTH) + "\n";
   if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
   o += AL_L + rule("=");
-  o += date + "\n";
-  if (d.dailyNo) o += "Bill No: " + d.dailyNo + "\n";
-  o += (d.dailyNo ? "Ref: " : "Bill No: ") + d.invoiceNumber + "\n";
+  if (d.dailyNo) {
+    // Date left, Bill No right in double height (thermal fonts only scale in
+    // whole steps — this is the nearest step above body size).
+    const billNo = "Bill No: " + d.dailyNo;
+    const gap = Math.max(1, WIDTH - date.length - billNo.length);
+    o += date + " ".repeat(gap) + sizeCmd(body.h + 1, body.w) + billNo + bodyCmd + "\n";
+    o += "Ref: " + d.invoiceNumber + "\n";
+  } else {
+    o += date + "\n";
+    o += "Bill No: " + d.invoiceNumber + "\n";
+  }
   if (d.customerName) o += "Customer: " + d.customerName + "\n";
   o += rule("=");
   o += itemRow("Item", "Price", "Qty", "Value");

@@ -121,11 +121,13 @@ export default async function InvoiceReceiptPage({
 
             {/* ── Meta ── */}
             <div className="text-left px-1 pb-1">
-              <p className="text-[12px]">{invoice.createdAt.toLocaleString("en-IN", {
+              <p className="text-[12px] flex justify-between items-baseline">
+                <span>{invoice.createdAt.toLocaleString("en-IN", {
                     day: "2-digit", month: "2-digit", year: "numeric",
                     hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata"
-                  }).replace(",", "")}</p>
-              {invoice.dailyNo && <p className="text-[12px]">Bill No: {invoice.dailyNo}</p>}
+                  }).replace(",", "")}</span>
+                {invoice.dailyNo && <span className="text-[15px] font-bold">Bill No: {invoice.dailyNo}</span>}
+              </p>
               <p className="text-[12px]">{invoice.dailyNo ? "Ref" : "Bill No"}:{invoice.invoiceNumber}</p>
               {(invoice.customer?.name || invoice.customerName) && (
                 <p className="text-[12px] font-bold mt-1">

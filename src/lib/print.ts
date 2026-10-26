@@ -289,9 +289,12 @@ export function buildBillHtml(d: BillData): string {
       ${d.gstNumber ? `<div class="muted">GSTIN: ${esc(d.gstNumber)}</div>` : ""}
     </div>
     <hr class="hr-solid">
-    <div>${dateStr}</div>
-    ${d.dailyNo ? `<div>Bill No: ${d.dailyNo}</div>` : ""}
-    <div>${d.dailyNo ? "Ref" : "Bill No"}: ${esc(d.invoiceNumber)}</div>
+    ${d.dailyNo ? `<table><tr>
+      <td>${dateStr}</td>
+      <td class="right bold" style="font-size:calc(1em + 2pt)">Bill No: ${d.dailyNo}</td>
+    </tr></table>
+    <div>Ref: ${esc(d.invoiceNumber)}</div>` : `<div>${dateStr}</div>
+    <div>Bill No: ${esc(d.invoiceNumber)}</div>`}
     ${d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
     <hr class="hr-solid">
     <table>
