@@ -517,7 +517,9 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
   const discountAmount = discountType === "PERCENTAGE" ? parseFloat(((subtotal * discountValue) / 100).toFixed(2)) : discountValue;
   const grandTotal = parseFloat(Math.max(0, subtotal + gstAmount - discountAmount).toFixed(2));
 
-  const handleCheckout = (paymentMethod: string, printBill: boolean) => {
+  // The bill is saved only from the print button (there is no save-without-
+  // print), so a customer cancelling before printing leaves nothing behind.
+  const handleCheckout = (paymentMethod: string) => {
     if (cart.length === 0) return;
     if (paymentMethod === "CREDIT" && !customerName) {
       toast.error("Customer name is required for Khata (Credit) payments.");
@@ -550,11 +552,10 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         // Quick-undo — shown immediately (before/regardless of printing) so
         // if the customer cancels while the bill is printing, the cashier
         // can void it on the spot without needing an admin password. The
-        // toast itself only stays up 5s; the server separately still allows
-        // undo for ~90s after checkout — after either window, use the
-        // password-protected Delete on the invoice page instead.
+        // toast stays up 60s, inside the server's 90s undo window — after
+        // that, use the password-protected Delete on the invoice page.
         toast.success(`Bill ${invoiceNumber} saved`, {
-          duration: 5000,
+          duration: 60000,
           action: {
             label: "Undo",
             onClick: async () => {
@@ -569,39 +570,37 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
           },
         });
 
-        if (printBill) {
-          // Print one after another (not in parallel) — firing both at once
-          // would race two QZ Tray connection handshakes simultaneously,
-          // which QZ rejects as "Request blocked".
-          // 1. Kitchen copy first (so it tears off at the kitchen printer)
-          if (printKOT) {
-            await printKot({
-              invoiceNumber,
-              items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
-              tableName,
-              customerName: customerName || undefined,
-              orderMode: selectedOrderMode,
-              storeName: storeInfo?.storeName || "My Store",
-              logoUrl: "/billlogo.png",
-            });
-          }
-          // 2. Customer bill — prints directly, no page nav, no PDF prompt
-          await printBillReceipt({
-            storeName: storeInfo?.storeName || "My Store",
-            phone: storeInfo?.phone,
-            address: storeInfo?.address,
-            gstNumber: storeInfo?.gstNumber,
-            logoUrl: "/billlogo.png",
+        // Print one after another (not in parallel) — firing both at once
+        // would race two QZ Tray connection handshakes simultaneously,
+        // which QZ rejects as "Request blocked".
+        // 1. Kitchen copy first (so it tears off at the kitchen printer)
+        if (printKOT) {
+          await printKot({
             invoiceNumber,
+            items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
+            tableName,
             customerName: customerName || undefined,
-            paymentMethod,
-            items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
-            subtotal: billSubtotal,
-            gstAmount,
-            discountAmount,
-            total: billTotal,
+            orderMode: selectedOrderMode,
+            storeName: storeInfo?.storeName || "My Store",
+            logoUrl: "/billlogo.png",
           });
         }
+        // 2. Customer bill — prints directly, no page nav, no PDF prompt
+        await printBillReceipt({
+          storeName: storeInfo?.storeName || "My Store",
+          phone: storeInfo?.phone,
+          address: storeInfo?.address,
+          gstNumber: storeInfo?.gstNumber,
+          logoUrl: "/billlogo.png",
+          invoiceNumber,
+          customerName: customerName || undefined,
+          paymentMethod,
+          items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
+          subtotal: billSubtotal,
+          gstAmount,
+          discountAmount,
+          total: billTotal,
+        });
       }
     });
   };
@@ -1750,19 +1749,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
               {/* Footer Actions */}
               <div className="px-7 py-5 flex flex-col-reverse sm:flex-row gap-3 items-center sm:justify-end" style={{ background: S.surface, borderTop: `1px solid ${S.border}` }}>
                 <button
-                  onClick={() => handleCheckout(selectedPaymentMode, false)}
-                  disabled={isCheckingOut}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                  style={{
-                    color: S.txt,
-                    background: S.subtle,
-                    border: `1px solid ${S.border}`,
-                  }}
-                >
-                  {isCheckingOut ? "Processing…" : "Settle Only"}
-                </button>
-                <button
-                  onClick={() => handleCheckout(selectedPaymentMode, true)}
+                  onClick={() => handleCheckout(selectedPaymentMode)}
                   disabled={isCheckingOut}
                   className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] disabled:opacity-50 relative overflow-hidden group"
                   style={{
@@ -1773,7 +1760,7 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                 >
                   <div className="absolute inset-0 bg-white/15 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                   <Printer className="h-5 w-5 relative z-10" />
-                  <span className="relative z-10">{isCheckingOut ? "Processing…" : "Print Bill & Settle"}</span>
+                  <span className="relative z-10">{isCheckingOut ? "Processing…" : "Print & Save Bill"}</span>
                 </button>
               </div>
             </motion.div>
