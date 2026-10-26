@@ -233,7 +233,10 @@ export async function qzGetPrinterStatus(printerName: string, timeoutMs = 3000):
 async function sendRaw(printerName: string, receipt: string, kickDrawer: boolean) {
   const qz = await ensureConnected();
   const printer = printerName || (await qz.printers.getDefault());
-  const config = qz.configs.create(printer);
+  // ISO-8859-1 maps each JS char 0–255 to exactly one byte. Without it,
+  // QZ on newer Java (UTF-8 default) turns bytes ≥0x80 — the logo raster —
+  // into two bytes, and the printer prints the rest of the bill as garbage.
+  const config = qz.configs.create(printer, { encoding: "ISO-8859-1" });
   await qz.print(config, [receipt]);
   // Cash-drawer pulse is sent as a separate best-effort job so a drawer
   // issue can never stop the receipt from printing.
