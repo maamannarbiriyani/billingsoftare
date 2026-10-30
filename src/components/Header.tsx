@@ -1,9 +1,9 @@
 "use client";
 
-import { LogOut, Menu, Store } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { setActiveBranch } from "@/app/actions/branches";
+import { BranchSwitcher } from "@/components/BranchSwitcher";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export function Header({
@@ -11,11 +11,15 @@ export function Header({
   hamburgerClass,
   branches = [],
   activeBranchId,
+  branchUnlocked = false,
+  canUnlockBranches = false,
 }: {
   onOpenSidebar?: () => void;
   hamburgerClass?: string;
   branches?: any[];
   activeBranchId?: number | null;
+  branchUnlocked?: boolean;
+  canUnlockBranches?: boolean;
 }) {
   return (
     <header
@@ -52,24 +56,14 @@ export function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5">
-        {/* Branch Switcher — only when there's more than one branch to switch */}
-        {branches && branches.length > 1 && (
-          <div className="flex items-center mr-1 sm:mr-2 min-w-0">
-            <Store className="h-4 w-4 mr-1.5 text-muted-foreground flex-shrink-0" />
-            <select
-              suppressHydrationWarning
-              value={activeBranchId || branches[0]?.id || ""}
-              onChange={(e) => setActiveBranch(Number(e.target.value))}
-              className="bg-transparent text-sm font-medium outline-none cursor-pointer max-w-[100px] sm:max-w-[160px] truncate"
-              style={{ color: "var(--foreground)" }}
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id} className="bg-background">
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Branch — locked to this device unless the owner unlocks it */}
+        {branches && branches.length > 0 && (
+          <BranchSwitcher
+            branches={branches}
+            activeBranchId={activeBranchId}
+            unlocked={branchUnlocked}
+            canUnlock={canUnlockBranches}
+          />
         )}
 
         {/* Theme Toggle */}

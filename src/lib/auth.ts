@@ -49,6 +49,50 @@ export async function decrypt(session: string | undefined = "") {
   }
 }
 
+// ── Branch switch lock ──────────────────────────────────────────
+// Switching branch needs the owner password. A successful unlock sets a
+// short-lived signed cookie bound to the logged-in user; it ends on Lock,
+// logout, or after BRANCH_UNLOCK_HOURS. Separate key from sessions so one
+// token can never be used as the other.
+const branchUnlockKey = new TextEncoder().encode(secretKey + ":branch-unlock");
+const BRANCH_UNLOCK_COOKIE = "branch_unlock";
+export const BRANCH_UNLOCK_HOURS = 8;
+
+export async function createBranchUnlock(userId: unknown) {
+  const token = await new SignJWT({ uid: String(userId), type: "branch_unlock" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${BRANCH_UNLOCK_HOURS}h`)
+    .sign(branchUnlockKey);
+  const cookieStore = await cookies();
+  cookieStore.set(BRANCH_UNLOCK_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: BRANCH_UNLOCK_HOURS * 60 * 60,
+  });
+}
+
+export async function clearBranchUnlock() {
+  const cookieStore = await cookies();
+  cookieStore.delete(BRANCH_UNLOCK_COOKIE);
+}
+
+/** True when this user unlocked branch switching with the owner password. */
+export async function isBranchUnlocked(session?: { [key: string]: unknown } | null): Promise<boolean> {
+  if (!session) return false;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(BRANCH_UNLOCK_COOKIE)?.value;
+  if (!token) return false;
+  try {
+    const { payload } = await jwtVerify(token, branchUnlockKey, { algorithms: ["HS256"] });
+    return payload.type === "branch_unlock" && payload.uid === String(session.id);
+  } catch {
+    return false;
+  }
+}
+
 export async function getSession() {
   const cookieStore = await cookies();
   const session = cookieStore.get("session")?.value;
@@ -75,10 +119,23 @@ export async function getActiveBranchId(): Promise<number | null> {
     return (session.branchId as number) || null; // Ensure User table has branchId
   }
 
-  // If Admin, check if they explicitly selected a branch
-  const selectedBranchId = cookieStore.get("activeBranchId")?.value;
+  const raw = cookieStore.get("activeBranchId")?.value;
+  const selectedBranchId = raw && /^\d+$/.test(raw) ? parseInt(raw, 10) : null;
+
+  // Owner-unlocked: whichever branch was picked in the switcher
+  if (selectedBranchId && (await isBranchUnlocked(session))) {
+    return selectedBranchId;
+  }
+
+  // Locked: a user tied to a branch always works in that branch
+  if (session.branchId) {
+    return session.branchId as number;
+  }
+
+  // Locked shared/global admin login: stays on this device's last-picked
+  // branch (it can only be changed after an owner unlock — setActiveBranch)
   if (selectedBranchId) {
-    return parseInt(selectedBranchId, 10);
+    return selectedBranchId;
   }
 
   // Fallback: Admin without a selected branch -> Pick the first available branch

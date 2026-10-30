@@ -1,6 +1,7 @@
 import { BillingCart } from "@/components/BillingCart";
 import { getSession, getActiveBranchId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getReceiptTemplateForBranch } from "@/lib/receipt-template-server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function BillingPage() {
   const setting =
     (branchId ? await prisma.setting.findFirst({ where: { branchId } }) : null) ||
     (await prisma.setting.findFirst());
+  const receiptTemplate = await getReceiptTemplateForBranch(branchId);
 
   return (
     <BillingCart
@@ -25,6 +27,7 @@ export default async function BillingPage() {
         gstNumber: setting?.gstNumber || null,
         gstPercent: setting?.gstPercent || 0,
         categoryOrder: setting?.categoryOrder || null,
+        receiptTemplate,
       }}
     />
   );

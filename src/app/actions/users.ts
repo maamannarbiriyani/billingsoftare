@@ -66,7 +66,9 @@ export async function createUser(formData: FormData) {
         username,
         password: hashedPassword,
         role,
-        branchId: role === "Admin" ? null : branchId, // Admins are global, Cashiers are branch-specific
+        // Every new login belongs to the branch it's created in (admins too).
+        // Seeing other branches needs the owner password, not a global login.
+        branchId,
       },
     });
 

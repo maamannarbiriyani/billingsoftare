@@ -18,10 +18,12 @@ import {
   buildBillHtml,
   buildKotHtml,
   absUrl,
+  resolveBill,
   type BillData,
   type KotHtmlData,
 } from "@/lib/print";
 import { toast } from "sonner";
+import { LOGO_DOTS, splitGstAmount } from "@/lib/receipt-template";
 import { isNativeApp, isSunmiAvailable, printSunmiRaw, printUsbRaw } from "@/lib/native-usb-print";
 
 // ── Per-terminal config (each billing machine has its own printer) ──
@@ -413,9 +415,27 @@ export function setGrandSizeLevel(v: SizeLevel) {
   if (typeof window !== "undefined") localStorage.setItem(LS_GRAND_SIZE, v);
 }
 
-// Item columns: Name(22) Price(9,R) Qty(4,R) Value(13,R) = 48
-function itemRow(name: string, price: string, qty: string, value: string) {
-  return padR(name, 22) + padL(price, 9) + padL(qty, 4) + padL(value, 13) + "\n";
+// Item columns: Name(22) Price(9,R) Qty(4,R) Value(13,R) = 48. An optional
+// extra column (S.No 3 / HSN 8) takes its width from Name.
+function itemRow(name: string, price: string, qty: string, value: string, extra?: { text: string; width: number }) {
+  const lead = extra ? padR(extra.text, extra.width) : "";
+  return lead + padR(name, 22 - (extra?.width ?? 0)) + padL(price, 9) + padL(qty, 4) + padL(value, 13) + "\n";
+}
+
+/** Word-wraps text to at most `maxLines` lines of `width` chars. */
+function wrap(s: string, width: number, maxLines: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    if (!line) line = word;
+    else if (line.length + 1 + word.length <= width) line += " " + word;
+    else {
+      out.push(line);
+      line = word;
+    }
+  }
+  if (line) out.push(line);
+  return out.slice(0, maxLines).map((l) => clip(l, width));
 }
 
 // ── Logo raster (ESC/POS "GS v 0" raster bit image) ────────────────
@@ -432,11 +452,12 @@ function itemRow(name: string, price: string, qty: string, value: string) {
 const logoRasterCache = new Map<string, Promise<string>>();
 
 async function imageToEscPosRaster(url: string, dotsWidth = 384): Promise<string> {
-  const cached = logoRasterCache.get(url);
+  const key = dotsWidth + "|" + url;
+  const cached = logoRasterCache.get(key);
   if (cached) return cached;
   const promise = rasterizeImage(url, dotsWidth);
-  logoRasterCache.set(url, promise);
-  promise.catch(() => logoRasterCache.delete(url)); // don't cache failures
+  logoRasterCache.set(key, promise);
+  promise.catch(() => logoRasterCache.delete(key)); // don't cache failures
   return promise;
 }
 
@@ -498,14 +519,15 @@ async function rasterizeImage(url: string, dotsWidth: number): Promise<string> {
 }
 
 export async function buildBillEscPos(d: BillData): Promise<string> {
-  const date = (d.date || new Date())
-    .toLocaleString("en-IN", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit", hour12: false,
-    })
-    .replace(",", "");
-  const grand = Math.round(d.total);
+  const r = resolveBill(d);
+  const { t } = r;
+  const date = r.dateStr;
+  const grand = r.grand;
   const rupee = (n: number) => String(Math.round(n));
+  const ruleMajor = () => (r.divider.major === " " ? "\n" : rule(r.divider.major));
+  const ruleMinor = () => (r.divider.minor === " " ? "\n" : rule(r.divider.minor));
+  const boldLine = (text: string, bold: boolean) =>
+    bold ? BOLD_ON + text + "\n" + BOLD_OFF + emphasisPrefix() : text + "\n";
 
   const brand = BRAND_SIZE[getBrandSizeLevel()];
   const body = BODY_SIZE[getBodySizeLevel()];
@@ -518,44 +540,99 @@ export async function buildBillEscPos(d: BillData): Promise<string> {
   const grandWidth = Math.floor(WIDTH / grandSz.w);
 
   let o = INIT + emphasisPrefix();
-  if (d.logoUrl) {
+  if (r.logoSrc) {
     try {
-      o += AL_C + (await imageToEscPosRaster(absUrl(d.logoUrl))) + "\n";
+      o += AL_C + (await imageToEscPosRaster(absUrl(r.logoSrc), LOGO_DOTS[t.logoSize])) + "\n";
     } catch (e) {
       console.error("Logo raster print failed — continuing without it", e);
     }
   }
-  o += AL_C + brandCmd + clip(d.storeName, Math.floor(WIDTH / brand.w)) + "\n" + bodyCmd;
-  if (d.phone) o += "Ph: " + d.phone + "\n";
-  if (d.address) o += clip(d.address, WIDTH) + "\n";
-  if (d.gstNumber) o += "GSTIN: " + d.gstNumber + "\n";
-  o += AL_L + rule("=");
+  // ── Header ──
+  o += AL_C + brandCmd + (t.storeNameBold ? BOLD_ON : "");
+  o += clip(r.storeName, Math.floor(WIDTH / brand.w)) + "\n";
+  o += (t.storeNameBold ? BOLD_OFF + emphasisPrefix() : "") + bodyCmd;
+  if (r.phone) o += "Ph: " + r.phone + "\n";
+  if (r.address) wrap(r.address, WIDTH, 2).forEach((l) => (o += l + "\n"));
+  if (r.gstin) o += "GSTIN: " + r.gstin + "\n";
+  t.headerLines.forEach((l) => {
+    if (l.text.trim()) o += boldLine(clip(l.text, WIDTH), l.bold);
+  });
+  o += AL_L + ruleMajor();
+
+  // ── Bill info ──
+  const showBillNo = t.showBillNo && !!d.dailyNo;
+  if (t.showDate || showBillNo) {
+    const left = t.showDate ? date : "";
+    if (showBillNo) {
+      const billNo = "Bill No: " + d.dailyNo;
+      if (t.billNoBig) {
+        // Double width + height (proportional — double height alone looks
+        // stretched). Each big char takes 2 columns.
+        const gap = Math.max(1, WIDTH - left.length - billNo.length * 2);
+        o += left + " ".repeat(gap) + sizeCmd(2, 2) + BOLD_ON + billNo + "\n" + BOLD_OFF + emphasisPrefix() + bodyCmd;
+      } else {
+        const gap = Math.max(1, WIDTH - left.length - billNo.length);
+        o += left + " ".repeat(gap) + BOLD_ON + billNo + "\n" + BOLD_OFF + emphasisPrefix();
+      }
+    } else {
+      o += left + "\n";
+    }
+  }
+  // Old bills (no daily number) show the INV number as their Bill No
   if (d.dailyNo) {
-    // Date left, Bill No right in double width + height (proportional —
-    // double height alone looks stretched). Each big char takes 2 columns.
-    const billNo = "Bill No: " + d.dailyNo;
-    const gap = Math.max(1, WIDTH - date.length - billNo.length * 2);
-    o += date + " ".repeat(gap) + sizeCmd(2, 2) + BOLD_ON + billNo + "\n" + BOLD_OFF + emphasisPrefix() + bodyCmd;
-    o += "Ref: " + d.invoiceNumber + "\n";
-  } else {
-    o += date + "\n";
+    if (t.showRef) o += "Ref: " + d.invoiceNumber + "\n";
+  } else if (t.showBillNo || t.showRef) {
     o += "Bill No: " + d.invoiceNumber + "\n";
   }
-  if (d.customerName) o += "Customer: " + d.customerName + "\n";
-  o += rule("=");
-  o += itemRow("Item", "Price", "Qty", "Value");
-  o += rule();
-  d.items.forEach((it) => {
-    o += itemRow(it.name, rupee(it.price), String(it.qty), rupee(it.price * it.qty));
+  const staffLeft = t.showCashier && d.cashierName ? "Cashier: " + d.cashierName : "";
+  const staffRight = t.showTable && d.tableName ? "Table: " + d.tableName : "";
+  if (staffLeft || staffRight) o += two(staffLeft, staffRight);
+  if (t.showCustomer && d.customerName) o += "Customer: " + d.customerName + "\n";
+  o += ruleMajor();
+
+  // ── Items ──
+  const extraWidth = t.extraColumn === "sno" ? 3 : t.extraColumn === "hsn" ? 8 : 0;
+  const extraHead = t.extraColumn === "sno" ? "#" : t.extraColumn === "hsn" ? "HSN" : "";
+  o += itemRow(t.labels.item, t.labels.price, t.labels.qty, t.labels.value,
+    extraWidth ? { text: extraHead, width: extraWidth } : undefined);
+  o += ruleMinor();
+  d.items.forEach((it, i) => {
+    const extraText = t.extraColumn === "sno" ? String(i + 1) : t.extraColumn === "hsn" ? it.hsn || "" : "";
+    o += itemRow(it.name, rupee(it.price), String(it.qty), rupee(it.price * it.qty),
+      extraWidth ? { text: extraText, width: extraWidth } : undefined);
   });
-  o += rule("=");
-  o += two("Sub Total:", rupee(d.subtotal));
-  if (d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + rupee(d.discountAmount));
-  if (d.gstAmount && d.gstAmount > 0) o += two("GST:", "+" + rupee(d.gstAmount));
-  o += grandCmd + two("GRAND TOTAL:", String(grand), grandWidth) + bodyCmd;
-  o += rule();
-  o += two("Payment: " + (d.paymentMethod || "Cash"), d.orderMode ? d.orderMode.replace(/_/g, " ") : "");
-  o += AL_C + "\nThank You! Visit Again!!\n";
+  o += ruleMajor();
+
+  // ── Totals ──
+  const gst = d.gstAmount || 0;
+  if (t.showSubtotal) o += two("Sub Total:", rupee(d.subtotal));
+  if (t.showDiscount && d.discountAmount && d.discountAmount > 0) o += two("Discount:", "-" + rupee(d.discountAmount));
+  if (t.showGst && gst > 0) {
+    if (t.splitGst) {
+      const { cgst, sgst } = splitGstAmount(gst);
+      o += two("CGST:", "+" + cgst.toFixed(2));
+      o += two("SGST:", "+" + sgst.toFixed(2));
+    } else {
+      o += two("GST:", "+" + rupee(gst));
+    }
+  }
+  if (t.showRoundOff && r.roundOff !== 0) o += two("Round Off:", (r.roundOff > 0 ? "+" : "") + r.roundOff.toFixed(2));
+  o += grandCmd + (t.grandBold ? BOLD_ON : "") + two("GRAND TOTAL:", String(grand), grandWidth);
+  o += (t.grandBold ? BOLD_OFF + emphasisPrefix() : "") + bodyCmd;
+  o += ruleMinor();
+
+  // ── Payment ──
+  if (t.showTender) o += "Tender: " + grand + "\n";
+  const payLeft = t.showPaymentMode ? "Payment: " + (d.paymentMethod || "Cash") : "";
+  const payRight = t.showOrderType ? r.orderType : "";
+  if (payLeft || payRight) o += two(payLeft, payRight);
+
+  // ── Footer ──
+  const footer = t.footerLines.filter((l) => l.text.trim());
+  if (footer.length) {
+    o += AL_C + "\n";
+    footer.forEach((l) => (o += boldLine(clip(l.text, WIDTH), l.bold)));
+  }
   o += CUT;
   return o;
 }

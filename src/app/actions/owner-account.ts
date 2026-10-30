@@ -18,6 +18,15 @@ export async function upsertOwnerAccount(formData: FormData) {
 
   try {
     const existing = await prisma.ownerAccount.findFirst();
+    // Once set, only someone who knows the owner password can change it —
+    // otherwise any admin login could reset it and unlock every branch.
+    if (existing) {
+      const current = (formData.get("currentPassword") as string) || "";
+      if (!current || !(await bcrypt.compare(current, existing.password))) {
+        await new Promise((r) => setTimeout(r, 1000));
+        return { error: "Current owner password is wrong" };
+      }
+    }
     if (existing) {
       await prisma.ownerAccount.update({
         where: { id: existing.id },

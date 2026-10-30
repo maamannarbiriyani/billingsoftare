@@ -1,11 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "./SettingsClient";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getActiveBranchId, getSession, isBranchUnlocked } from "@/lib/auth";
 import { Settings, Store, Printer, ShieldCheck } from "lucide-react";
+import { loadBillDesignSettings } from "@/lib/receipt-template-server";
+import { ReceiptTemplateSettings } from "@/components/ReceiptTemplateSettings";
 
 export default async function SettingsPage() {
   await requireAdmin();
   const setting = await prisma.setting.findFirst();
+  const branchId = await getActiveBranchId();
+  const [billDesign, branchSetting] = await Promise.all([
+    loadBillDesignSettings(),
+    branchId ? prisma.setting.findFirst({ where: { branchId } }) : null,
+  ]);
+  const store = branchSetting || setting;
+  // Other branches are owner-only: while locked, only this branch is listed
+  const unlocked = await isBranchUnlocked(await getSession());
+  const visibleBranches = unlocked ? billDesign.branches : billDesign.branches.filter((b) => b.id === branchId);
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto pb-12 pt-4">
@@ -52,7 +63,22 @@ export default async function SettingsPage() {
       </div>
 
       {/* Settings Sections */}
-      <SettingsClient initialSetting={setting} />
+      <SettingsClient
+        initialSetting={setting}
+        billDesign={
+          <ReceiptTemplateSettings
+            ready={billDesign.ready}
+            templates={billDesign.templates}
+            branches={visibleBranches}
+            store={{
+              storeName: store?.storeName || "My Store",
+              phone: store?.phone || null,
+              address: store?.address || null,
+              gstNumber: store?.gstNumber || null,
+            }}
+          />
+        }
+      />
     </div>
   );
 }

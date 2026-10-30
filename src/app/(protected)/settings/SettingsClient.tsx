@@ -14,9 +14,11 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 
 type SettingsClientProps = {
   initialSetting: any;
+  /** Bill Design section, rendered on the server with its data */
+  billDesign?: React.ReactNode;
 };
 
-export function SettingsClient({ initialSetting }: SettingsClientProps) {
+export function SettingsClient({ initialSetting, billDesign }: SettingsClientProps) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -111,6 +113,9 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
           <ShopSettingsForm initialData={initialSetting} />
         </div>
       </section>
+
+      {/* Bill Design — templates for what the printed bill shows */}
+      {billDesign}
 
       {/* Receipt font weight / boldness — applies across every print path */}
       <ReceiptFontSettings />
@@ -264,7 +269,7 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
               />
             </div>
             <div>
-              <label className="input-label">Password</label>
+              <label className="input-label">New password</label>
               <input
                 type="password"
                 name="password"
@@ -272,6 +277,19 @@ export function SettingsClient({ initialSetting }: SettingsClientProps) {
                 placeholder="Min 6 characters"
                 className="input-field"
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="input-label">Current owner password</label>
+              <input
+                type="password"
+                name="currentPassword"
+                autoComplete="off"
+                placeholder="Leave empty only when setting it up the first time"
+                className="input-field"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This password also unlocks branch switching (the lock next to the branch name at the top).
+              </p>
             </div>
             <div className="sm:col-span-2 flex justify-end">
               <button type="submit" disabled={ownerPending} className="btn btn-primary w-full sm:w-auto">

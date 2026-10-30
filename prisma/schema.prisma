@@ -298,3 +298,21 @@ model SalaryPayout {
   month       String   // e.g., "2026-06"
   notes       String?
 }
+
+// Bill Design: a printed-bill layout that branches can choose (Template 1, 2…)
+model ReceiptTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  config    String   // JSON, see src/lib/receipt-template.ts (ReceiptConfig)
+  logo      String?  // uploaded logo as a data URL (used when config.logo = "custom")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Which Bill Design template each branch prints with (no row = first template).
+// A separate table on purpose: existing tables stay untouched, so the app keeps
+// working even if this table hasn't been created in a database yet.
+model BranchReceiptTemplate {
+  branchId   Int @id
+  templateId Int
+}

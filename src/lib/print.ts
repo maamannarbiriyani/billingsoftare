@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  DEFAULT_RECEIPT_CONFIG,
+  LOGO_MM,
+  dividerChars,
+  splitGstAmount,
+  type ReceiptTemplateData,
+} from "@/lib/receipt-template";
+
 // ─────────────────────────────────────────────────────────────
 // Thermal-printer friendly receipt printing.
 //
@@ -142,32 +150,39 @@ function ensurePrintDom(): HTMLElement {
         }
         @page { margin: 0; size: 80mm auto; }
       }
-      #${ROOT_ID} * { margin: 0; padding: 0; box-sizing: border-box; }
-      #${ROOT_ID} .center { text-align: center; }
-      #${ROOT_ID} .right { text-align: right; }
-      #${ROOT_ID} .bold { font-weight: bold; }
-      /* grayscale(1) converts the red logo to mid-gray; contrast() alone (no brightness())
-         pushes that mid-gray toward black while leaving the white background at white —
-         brightness() was removed because it darkens every pixel uniformly, including the
-         white background, which printed as a visible gray box behind the logo. */
-      #${ROOT_ID} .logo { display:block; margin: 2px auto 4px; max-width: 50mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
-      #${ROOT_ID} .store { font-size: var(--receipt-brand-fs, 18px); font-weight: 900; }
-      #${ROOT_ID} .muted { font-size: 12px; }
-      #${ROOT_ID} .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
-      #${ROOT_ID} .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
-      #${ROOT_ID} table { width: 100%; border-collapse: collapse; }
-      #${ROOT_ID} th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
-      #${ROOT_ID} td { font-size: var(--receipt-body-fs, 13px); padding: 2px 0; vertical-align: top; }
-      #${ROOT_ID} .totrow td { padding: 1px 0; }
-      #${ROOT_ID} .grand-total { font-size: var(--receipt-grand-fs, 13px); }
-      #${ROOT_ID} .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
-      #${ROOT_ID} .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
-      #${ROOT_ID} .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
-      #${ROOT_ID} .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
+      ${receiptCss(`#${ROOT_ID}`)}
     `;
     document.head.appendChild(style);
   }
   return root;
+}
+
+/** Inner receipt styles, scoped — shared by printing and on-screen previews. */
+export function receiptCss(s: string): string {
+  return `
+      ${s} * { margin: 0; padding: 0; box-sizing: border-box; }
+      ${s} .center { text-align: center; }
+      ${s} .right { text-align: right; }
+      ${s} .bold { font-weight: bold; }
+      /* grayscale(1) converts the red logo to mid-gray; contrast() alone (no brightness())
+         pushes that mid-gray toward black while leaving the white background at white —
+         brightness() was removed because it darkens every pixel uniformly, including the
+         white background, which printed as a visible gray box behind the logo. */
+      ${s} .logo { display:block; margin: 2px auto 4px; max-width: 50mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(4); }
+      ${s} .store { font-size: var(--receipt-brand-fs, 18px); font-weight: 900; }
+      ${s} .muted { font-size: 12px; }
+      ${s} .hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+      ${s} .hr-solid { border: 0; border-top: 1px solid #000; margin: 4px 0; }
+      ${s} table { width: 100%; border-collapse: collapse; }
+      ${s} th { font-size: 11px; text-transform: uppercase; text-align: left; padding: 1px 0; font-weight: 900; }
+      ${s} td { font-size: var(--receipt-body-fs, 13px); padding: 2px 0; vertical-align: top; }
+      ${s} .totrow td { padding: 1px 0; }
+      ${s} .grand-total { font-size: var(--receipt-grand-fs, 13px); }
+      ${s} .kot-h1 { font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+      ${s} .kot-q { font-size: 16px; font-weight: 900; width: 34px; }
+      ${s} .kot-n { font-size: 15px; font-weight: bold; padding-left: 4px; }
+      ${s} .badge { display:inline-block; background:#000; color:#fff; padding:2px 8px; font-size:10px; font-weight:900; letter-spacing:2px; }
+  `;
 }
 
 let printing: Promise<void> = Promise.resolve();
@@ -254,74 +269,152 @@ export type BillData = {
   orderMode?: string | null;
   date?: Date;
   customerName?: string | null;
+  cashierName?: string | null;
+  tableName?: string | null;
   paymentMethod?: string | null;
-  items: Array<{ name: string; price: number; qty: number }>;
+  items: Array<{ name: string; price: number; qty: number; hsn?: string | null }>;
   subtotal: number;
   gstAmount?: number;
   discountAmount?: number;
   total: number;
+  /** Branch's Bill Design template; omitted = Template 1 (classic layout) */
+  template?: ReceiptTemplateData | null;
+};
+
+/**
+ * Everything both renderers (HTML here, ESC/POS in qz-print.ts) need,
+ * resolved once from the bill + its template so they can't drift apart.
+ */
+export function resolveBill(d: BillData) {
+  const t = d.template?.config ?? DEFAULT_RECEIPT_CONFIG;
+  const logoSrc =
+    t.logo === "none" ? null : t.logo === "custom" ? d.template?.logo || d.logoUrl || null : d.logoUrl || null;
+  const total = d.total;
+  const grand = Math.round(total);
+  return {
+    t,
+    logoSrc,
+    storeName: t.storeName || d.storeName,
+    phone: t.showPhone ? t.phone || d.phone || "" : "",
+    address: t.showAddress ? t.address || d.address || "" : "",
+    gstin: t.showGstin ? t.gstin || d.gstNumber || "" : "",
+    dateStr: (d.date || new Date())
+      .toLocaleString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata",
+      })
+      .replace(",", ""),
+    grand,
+    roundOff: Math.round((grand - total) * 100) / 100,
+    orderType: d.orderMode ? d.orderMode.replace(/_/g, " ") : "",
+    divider: dividerChars(t.divider),
+  };
+}
+
+const rupee = (n: number) => String(Math.round(n));
+const money2 = (n: number) => n.toFixed(2);
+
+const HR_CSS: Record<string, string> = {
+  "=": "1px solid #000",
+  "-": "1px dashed #000",
+  ".": "1px dotted #000",
+  " ": "0",
 };
 
 export function buildBillHtml(d: BillData): string {
-  const date = (d.date || new Date());
-  const dateStr = date.toLocaleString("en-IN", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).replace(",", "");
+  const r = resolveBill(d);
+  const { t } = r;
+  const hr = (ch: string) =>
+    ch === " "
+      ? `<div style="height:8px"></div>`
+      : `<hr style="border:0;border-top:${t.divider === "double" ? "3px double #000" : HR_CSS[ch]};margin:4px 0">`;
+  const major = hr(r.divider.major);
+  const minor = hr(r.divider.minor);
+  const lineHtml = (l: { text: string; bold: boolean }, cls = "") =>
+    l.text.trim() ? `<div class="${cls}${l.bold ? " bold" : ""}">${esc(l.text)}</div>` : "";
 
-  const grand = Math.round(d.total);
-  const rupee = (n: number) => String(Math.round(n));
+  // Item columns: % widths; the optional extra column takes room from Item
+  const extra = t.extraColumn;
+  const w = extra === "sno" ? [7, 35] : extra === "hsn" ? [16, 26] : [0, 42];
+  const extraHead = extra === "sno" ? "#" : extra === "hsn" ? "HSN" : "";
+  const extraCell = (i: number, hsn?: string | null) =>
+    extra === "sno" ? String(i + 1) : extra === "hsn" ? esc(hsn || "") : "";
 
-  const rows = d.items.map((it) => `
+  const rows = d.items
+    .map(
+      (it, i) => `
     <tr>
-      <td style="width:42%" class="">${esc(it.name)}</td>
+      ${extra !== "none" ? `<td style="width:${w[0]}%">${extraCell(i, it.hsn)}</td>` : ""}
+      <td style="width:${w[1]}%">${esc(it.name)}</td>
       <td style="width:18%; padding-right:6px" class="right">${rupee(it.price)}</td>
       <td style="width:10%" class="center">${it.qty}</td>
       <td style="width:26%" class="right">${rupee(it.price * it.qty)}</td>
-    </tr>`).join("");
+    </tr>`,
+    )
+    .join("");
+
+  const totRow = (label: string, value: string, cls = "") =>
+    `<tr class="totrow"><td class="right ${cls}">${label}</td><td class="right ${cls}" style="width:30%">${value}</td></tr>`;
+  const gst = d.gstAmount || 0;
+  const split = splitGstAmount(gst);
+  const grandCls = `grand-total${t.grandBold ? " bold" : ""}`;
+
+  const billNoCell =
+    t.showBillNo && d.dailyNo
+      ? `<td class="right bold"${t.billNoBig ? ` style="font-size:1.6em"` : ""}>Bill No: ${d.dailyNo}</td>`
+      : "";
+  // Old bills (no daily number) show the INV number as their Bill No
+  const refLine = d.dailyNo
+    ? t.showRef ? `<div>Ref: ${esc(d.invoiceNumber)}</div>` : ""
+    : t.showBillNo || t.showRef ? `<div>Bill No: ${esc(d.invoiceNumber)}</div>` : "";
+  const staffLeft = t.showCashier && d.cashierName ? `Cashier: ${esc(d.cashierName)}` : "";
+  const staffRight = t.showTable && d.tableName ? `Table: ${esc(d.tableName)}` : "";
+  const payLeft = t.showPaymentMode ? `Payment Mode: ${esc(d.paymentMethod || "Cash")}` : "";
+  const payRight = t.showOrderType ? esc(r.orderType) : "";
 
   return `
-    ${d.logoUrl ? `<img class="logo" src="${esc(absUrl(d.logoUrl))}" alt="">` : ""}
+    ${r.logoSrc ? `<img class="logo" style="max-width:${LOGO_MM[t.logoSize]}mm" src="${esc(absUrl(r.logoSrc))}" alt="">` : ""}
     <div class="center">
-      <div class="store">${esc(d.storeName)}</div>
-      ${d.phone ? `<div class="muted">Ph: ${esc(d.phone)}</div>` : ""}
-      ${d.address ? `<div class="muted">${esc(d.address)}</div>` : ""}
-      ${d.gstNumber ? `<div class="muted">GSTIN: ${esc(d.gstNumber)}</div>` : ""}
+      <div class="store"${t.storeNameBold ? "" : ` style="font-weight:normal"`}>${esc(r.storeName)}</div>
+      ${r.phone ? `<div class="muted">Ph: ${esc(r.phone)}</div>` : ""}
+      ${r.address ? `<div class="muted">${esc(r.address)}</div>` : ""}
+      ${r.gstin ? `<div class="muted">GSTIN: ${esc(r.gstin)}</div>` : ""}
+      ${t.headerLines.map((l) => lineHtml(l, "muted")).join("")}
     </div>
-    <hr class="hr-solid">
-    ${d.dailyNo ? `<table><tr>
-      <td>${dateStr}</td>
-      <td class="right bold" style="font-size:1.6em">Bill No: ${d.dailyNo}</td>
-    </tr></table>
-    <div>Ref: ${esc(d.invoiceNumber)}</div>` : `<div>${dateStr}</div>
-    <div>Bill No: ${esc(d.invoiceNumber)}</div>`}
-    ${d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
-    <hr class="hr-solid">
+    ${major}
+    ${t.showDate || billNoCell ? `<table><tr><td>${t.showDate ? r.dateStr : ""}</td>${billNoCell}</tr></table>` : ""}
+    ${refLine}
+    ${staffLeft || staffRight ? `<table><tr><td>${staffLeft}</td><td class="right">${staffRight}</td></tr></table>` : ""}
+    ${t.showCustomer && d.customerName ? `<div class="bold">Customer: ${esc(d.customerName)}</div>` : ""}
+    ${major}
     <table>
       <thead><tr>
-        <th style="width:42%">Item</th>
-        <th style="width:18%; padding-right:6px" class="right">Price</th>
-        <th style="width:10%" class="center">Qty</th>
-        <th style="width:26%" class="right">Value</th>
+        ${extra !== "none" ? `<th style="width:${w[0]}%">${extraHead}</th>` : ""}
+        <th style="width:${w[1]}%">${esc(t.labels.item)}</th>
+        <th style="width:18%; padding-right:6px" class="right">${esc(t.labels.price)}</th>
+        <th style="width:10%" class="center">${esc(t.labels.qty)}</th>
+        <th style="width:26%" class="right">${esc(t.labels.value)}</th>
       </tr></thead>
     </table>
-    <hr class="hr">
+    ${minor}
     <table><tbody>${rows}</tbody></table>
-    <hr class="hr-solid">
+    ${major}
     <table>
-      <tr class="totrow"><td class="right">Sub Total:</td><td class="right" style="width:30%">${rupee(d.subtotal)}</td></tr>
-      ${d.discountAmount && d.discountAmount > 0 ? `<tr class="totrow"><td class="right">Discount:</td><td class="right" style="width:30%">-${rupee(d.discountAmount)}</td></tr>` : ""}
-      ${d.gstAmount && d.gstAmount > 0 ? `<tr class="totrow"><td class="right">GST:</td><td class="right" style="width:30%">+${rupee(d.gstAmount)}</td></tr>` : ""}
-      <tr class="totrow"><td class="right bold grand-total">Grand Total:</td><td class="right bold grand-total" style="width:30%">${grand}</td></tr>
+      ${t.showSubtotal ? totRow("Sub Total:", rupee(d.subtotal)) : ""}
+      ${t.showDiscount && d.discountAmount && d.discountAmount > 0 ? totRow("Discount:", "-" + rupee(d.discountAmount)) : ""}
+      ${t.showGst && gst > 0
+        ? t.splitGst
+          ? totRow("CGST:", "+" + money2(split.cgst)) + totRow("SGST:", "+" + money2(split.sgst))
+          : totRow("GST:", "+" + rupee(gst))
+        : ""}
+      ${t.showRoundOff && r.roundOff !== 0 ? totRow("Round Off:", (r.roundOff > 0 ? "+" : "") + money2(r.roundOff)) : ""}
+      ${totRow("Grand Total:", String(r.grand), grandCls)}
     </table>
-    <hr class="hr">
-    <div>Tender: ${grand}</div>
-    <table><tr>
-      <td>Payment Mode: ${esc(d.paymentMethod || "Cash")}</td>
-      <td class="right">${d.orderMode ? esc(d.orderMode.replace(/_/g, " ")) : ""}</td>
-    </tr></table>
-    <hr class="hr-solid">
-    <div class="center" style="padding:6px 0 10px">Thank You! Visit Again!!</div>
+    ${minor}
+    ${t.showTender ? `<div>Tender: ${r.grand}</div>` : ""}
+    ${payLeft || payRight ? `<table><tr><td>${payLeft}</td><td class="right">${payRight}</td></tr></table>` : ""}
+    ${major}
+    <div class="center" style="padding:6px 0 10px">${t.footerLines.map((l) => lineHtml(l)).join("")}</div>
   `;
 }
 

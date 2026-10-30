@@ -1,11 +1,29 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getSession, isBranchUnlocked } from "@/lib/auth";
 import { BranchesClient } from "./BranchesClient";
-import { ArrowLeft, GitBranch } from "lucide-react";
+import { ArrowLeft, GitBranch, Lock } from "lucide-react";
 import Link from "next/link";
 
 export default async function BranchesPage() {
   await requireAdmin();
+  // Other branches are owner-only: show them only after the owner unlock
+  if (!(await isBranchUnlocked(await getSession()))) {
+    return (
+      <div className="animate-fade-in max-w-xl mx-auto pb-12 pt-10 text-center space-y-3">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-foreground">Branches are locked</h1>
+        <p className="text-muted-foreground">
+          Only the owner can manage branches. Click the lock next to the branch name at the top and enter the
+          owner password.
+        </p>
+        <Link href="/settings" className="btn btn-secondary inline-flex">
+          <ArrowLeft className="h-4 w-4" /> Back to Settings
+        </Link>
+      </div>
+    );
+  }
   const branches = await prisma.branch.findMany({ orderBy: { createdAt: "asc" } });
 
   return (

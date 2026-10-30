@@ -10,11 +10,15 @@ export function AppShell({
   userRole,
   branches = [],
   activeBranchId = null,
+  branchUnlocked = false,
+  canUnlockBranches = false,
 }: {
   children: React.ReactNode;
   userRole: string;
   branches?: any[];
   activeBranchId?: number | null;
+  branchUnlocked?: boolean;
+  canUnlockBranches?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -73,6 +77,8 @@ export function AppShell({
           hamburgerClass={hamburgerClass}
           branches={branches}
           activeBranchId={activeBranchId}
+          branchUnlocked={branchUnlocked}
+          canUnlockBranches={canUnlockBranches}
         />
         <main
           className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"

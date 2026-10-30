@@ -47,6 +47,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { ReceiptTemplateData } from "@/lib/receipt-template";
 import { printBill as printBillReceipt, printKot, getQzConfig, qzGetPrinterStatus } from "@/lib/qz-print";
 
 type StoreInfo = {
@@ -56,6 +57,8 @@ type StoreInfo = {
   gstNumber?: string | null;
   gstPercent?: number | null;
   categoryOrder?: string | null;
+  /** Branch's Bill Design template (null = standard layout) */
+  receiptTemplate?: ReceiptTemplateData | null;
 };
 
 // ─── Design tokens ────────────────────────────────────────────────
@@ -597,12 +600,20 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
           dailyNo: result.dailyNo,
           orderMode: selectedOrderMode,
           customerName: customerName || undefined,
+          cashierName,
+          tableName,
           paymentMethod,
-          items: cartSnapshot.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
+          items: cartSnapshot.map(i => ({
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+            hsn: allProducts.find(p => p.id === i.productId)?.hsnCode ?? null,
+          })),
           subtotal: billSubtotal,
           gstAmount,
           discountAmount,
           total: billTotal,
+          template: storeInfo?.receiptTemplate,
         });
       }
     });

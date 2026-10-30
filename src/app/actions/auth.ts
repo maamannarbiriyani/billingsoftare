@@ -64,5 +64,6 @@ export async function login(formData: FormData) {
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete("session");
+  cookieStore.delete("branch_unlock"); // logging out always re-locks branch switching
   redirect("/login");
 }
