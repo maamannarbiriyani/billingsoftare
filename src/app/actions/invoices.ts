@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession, getActiveBranchId } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import type { Prisma } from "@prisma/client";
 
 export type ReturnItemInput = {
   invoiceItemId: number;
@@ -365,6 +366,45 @@ export async function undoRecentInvoice(invoiceId: number) {
   }
 }
 
+// Deletes one bill and reverses its effects: stock, customer credit, linked order.
+async function removeInvoice(tx: Prisma.TransactionClient, invoiceId: number, branchId: number) {
+  const invoice = await tx.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { items: true },
+  });
+  if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found");
+
+  // Restore stock for all non-returned quantities
+  for (const item of invoice.items) {
+    const toRestore = item.qty - item.returnedQty;
+    if (toRestore > 0) {
+      await tx.product.updateMany({
+        where: { id: item.productId, stock: { not: 999999 }, branchId },
+        data: { stock: { increment: toRestore } },
+      });
+    }
+  }
+
+  // Reverse customer credit balance
+  if (invoice.paymentMethod === "CREDIT" && invoice.customerId && invoice.total > 0) {
+    await tx.customer.updateMany({
+      where: { id: invoice.customerId, branchId },
+      data: { balance: { decrement: invoice.total } },
+    });
+  }
+
+  // Cancel linked order if exists (updateMany: a missing order is not an error)
+  if (invoice.orderId) {
+    await tx.order.updateMany({
+      where: { id: invoice.orderId },
+      data: { status: "CANCELLED" },
+    });
+  }
+
+  await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+  await tx.invoice.delete({ where: { id: invoiceId } });
+}
+
 // ── Delete invoice with admin password auth ────────────────────────
 export async function deleteInvoiceWithAuth(invoiceId: number, password: string) {
   const branchId = await getActiveBranchId();
@@ -380,43 +420,7 @@ export async function deleteInvoiceWithAuth(invoiceId: number, password: string)
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return { error: "Incorrect password" };
 
-    await prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.findUnique({
-        where: { id: invoiceId },
-        include: { items: true },
-      });
-      if (!invoice || invoice.branchId !== branchId) throw new Error("Invoice not found");
-
-      // Restore stock for all non-returned quantities
-      for (const item of invoice.items) {
-        const toRestore = item.qty - item.returnedQty;
-        if (toRestore > 0) {
-          await tx.product.updateMany({
-            where: { id: item.productId, stock: { not: 999999 }, branchId },
-            data: { stock: { increment: toRestore } },
-          });
-        }
-      }
-
-      // Reverse customer credit balance
-      if (invoice.paymentMethod === "CREDIT" && invoice.customerId && invoice.total > 0) {
-        await tx.customer.updateMany({
-          where: { id: invoice.customerId, branchId },
-          data: { balance: { decrement: invoice.total } },
-        });
-      }
-
-      // Cancel linked order if exists
-      if (invoice.orderId) {
-        await tx.order.update({
-          where: { id: invoice.orderId },
-          data: { status: "CANCELLED" },
-        }).catch(() => {}); // ignore if order doesn't exist
-      }
-
-      await tx.invoiceItem.deleteMany({ where: { invoiceId } });
-      await tx.invoice.delete({ where: { id: invoiceId } });
-    });
+    await prisma.$transaction((tx) => removeInvoice(tx, invoiceId, branchId));
 
     revalidatePath("/invoices");
     revalidatePath("/reports");
@@ -426,5 +430,49 @@ export async function deleteInvoiceWithAuth(invoiceId: number, password: string)
   } catch (error: any) {
     console.error("Delete Invoice Error:", error);
     return { error: error.message || "Failed to delete invoice" };
+  }
+}
+
+const MAX_BULK_DELETE = 100;
+
+// ── Delete several selected invoices with one password check ───────
+// All or nothing: if any bill can't be deleted, none of them are.
+export async function deleteInvoicesWithAuth(invoiceIds: number[], password: string) {
+  const branchId = await getActiveBranchId();
+  if (!branchId) return { error: "No active branch" };
+
+  const ids = Array.from(new Set(invoiceIds)).filter((id) => Number.isInteger(id));
+  if (ids.length === 0) return { error: "No bills selected" };
+  if (ids.length > MAX_BULK_DELETE) return { error: `Select at most ${MAX_BULK_DELETE} bills at a time` };
+
+  try {
+    const session = await getSession();
+    if (!session?.id) return { error: "Not authenticated" };
+    if (session.role !== "Admin") return { error: "Only an admin can delete bills" };
+
+    const user = await prisma.user.findUnique({ where: { id: session.id as number } });
+    if (!user) return { error: "User not found" };
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      await new Promise((r) => setTimeout(r, 1000)); // slow down password guessing
+      return { error: "Incorrect password" };
+    }
+
+    await prisma.$transaction(
+      async (tx) => {
+        for (const id of ids) await removeInvoice(tx, id, branchId);
+      },
+      { timeout: 60000 },
+    );
+
+    revalidatePath("/invoices");
+    revalidatePath("/reports");
+    revalidatePath("/products");
+    revalidatePath("/dashboard");
+    return { success: true, count: ids.length };
+  } catch (error) {
+    console.error("Bulk Delete Invoice Error:", error);
+    return { error: error instanceof Error ? error.message : "Failed to delete bills" };
   }
 }

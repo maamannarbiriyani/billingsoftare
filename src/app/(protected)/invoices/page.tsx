@@ -7,6 +7,7 @@ import {
   Calendar, Filter
 } from "lucide-react";
 import { getActiveBranchId, requireAdmin } from "@/lib/auth";
+import { InvoiceBulkDelete, InvoiceRowCheckbox, InvoiceSelectAll } from "./InvoiceBulkDelete";
 
 const PAGE_SIZE = 20;
 
@@ -270,10 +271,18 @@ export default async function InvoicesPage({
             </p>
           </div>
         ) : (
+          <InvoiceBulkDelete
+            invoices={invoices.map((inv) => ({
+              id: inv.id,
+              label: inv.dailyNo ? `Bill ${inv.dailyNo}` : inv.invoiceNumber,
+              total: inv.total,
+            }))}
+          >
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-10 text-center"><InvoiceSelectAll /></th>
                   <th>Invoice #</th>
                   <th>Customer</th>
                   <th>Date & Time</th>
@@ -290,6 +299,8 @@ export default async function InvoicesPage({
                   const itemCount = inv.items.reduce((s, i) => s + i.qty, 0);
                   return (
                     <tr key={inv.id}>
+                      <td className="text-center"><InvoiceRowCheckbox id={inv.id} /></td>
+
                       {/* Invoice # */}
                       <td>
                         <Link
@@ -392,6 +403,7 @@ export default async function InvoicesPage({
               </tbody>
             </table>
           </div>
+          </InvoiceBulkDelete>
         )}
 
         {/* Pagination */}

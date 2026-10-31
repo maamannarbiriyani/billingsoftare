@@ -210,14 +210,18 @@ export async function createInvoice(
       const invoiceNumber = `${prefix}${String(lastSeq + 1).padStart(4, "0")}`;
 
       // 2b. Daily bill number for this branch — restarts at 1 every midnight
-      // India time. Two terminals racing for the same number hit the
-      // (branchId, billDate, dailyNo) unique index → P2002 → retried below.
+      // India time. Takes the lowest free number, so a number freed by deleting
+      // a bill today is reused and printed slips never need renumbering. Two
+      // terminals racing for the same number hit the (branchId, billDate,
+      // dailyNo) unique index → P2002 → retried below.
       const billDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
-      const lastDaily = await tx.invoice.aggregate({
-        where: { branchId, billDate },
-        _max: { dailyNo: true },
+      const usedRows = await tx.invoice.findMany({
+        where: { branchId, billDate, dailyNo: { not: null } },
+        select: { dailyNo: true },
       });
-      const dailyNo = (lastDaily._max.dailyNo ?? 0) + 1;
+      const used = new Set(usedRows.map((r) => r.dailyNo));
+      let dailyNo = 1;
+      while (used.has(dailyNo)) dailyNo++;
 
       // 3. Create or Update Order if needed
       let linkedOrderId = billingDetails.orderId;
