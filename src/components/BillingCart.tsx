@@ -465,6 +465,8 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
     setDiscountType("AMOUNT");
     setActiveTableId(null);
     setActiveOrderId(null);
+    // Kitchen Copy is chosen per bill: every new bill starts with it off
+    setPrintKOT(false);
   };
 
   const loadOrderIntoCart = (order: any) => {
@@ -498,16 +500,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         toast.error(res.error);
       } else {
         toast.success(activeOrderId ? "KOT Updated" : "KOT Sent to Kitchen");
-        if (printKOT) {
-          printKot({
-            invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
-            tableName,
-            items: kotItems,
-            orderMode: "DINE_IN",
-            storeName: storeInfo?.storeName || "My Store",
-            logoUrl: "/billlogo.png",
-          });
-        }
+        printKot({
+          invoiceNumber: activeOrderId ? `Order #${activeOrderId}` : tableName,
+          tableName,
+          items: kotItems,
+          orderMode: "DINE_IN",
+          storeName: storeInfo?.storeName || "My Store",
+          logoUrl: "/billlogo.png",
+        });
         clearCart();
         await loadTablesAndOrders();
         setViewMode("TABLES");
@@ -922,16 +922,14 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
                           onClick={async () => {
                             await acceptOnlineOrder(order.id);
                             setOnlineOrders(p => p.filter(o => o.id !== order.id));
-                            if (printKOT) {
-                              printKot({
-                                invoiceNumber: `${order.source} #${order.externalId || order.id}`,
-                                tableName: order.source,
-                                orderMode: order.source,
-                                items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
-                                storeName: storeInfo?.storeName || "My Store",
-                                logoUrl: "/billlogo.png",
-                              });
-                            }
+                            printKot({
+                              invoiceNumber: `${order.source} #${order.externalId || order.id}`,
+                              tableName: order.source,
+                              orderMode: order.source,
+                              items: order.items.map((i: any) => ({ name: i.product.name, qty: i.qty })),
+                              storeName: storeInfo?.storeName || "My Store",
+                              logoUrl: "/billlogo.png",
+                            });
                           }}
                           className="flex-[2] p-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                           style={{ color: S.emerald, background: S.emeraldLo }}
