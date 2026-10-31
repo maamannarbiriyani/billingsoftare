@@ -52,14 +52,14 @@ export async function decrypt(session: string | undefined = "") {
 // ── Branch switch lock ──────────────────────────────────────────
 // Switching branch needs the owner password. A successful unlock sets a
 // short-lived signed cookie bound to the logged-in user; it ends on Lock,
-// logout, or after BRANCH_UNLOCK_HOURS. Separate key from sessions so one
-// token can never be used as the other.
+// logout, a change of the owner password, or after BRANCH_UNLOCK_HOURS.
+// Separate key from sessions so one token can never be used as the other.
 const branchUnlockKey = new TextEncoder().encode(secretKey + ":branch-unlock");
 const BRANCH_UNLOCK_COOKIE = "branch_unlock";
 export const BRANCH_UNLOCK_HOURS = 8;
 
-export async function createBranchUnlock(userId: unknown) {
-  const token = await new SignJWT({ uid: String(userId), type: "branch_unlock" })
+export async function createBranchUnlock(userId: unknown, ownerUpdatedAt: Date) {
+  const token = await new SignJWT({ uid: String(userId), type: "branch_unlock", ov: ownerUpdatedAt.getTime() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${BRANCH_UNLOCK_HOURS}h`)
@@ -87,7 +87,11 @@ export async function isBranchUnlocked(session?: { [key: string]: unknown } | nu
   if (!token) return false;
   try {
     const { payload } = await jwtVerify(token, branchUnlockKey, { algorithms: ["HS256"] });
-    return payload.type === "branch_unlock" && payload.uid === String(session.id);
+    if (payload.type !== "branch_unlock" || payload.uid !== String(session.id)) return false;
+    // Changing the owner password locks every device that unlocked with the old one
+    const { prisma } = await import("@/lib/prisma");
+    const owner = await prisma.ownerAccount.findFirst({ select: { updatedAt: true } });
+    return !!owner && payload.ov === owner.updatedAt.getTime();
   } catch {
     return false;
   }

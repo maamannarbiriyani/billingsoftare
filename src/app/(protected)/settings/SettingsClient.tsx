@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Download, Upload, AlertCircle, Save, Store, GitBranch, BarChart3, Check, X } from "lucide-react";
-import { upsertOwnerAccount } from "@/app/actions/owner-account";
+import { Download, Upload, AlertCircle, Save, Store, GitBranch } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ShopSettingsForm } from "@/components/ShopSettingsForm";
 import { QzPrinterSettings } from "@/components/QzPrinterSettings";
@@ -11,32 +10,24 @@ import { NativeUsbPrinterSettings } from "@/components/NativeUsbPrinterSettings"
 import { SunmiPrinterSettings } from "@/components/SunmiPrinterSettings";
 import { ReceiptFontSettings } from "@/components/ReceiptFontSettings";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { OwnerPasswordSettings } from "@/components/OwnerPasswordSettings";
 
 type SettingsClientProps = {
   initialSetting: any;
+  ownerExists: boolean;
+  canResetOwnerPassword: boolean;
   /** Bill Design section, rendered on the server with its data */
   billDesign?: React.ReactNode;
 };
 
-export function SettingsClient({ initialSetting, billDesign }: SettingsClientProps) {
+export function SettingsClient({ initialSetting, ownerExists, canResetOwnerPassword, billDesign }: SettingsClientProps) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [ownerPending, setOwnerPending] = useState(false);
   
   const [fileToRestore, setFileToRestore] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-
-  async function handleOwnerAccount(formData: FormData) {
-    setOwnerPending(true);
-    setOwnerMsg(null);
-    const result = await upsertOwnerAccount(formData);
-    if (result.error) setOwnerMsg({ type: "error", text: result.error });
-    else setOwnerMsg({ type: "success", text: "Owner portal account saved!" });
-    setOwnerPending(false);
-  }
 
   const handleBackup = () => {
     window.location.href = "/api/backup";
@@ -237,71 +228,8 @@ export function SettingsClient({ initialSetting, billDesign }: SettingsClientPro
         </div>
       </section>
 
-      {/* Owner Portal Section */}
-      <section className="card overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-            <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h2 className="section-title">Owner Portal Access</h2>
-            <p className="section-subtitle">
-              Set the username and password the business owner uses to log in at <strong>/owner</strong>.
-            </p>
-          </div>
-        </div>
-        <div className="p-4 sm:p-6">
-          {ownerMsg && (
-            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border mb-4 ${ownerMsg.type === "success" ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400"}`}>
-              {ownerMsg.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              {ownerMsg.text}
-            </div>
-          )}
-          <form action={handleOwnerAccount} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="input-label">Username</label>
-              <input
-                type="text"
-                name="username"
-                required
-                placeholder="e.g. owner"
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="input-label">New password</label>
-              <input
-                type="password"
-                name="password"
-                required
-                placeholder="Min 6 characters"
-                className="input-field"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="input-label">Current owner password</label>
-              <input
-                type="password"
-                name="currentPassword"
-                autoComplete="off"
-                placeholder="Leave empty only when setting it up the first time"
-                className="input-field"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                This password also unlocks branch switching (the lock next to the branch name at the top).
-              </p>
-            </div>
-            <div className="sm:col-span-2 flex justify-end">
-              <button type="submit" disabled={ownerPending} className="btn btn-primary w-full sm:w-auto">
-                {ownerPending ? "Saving..." : "Save Owner Account"}
-              </button>
-            </div>
-          </form>
-          <p className="text-xs text-muted-foreground mt-3">
-            The owner can access the portal at <strong>yoursite.com/owner</strong> and change their password after logging in.
-          </p>
-        </div>
-      </section>
+      {/* Owner password: unlocks branch switching and the owner portal */}
+      <OwnerPasswordSettings ownerExists={ownerExists} canReset={canResetOwnerPassword} />
 
       <ConfirmModal
         isOpen={fileToRestore !== null}

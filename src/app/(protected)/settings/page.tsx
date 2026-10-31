@@ -15,7 +15,9 @@ export default async function SettingsPage() {
   ]);
   const store = branchSetting || setting;
   // Other branches are owner-only: while locked, only this branch is listed
-  const unlocked = await isBranchUnlocked(await getSession());
+  const session = await getSession();
+  const unlocked = await isBranchUnlocked(session);
+  const owner = await prisma.ownerAccount.findFirst({ select: { id: true } });
   const visibleBranches = unlocked ? billDesign.branches : billDesign.branches.filter((b) => b.id === branchId);
 
   return (
@@ -65,6 +67,8 @@ export default async function SettingsPage() {
       {/* Settings Sections */}
       <SettingsClient
         initialSetting={setting}
+        ownerExists={!!owner}
+        canResetOwnerPassword={!session?.branchId}
         billDesign={
           <ReceiptTemplateSettings
             ready={billDesign.ready}

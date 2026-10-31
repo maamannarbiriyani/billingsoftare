@@ -12,7 +12,7 @@ export async function unlockBranchSwitch(password: string) {
 
   const owner = await prisma.ownerAccount.findFirst();
   if (!owner) {
-    return { error: "No owner password is set yet. Set it in Settings → Owner Account." };
+    return { error: "No owner password is set yet. Set it in Settings → Owner Password." };
   }
   const ok = typeof password === "string" && password.length > 0 && (await bcrypt.compare(password, owner.password));
   if (!ok) {
@@ -21,7 +21,7 @@ export async function unlockBranchSwitch(password: string) {
     return { error: "Wrong owner password" };
   }
 
-  await createBranchUnlock(session.id);
+  await createBranchUnlock(session.id, owner.updatedAt);
   revalidatePath("/", "layout");
   return { success: true };
 }
