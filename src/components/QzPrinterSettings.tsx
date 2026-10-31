@@ -367,11 +367,11 @@ export function QzPrinterSettings() {
             </a>
           </p>
           <p>
-            2. Trust our certificate: right-click the QZ icon → <strong>Advanced</strong> →{" "}
-            <strong>Site Manager</strong> → <strong>+</strong> → choose{" "}
-            <code>digital-certificate.txt</code> (get it from the admin) → restart QZ Tray.
+            2. Trust our certificate: exit QZ Tray, copy <code>digital-certificate.txt</code> (get it from
+            the admin) to <code>C:\Program Files\QZ Tray</code>, rename it <code>override.crt</code>, then
+            start QZ Tray.
           </p>
-          <p>3. Click “Test Connection” — it should say “connected (signed)” with no popup.</p>
+          <p>3. Click “Test Connection”. On the first popup tick “Remember this decision”, then Allow. It should say “connected (signed)”.</p>
           <p>4. Turn on the toggle above, click “Find Printers”, and pick your receipt printer by name.</p>
           <p>5. Click “Print Test Slip”.</p>
           <p className="font-semibold text-foreground pt-1">Still asked to Allow, or “blocked”?</p>

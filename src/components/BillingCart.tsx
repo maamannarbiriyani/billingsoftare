@@ -556,10 +556,10 @@ export function BillingCart({ cashierName = "Admin", storeInfo }: { cashierName?
         // Quick-undo — shown immediately (before/regardless of printing) so
         // if the customer cancels while the bill is printing, the cashier
         // can void it on the spot without needing an admin password. The
-        // toast stays up 60s, inside the server's 90s undo window — after
-        // that, use the password-protected Delete on the invoice page.
+        // toast stays up 3s so it never blocks the print button; after that,
+        // use the password-protected Delete on the invoice page.
         toast.success(`Bill ${billLabel} saved`, {
-          duration: 60000,
+          duration: 3000,
           action: {
             label: "Undo",
             onClick: async () => {
